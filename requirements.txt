@@ -1,0 +1,6 @@
+wikipedia-api
+sparqlwrapper
+openai
+matplotlib
+tqdm
+
