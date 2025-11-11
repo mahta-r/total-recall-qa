@@ -99,3 +99,10 @@ notebooks/
 
 # API keys and secrets
 *.key
+
+
+archive/
+corpus_datasets/
+run_output/
+script_logging/
+_figs/
