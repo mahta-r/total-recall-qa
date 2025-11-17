@@ -18,7 +18,6 @@ from typing import Iterator, Tuple, Dict
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 
-
 def download_raw_dump(input_url: str, output_path: str, chunk_size: int = 8192):
     """
     Downloads a file from the given URL and saves it to the specified output path.

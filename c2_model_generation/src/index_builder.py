@@ -32,7 +32,7 @@ from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 
 # == For testing the index ====
 def subsample_corpus():
-    num_rows = 500000
+    num_rows = 5000
     input_file = "corpus_datasets/enwiki_20251001.jsonl"
     output_file = f"corpus_datasets/enwiki_20251001_{num_rows}.jsonl"
     
@@ -428,8 +428,8 @@ def main():
 
 
 if __name__ == "__main__":
-    # subsample_corpus()
-    main()
+    subsample_corpus()
+    # main()
     
     
 # python c2_model_generation/src/index_builder.py

@@ -17,6 +17,7 @@ def generation(args):
     print("\n== Generation ...")
     print(f"""
         Model name:  {args.model_name_or_path}
+        Dataset:     {args.dataset_title}
         Gen. Model:  {args.generation_model}
         Retriever:   {args.retriever_name}
         Seed:        {args.seed}
@@ -79,12 +80,15 @@ def generation(args):
         for i, (qid, sample) in enumerate(tqdm(filtered_dataset.items(), desc=f"inferencing ...")):
             # if i == 3:
             #     break
-            file_id, qid, query, gt_answer = sample['file_id'], sample['qid'], sample['query'], sample['updated_answer']
+            file_id, qid = sample.get('file_id', ''), sample.get('qid', '')
+            # query, gt_answer = sample.get('query', ''), sample.get('updated_answer', '') # For QALD
+            query, gt_answer = sample.get('question', ''), sample.get('answer', '').get('value', '') # For Mahta
+            
             reasoning_path, prediction = generation_model.inference(query)
             
             if prediction:
-                em_eval = em_score(prediction, gt_answer)
-                f1_qald_eval = f1_qald_score(prediction, gt_answer)
+                em_eval = em_score(prediction, str(gt_answer))
+                f1_qald_eval = f1_qald_score(prediction, str(gt_answer))
             else:
                 em_eval = f1_qald_eval = 0.0
             em_evaluation.append(em_eval)
@@ -119,10 +123,11 @@ if __name__ == "__main__":
         "PeterJinGo/SearchR1-nq_hotpotqa_train-qwen2.5-7b-em-ppo-v0.3", # Search-R1
         "Zill1/StepSearch-7B-Base",                                     # StepSearch
     ])
+    parser.add_argument('--dataset_title', type=str, default="mahta", choices=['qald_aggregation', 'qald_aggregation_aug', 'mahta'])
     parser.add_argument('--fraction_of_data_to_use', type=float, default=1.0)
     
     # Retriever
-    parser.add_argument('--generation_model', type=str, default='single_retrieval', choices=[
+    parser.add_argument('--generation_model', type=str, default='no_retrieval', choices=[
         'no_retrieval', 'single_retrieval',
         'self_ask', 'react', 'search_o1',
         'research', 'search_r1', 'step_search'
@@ -130,7 +135,6 @@ if __name__ == "__main__":
     parser.add_argument('--retriever_name', type=str, default='contriever', choices=[
         'bm25', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'
     ])
-    
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/INDICES')
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001.jsonl')
     parser.add_argument('--retrieval_topk', type=int, default=3)
@@ -185,14 +189,21 @@ if __name__ == "__main__":
     # === Files ====================
     model_ = args.model_name_or_path.split('/')[-1]
     if args.generation_model in ['no_retrieval']:
-        args.output_dir = f"run_output/{args.run}/{model_}/{args.generation_model}"
+        args.output_dir = f"run_output/{args.run}/{model_}/{args.dataset_title}/{args.generation_model}"
     else:
-        args.output_dir = f"run_output/{args.run}/{model_}/{args.generation_model}_{args.retriever_name}"
+        args.output_dir = f"run_output/{args.run}/{model_}/{args.dataset_title}/{args.generation_model}_{args.retriever_name}"
     os.makedirs(args.output_dir, exist_ok=True)
     
     args.generation_results_file = f"{args.output_dir}/generation_results.jsonl"
-    args.dataset_file = f"corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
     
+    if args.dataset_title == 'mahta':
+        args.dataset_file = "corpus_datasets/mahta_queries/queries.jsonl"
+    elif args.dataset_title == 'qald_aggregation':
+        args.dataset_file = "corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
+    elif args.dataset_title == 'qald_aggregation_aug':
+        args.dataset_file = ""
+    else:
+        raise NotImplementedError
     
     # === Run ========================
     set_seed(args.seed)

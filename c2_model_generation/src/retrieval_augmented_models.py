@@ -38,12 +38,13 @@ class BasicRAG:
             raise NotImplementedError
         
         # --- Retrievers 
-        if args.retriever_name == 'bm25':
-            self.retriever = BM25Retriever(args)  
-        elif args.retriever_name in ['rerank_l6', 'rerank_l12']:
-            self.retriever = RerankRetriever(args)
-        elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
-            self.retriever = DenseRetriever(args)
+        if args.generation_model != "no_retrieval":
+            if args.retriever_name == 'bm25':
+                self.retriever = BM25Retriever(args)  
+            elif args.retriever_name in ['rerank_l6', 'rerank_l12']:
+                self.retriever = RerankRetriever(args)
+            elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
+                self.retriever = DenseRetriever(args)
 
     # --- Information Extraction Functions
     def get_unique_docs(self, docs_lst:list):

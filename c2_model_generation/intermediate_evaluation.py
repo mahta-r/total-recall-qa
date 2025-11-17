@@ -154,6 +154,8 @@ def llm_as_judge_passages(args):
 
     # === Functions ========================
     # query generation
+    def generate_evaluation_query():
+        pass
     
     
     # Passage judge
@@ -173,6 +175,7 @@ def llm_as_judge_passages(args):
                     gold_ids = test_dataset[qid].get('intermidate_list', [])
                     
                     # filter samples with very large gold_ids
+                    generate_evaluation_query()
                     
     
     
