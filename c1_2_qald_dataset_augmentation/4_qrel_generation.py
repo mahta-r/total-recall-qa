@@ -20,7 +20,7 @@ from utils.general_utils import set_seed
 os.environ["OPENAI_API_KEY"] = ''
 WIKIDATA_ENTITY_URL = "https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
 WIKIPEDIA_API_URL   = "https://{lang}.wikipedia.org/w/api.php"
-USER_AGENT = "YourAppName/1.0 (contact@example.com)"  # set this to something real
+USER_AGENT = "YourAppName/1.0 (contact@example.com)"
 
 
 def _session():
@@ -123,7 +123,6 @@ def load_corpus_by_prefix(file_path):
             except json.JSONDecodeError:
                 continue
     return data
-
 
 def qrel_generation(args):
     

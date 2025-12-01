@@ -58,17 +58,86 @@ def get_entity_info(entity_qids, endpoint=WDQS_ENDPOINT, user_agent="your-app (y
     return [entity_info[qid] for qid in entity_qids]
 
 
+# def get_properties_of_item(item_qid, limit=100, endpoint=WDQS_ENDPOINT):
+#     query = f"""
+#     SELECT ?property ?propertyLabel ?propertyDescription (COUNT(*) AS ?count) WHERE {{
+#       VALUES ?entity {{ wd:{item_qid} }}
+#       ?entity ?prop ?value .
+#       # This triple ensures ?prop is a wdt:… IRI, so no extra filter is needed
+#       ?property wikibase:directClaim ?prop .
+#       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+#     }}
+#     GROUP BY ?property ?propertyLabel ?propertyDescription
+#     ORDER BY DESC(?count)
+#     """
+
+#     sparql = SPARQLWrapper(endpoint)
+#     sparql.setQuery(query)
+#     sparql.setReturnFormat(JSON)
+#     sparql.addCustomHttpHeader('User-Agent', 'vscode (heydar.soudani@ru.nl)')
+#     results = safe_query(sparql)
+    
+#     properties = []
+#     for result in results["results"]["bindings"]:
+#         prop_uri = result["property"]["value"]
+#         prop_id = prop_uri.split("/")[-1]
+#         properties.append({
+#             "property_id": prop_id,
+#             "label": result.get("propertyLabel", {}).get("value", ""),
+#             "description": result.get("propertyDescription", {}).get("value", ""),
+#             "count": int(result["count"]["value"]),
+#         })
+#     return properties
+
+
+def normalize_datatype(uri):
+    """
+    Normalize Wikidata datatype URIs into simple lowercase tokens.
+    Example:
+      http://wikiba.se/ontology#Quantity → "quantity"
+      http://wikiba.se/ontology#Time → "time"
+      http://wikiba.se/ontology#ExternalId → "external-id"
+    """
+    if uri is None:
+        return None
+
+    dt = uri.split("#")[-1].lower()
+
+    # Canonical fixes:
+    dt = dt.replace("globecoordinate", "globe-coordinate")
+    dt = dt.replace("wikibaseitem", "wikibase-item")
+    dt = dt.replace("monolingualtext", "monolingual-text")
+
+    # Normalize all external-id variants
+    if dt in {"external-id", "externalid", "external_id"}:
+        dt = "external-id"
+
+    return dt
+
+
 def get_properties_of_item(item_qid, limit=100, endpoint=WDQS_ENDPOINT):
     query = f"""
-    SELECT ?property ?propertyLabel ?propertyDescription (COUNT(*) AS ?count) WHERE {{
+    SELECT ?property ?propertyLabel ?propertyDescription
+           ?datatypeURI
+           ?value
+           ?constraint
+    WHERE {{
       VALUES ?entity {{ wd:{item_qid} }}
+      
       ?entity ?prop ?value .
-      # This triple ensures ?prop is a wdt:… IRI, so no extra filter is needed
       ?property wikibase:directClaim ?prop .
+
+      OPTIONAL {{
+          ?property wikibase:propertyType ?datatypeURI .
+      }}
+
+      OPTIONAL {{
+          ?property p:propertyConstraint ?constraintStatement .
+          ?constraintStatement ps:propertyConstraint ?constraint .
+      }}
+
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
     }}
-    GROUP BY ?property ?propertyLabel ?propertyDescription
-    ORDER BY DESC(?count)
     """
 
     sparql = SPARQLWrapper(endpoint)
@@ -76,18 +145,55 @@ def get_properties_of_item(item_qid, limit=100, endpoint=WDQS_ENDPOINT):
     sparql.setReturnFormat(JSON)
     sparql.addCustomHttpHeader('User-Agent', 'vscode (heydar.soudani@ru.nl)')
     results = safe_query(sparql)
-    
-    properties = []
-    for result in results["results"]["bindings"]:
-        prop_uri = result["property"]["value"]
+
+    prop_index = {}
+
+    for r in results["results"]["bindings"]:
+        prop_uri = r["property"]["value"]
         prop_id = prop_uri.split("/")[-1]
-        properties.append({
-            "property_id": prop_id,
-            "label": result.get("propertyLabel", {}).get("value", ""),
-            "description": result.get("propertyDescription", {}).get("value", ""),
-            "count": int(result["count"]["value"]),
-        })
+
+        if prop_id not in prop_index:
+            prop_index[prop_id] = {
+                "property_id": prop_id,
+                "label": r.get("propertyLabel", {}).get("value", ""),
+                "description": r.get("propertyDescription", {}).get("value", ""),
+                "datatype": None,
+                "values": [],
+                "constraints": set(),
+            }
+
+        entry = prop_index[prop_id]
+
+        # Normalize datatype
+        if "datatypeURI" in r:
+            dt_uri = r["datatypeURI"]["value"]
+            dt = normalize_datatype(dt_uri)
+
+            # ❌ Exclude ExternalId and all of its variants
+            if dt == "external-id":
+                del prop_index[prop_id]
+                continue
+
+            entry["datatype"] = dt
+
+        # Collect values
+        if "value" in r:
+            val = r["value"]
+            if "value" in val:
+                entry["values"].append(val["value"])
+
+        # Collect constraints
+        if "constraint" in r:
+            entry["constraints"].add(r["constraint"]["value"].split("/")[-1])
+
+    # Convert constraints sets → lists
+    properties = []
+    for p in prop_index.values():
+        p["constraints"] = list(p["constraints"])
+        properties.append(p)
+
     return properties
+
 
 def build_values_block(var, ids):
     prefixed = " ".join(f"wd:{i}" for i in ids)
