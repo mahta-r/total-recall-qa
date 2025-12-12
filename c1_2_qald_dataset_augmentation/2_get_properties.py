@@ -73,7 +73,6 @@ def filter_aggregatable_properties(shared_props):
 
 
 def fetch_candidates(args):
-    
     numeric_props = []
     with open("corpus_datasets/wikidata_numeric_properties.json", "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -170,7 +169,6 @@ if __name__ == "__main__":
     args.dataset_file = "corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
     
     fetch_candidates(args)
-    
     
     # python c1_2_qald_dataset_augmentation/query_augmentation.py
 

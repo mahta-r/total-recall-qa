@@ -11,11 +11,12 @@ from pathlib import Path
 from openai import OpenAI
 from string import Template
 from typing import Optional, Dict, Any, List
+from collections import Counter
 
 from src.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 
-os.environ["OPENAI_API_KEY"] = ''
-
+# os.environ["OPENAI_API_KEY"] = ''
+WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql"
 
 def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, timeout_seconds: int = 30):
     
@@ -154,14 +155,105 @@ def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, ti
             print(f"Error fetching {qid}: {e}")
             return None
 
+    def get_most_frequent_instance_of(results_by_item):
+        """
+        results_by_item format:
+        {
+            "Q42": [
+                {"id": "Q5", "label": "human"},
+                {"id": "Q215627", "label": "person"}
+            ],
+            "Q1": [
+                {"id": "Q5", "label": "human"}
+            ]
+        }
+        """
 
-    ### -- main loop --------------------    
+        counter = Counter()
+        id_to_label = {}
+
+        for qid, instances in results_by_item.items():
+            for inst in instances:
+                inst_id = inst["id"]
+                counter[inst_id] += 1
+                # store label (first one is fine — labels are consistent on Wikidata)
+                if inst_id not in id_to_label:
+                    id_to_label[inst_id] = inst["label"]
+
+        # Get the ID with the highest frequency
+        if not counter:
+            return None
+
+        most_common_id, freq = counter.most_common(1)[0]
+        return {
+            "id": most_common_id,
+            "label": id_to_label[most_common_id],
+            "count": freq
+        }
+
+    def get_instances_of(qids, batch_size=50):
+        clean_qids = [qid for qid in qids if isinstance(qid, str) and re.fullmatch(r"Q\d+", qid)]
+        if not clean_qids:
+            return {}
+
+        # Will accumulate instance info for ALL QIDs across batches
+        all_results_by_item = {qid: [] for qid in clean_qids}
+
+        headers = {
+            "Accept": "application/sparql-results+json",
+            "User-Agent": "MyResearchBot/1.0 (your_email@example.com)",
+        }
+
+        # 2. Process in batches to keep each query reasonable
+        for start in range(0, len(clean_qids), batch_size):
+            batch = clean_qids[start:start + batch_size]
+            values_block = " ".join(f"wd:{qid}" for qid in batch)
+
+            query = f"""
+            SELECT ?item ?itemLabel ?instance ?instanceLabel WHERE {{
+            VALUES ?item {{ {values_block} }}
+            ?item wdt:P31 ?instance .
+            SERVICE wikibase:label {{
+                bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en" .
+            }}
+            }}
+            """
+
+            response = requests.post(
+                WIKIDATA_SPARQL_URL,
+                data={"query": query},
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # 3. Collect results for this batch
+            for row in data["results"]["bindings"]:
+                item_uri = row["item"]["value"]          # e.g. "http://www.wikidata.org/entity/Q42"
+                instance_uri = row["instance"]["value"]  # e.g. "http://www.wikidata.org/entity/Q5"
+                item_qid = item_uri.rsplit("/", 1)[-1]
+                instance_qid = instance_uri.rsplit("/", 1)[-1]
+
+                instance_label = row.get("instanceLabel", {}).get("value", "")
+
+                if item_qid in all_results_by_item:
+                    entry = {"id": instance_qid, "label": instance_label}
+                    if entry not in all_results_by_item[item_qid]:
+                        all_results_by_item[item_qid].append(entry)
+
+        most_frequent_instance = get_most_frequent_instance_of(all_results_by_item)
+        return most_frequent_instance
+
+
+    ### -- main loop ---------------------------------------------- 
+    instances_of_index = {}
     with open(input_path, "r", encoding="utf-8") as in_f, open(output_file, "w", encoding="utf-8") as out_f:
         for idx, line in enumerate(tqdm(in_f)):
-            # if idx == 6:
+            # if idx == 10:
             #     break
             
-            # --- Read the sample ----------------
+            # --- Read the sample ---------------------------------------
             if not line.strip():
                 continue
             try:
@@ -180,36 +272,32 @@ def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, ti
             if not sparql_text.strip():
                 continue
             
-            # --- Get the updated answer ------------------------------
+            # --- Get the updated answer -------------------------------
             ep = choose_endpoint(sparql_text)
             try:
-                result_json = run_query(ep, sparql_text)
-                rows = format_results(result_json)
+                rows = format_results(run_query(ep, sparql_text))
                 if not rows:
                     print("(no results)")
                 else:
                     _, updated_answer = next(iter(rows[0].items()))
                         
             except Exception as e:
-                print()
-                print("=" * 80)
                 print(f"file_id: {file_id} | qid: {qid}")
-                print("-" * 80)
                 print("ERROR:", e)
                 updated_answer = ""
             
-            # --- Get main entity -------------------------------------
+            # --- Get main entity & property ----------------------------
             main_qids = sorted(set(re.findall(r'\bwd:(Q[1-9]\d*)\b', sparql_text)))
-
-            # --- Get main property -----------------------------------
-            properties = sorted(set(re.findall(r'\bP[1-9]\d*\b', sparql_text)))
+            main_properties = sorted(set(re.findall(r'\bP[1-9]\d*\b', sparql_text)))
             
-            # --- get the new sparql for intermediate answers ---------
+            # --- get the new sparql for intermediate answers -----------
             parts = re.split(r'(XMLSchema#>)', sparql_text, maxsplit=1)
             if len(parts) > 1:
                 prefixes = parts[0] + parts[1]
                 sparql_query_body = parts[2].strip()
             else:
+                print("Expected exactly one 'XMLSchema#>' split point in the SPARQL string.")
+                continue
                 raise ValueError("Expected exactly one 'XMLSchema#>' split point in the SPARQL string.")
 
             completion = client.chat.completions.create(
@@ -234,16 +322,16 @@ def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, ti
                     for i, row in enumerate(rows):
                         _, first_value = next(iter(row.items()))
                         intermidate_list.append(extract_qid(first_value))
-                        # print(new_sparql_query)
-                        # print(f"[{i+1}] {extract_qid(first_value)}")
-                        
             except Exception as e:
-                print()
-                print("=" * 80)
                 print(f"file_id: {file_id} | qid: {qid}")
                 print("ERROR:", e)
-                print("-" * 80)
-                print()
+
+            # --- Get the instance of intermediate answers ---------------
+            intermidate_list_instances_of = get_instances_of(intermidate_list)
+
+            # --- Update global index of unique instances_of -------------
+            if intermidate_list_instances_of and intermidate_list_instances_of['label'] not in instances_of_index:
+                instances_of_index[intermidate_list_instances_of['label']] = {"wikidata_id": intermidate_list_instances_of['id']}
 
             # --- Edit on final answer ----------------------------------- 
             updated_answer_ = "yes" if updated_answer == "true" else "no" if updated_answer == "false" else updated_answer
@@ -253,17 +341,20 @@ def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, ti
 
             # --- Write in file ------------------------------------------
             item = {
-                "file_id": file_id,
-                "qid": qid,
-                "query": query,
-                "dataset_answer": answer_value,
-                "updated_answer": updated_answer_,
+                "file_id": file_id, "qid": qid, "query": query,
+                "dataset_answer": answer_value, "updated_answer": updated_answer_,
                 "is_changed": not (str(answer_value) == str(updated_answer)),
-                "main_entities": main_qids,
-                "properties": properties,
-                "intermidate_list": intermidate_list
+                "main_entities": main_qids, "main_properties": main_properties,
+                "intermidate_qids": intermidate_list,
+                "intermidate_qids_instances_of": intermidate_list_instances_of
             }
             out_f.write(json.dumps(item, ensure_ascii=False) + "\n")
+            
+    # --- Write entity type mapping file --------------------------
+    with open(entity_type_output_file, "w", encoding="utf-8") as f_types:
+        json.dump(instances_of_index, f_types, ensure_ascii=False, indent=2)
+
+            
 
 
 if __name__ == "__main__":
@@ -273,9 +364,11 @@ if __name__ == "__main__":
     
     # === Files ====================
     input_file = "corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl"
-    output_file = "corpus_datasets/qald_aggregation_samples/wikidata_totallist_1.jsonl"
+    output_file = "corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
+    entity_type_output_file = "corpus_datasets/qald_aggregation_samples/entity_types_mapping.jsonl"
+    
     
     get_annotations(input_file, output_file)
 
 
-# python c1_corpus_dataset_preparation/get_intermediate_annotation.py
+# python c1_2_qald_dataset_augmentation/1_get_annotation.py
