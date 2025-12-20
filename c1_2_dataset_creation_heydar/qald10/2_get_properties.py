@@ -252,13 +252,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset_file",
         type=str,
-        default="corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl",
+        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist.jsonl",
         help="Path to the dataset file"
     )
     parser.add_argument(
         "--output_file",
         type=str,
-        default="corpus_datasets/qald_aggregation_samples/wikidata_totallist_with_properties.jsonl",
+        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl",
         help="Path to the output JSON file"
     )
 
@@ -267,4 +267,4 @@ if __name__ == "__main__":
     process_dataset_with_aggregatable_properties(args.dataset_file, args.output_file)
 
     # Usage:
-    # python c1_2_qald_dataset_augmentation/2_get_properties.py
+    # python c1_2_dataset_creation_heydar/qald10/2_get_properties.py

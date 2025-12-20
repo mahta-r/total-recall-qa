@@ -18,7 +18,7 @@ from src.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 # os.environ["OPENAI_API_KEY"] = ''
 WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql"
 
-def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, timeout_seconds: int = 30):
+def get_annotations(input_file, output_file, entity_type_output_file=None, endpoint=None, retries: int = 2, timeout_seconds: int = 30):
     
     ### --- Input data -------------------
     input_path = Path(input_file)
@@ -351,8 +351,9 @@ def get_annotations(input_file, output_file, endpoint=None, retries: int = 2, ti
             out_f.write(json.dumps(item, ensure_ascii=False) + "\n")
             
     # --- Write entity type mapping file --------------------------
-    with open(entity_type_output_file, "w", encoding="utf-8") as f_types:
-        json.dump(instances_of_index, f_types, ensure_ascii=False, indent=2)
+    if entity_type_output_file:
+        with open(entity_type_output_file, "w", encoding="utf-8") as f_types:
+            json.dump(instances_of_index, f_types, ensure_ascii=False, indent=2)
 
             
 
@@ -361,14 +362,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name_or_path', type=str, default='openai/gpt-4o')
     args = parser.parse_args()
-    
+
     # === Files ====================
     input_file = "corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl"
-    output_file = "corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
-    entity_type_output_file = "corpus_datasets/qald_aggregation_samples/entity_types_mapping.jsonl"
-    
-    
-    get_annotations(input_file, output_file)
+    output_file = "corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist.jsonl"
+    entity_type_output_file = "corpus_datasets/dataset_creation_heydar/qald10/entity_types_mapping.jsonl"
+
+
+    get_annotations(input_file, output_file, entity_type_output_file)
 
 
 # python c1_2_qald_dataset_augmentation/1_get_annotation.py

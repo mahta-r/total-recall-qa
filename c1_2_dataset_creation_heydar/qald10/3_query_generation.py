@@ -512,19 +512,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset_file",
         type=str,
-        default="corpus_datasets/qald_aggregation_samples/wikidata_totallist_with_properties.jsonl",
+        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl",
         help="Path to the input dataset file with properties"
     )
     parser.add_argument(
         "--output_file",
         type=str,
-        default="corpus_datasets/qald_aggregation_samples/wikidata_total_recall_queries.jsonl",
+        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_total_recall_queries.jsonl",
         help="Path to the output file for generated queries"
     )
     parser.add_argument(
         "--prompt_template_path",
         type=str,
-        default="c1_2_qald_dataset_augmentation/prompts/query_generation_v1.txt",
+        default="c1_2_dataset_creation_heydar/qald10/prompts/query_generation_v1.txt",
         help="Path to the prompt template file"
     )
     parser.add_argument(
@@ -557,6 +557,6 @@ if __name__ == "__main__":
     )
 
     # Usage:
-    # python c1_2_qald_dataset_augmentation/3_query_generation.py
-    # python c1_2_qald_dataset_augmentation/3_query_generation.py --model_name_or_path anthropic/claude-3.5-sonnet
-    # python c1_2_qald_dataset_augmentation/3_query_generation.py --no-resume  # Start fresh
+    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py
+    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py --model_name_or_path anthropic/claude-3.5-sonnet
+    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py --no-resume  # Start fresh

@@ -28,10 +28,15 @@ def main():
 
     # File paths
     input_file = base_dir / "corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl"
-    step1_output = base_dir / "corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl"
-    step2_output = base_dir / "corpus_datasets/qald_aggregation_samples/wikidata_totallist_with_properties.jsonl"
-    step3_output = base_dir / "corpus_datasets/qald_aggregation_samples/wikidata_total_recall_queries.jsonl"
+    output_dir = base_dir / "corpus_datasets/dataset_creation_heydar/qald10"
+    step1_output = output_dir / "wikidata_totallist.jsonl"
+    step1_entity_types = output_dir / "entity_types_mapping.jsonl"
+    step2_output = output_dir / "wikidata_totallist_with_properties.jsonl"
+    step3_output = output_dir / "wikidata_total_recall_queries.jsonl"
     prompt_template = pipeline_dir / "prompts/query_generation_v1.txt"
+
+    # Create output directory if it doesn't exist
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Add pipeline dir to path
     sys.path.insert(0, str(pipeline_dir))
@@ -54,7 +59,7 @@ def main():
             model_name_or_path = args.model
 
         step1.args = Args()
-        step1.get_annotations(str(input_file), str(step1_output))
+        step1.get_annotations(str(input_file), str(step1_output), str(step1_entity_types))
         print("✓ Step 1 completed\n")
     except Exception as e:
         print(f"✗ Step 1 failed: {e}")

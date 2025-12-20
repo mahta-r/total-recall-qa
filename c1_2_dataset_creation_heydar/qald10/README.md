@@ -10,6 +10,9 @@ The pipeline consists of 3 sequential steps:
 Input JSONL → [Step 1] → [Step 2] → [Step 3] → Total Recall Queries
 ```
 
+**Input**: `corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl`
+**Output Directory**: `corpus_datasets/dataset_creation_heydar/qald10/`
+
 ### Step 1: Get Annotations
 **Script**: [1_get_annotation.py](1_get_annotation.py)
 
@@ -19,7 +22,7 @@ Input JSONL → [Step 1] → [Step 2] → [Step 3] → Total Recall Queries
 - Identifies entity types using Wikidata
 - Updates answers by re-running SPARQL queries
 
-**Outputs**:
+**Outputs** (in `corpus_datasets/dataset_creation_heydar/qald10/`):
 - `wikidata_totallist.jsonl` - Annotated dataset with entities and properties
 - `entity_types_mapping.jsonl` - Mapping of entity types
 
@@ -31,7 +34,7 @@ Input JSONL → [Step 1] → [Step 2] → [Step 3] → Total Recall Queries
 - Applies quality filters to exclude internal/non-aggregatable properties
 - Finds properties shared by all intermediate entities
 
-**Output**:
+**Output** (in `corpus_datasets/dataset_creation_heydar/qald10/`):
 - `wikidata_totallist_with_properties.jsonl` - Dataset with aggregatable properties
 
 ### Step 3: Generate Queries
@@ -42,7 +45,7 @@ Input JSONL → [Step 1] → [Step 2] → [Step 3] → Total Recall Queries
 - Calculates answers based on aggregation functions
 - Supports resume functionality for long runs
 
-**Output**:
+**Output** (in `corpus_datasets/dataset_creation_heydar/qald10/`):
 - `wikidata_total_recall_queries.jsonl` - Final generated queries with answers
 
 ## Quick Start
@@ -90,15 +93,15 @@ python 1_get_annotation.py --model_name_or_path openai/gpt-4o
 ### Step 2
 ```bash
 python 2_get_properties.py \
-  --dataset_file corpus_datasets/qald_aggregation_samples/wikidata_totallist.jsonl \
-  --output_file corpus_datasets/qald_aggregation_samples/wikidata_totallist_with_properties.jsonl
+  --dataset_file corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist.jsonl \
+  --output_file corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl
 ```
 
 ### Step 3
 ```bash
 python 3_query_generation.py \
-  --dataset_file corpus_datasets/qald_aggregation_samples/wikidata_totallist_with_properties.jsonl \
-  --output_file corpus_datasets/qald_aggregation_samples/wikidata_total_recall_queries.jsonl \
+  --dataset_file corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl \
+  --output_file corpus_datasets/dataset_creation_heydar/qald10/wikidata_total_recall_queries.jsonl \
   --prompt_template_path prompts/query_generation_v1.txt \
   --model_name_or_path openai/gpt-4o \
   --resume
@@ -107,7 +110,7 @@ python 3_query_generation.py \
 ## File Structure
 
 ```
-c1_2_dataset_augmentation/qald10/
+c1_2_dataset_creation_heydar/qald10/
 ├── run_pipeline.py              # Main pipeline orchestrator
 ├── 1_get_annotation.py          # Step 1: Extract annotations
 ├── 2_get_properties.py          # Step 2: Get aggregatable properties
@@ -121,6 +124,12 @@ c1_2_dataset_augmentation/qald10/
 │   └── query_generation_v1.txt  # Prompt for query generation
 ├── files/                       # Additional files
 └── README.md                    # This file
+
+corpus_datasets/dataset_creation_heydar/qald10/  # Output directory
+├── wikidata_totallist.jsonl
+├── entity_types_mapping.jsonl
+├── wikidata_totallist_with_properties.jsonl
+└── wikidata_total_recall_queries.jsonl
 ```
 
 ## Requirements
