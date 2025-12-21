@@ -10,10 +10,10 @@ The pipeline consists of:
 
 Usage:
     # For QALD10
-    python c1_2_dataset_creation_heydar/unified/run_pipeline.py --dataset qald10 --model openai/gpt-4o
+    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset qald10 --model openai/gpt-4o
 
     # For Quest
-    python c1_2_dataset_creation_heydar/unified/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o
+    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o
 """
 
 import os
@@ -42,16 +42,16 @@ def run_qald10_pipeline(args):
     print()
 
     # Get paths
-    base_dir = pipeline_dir.parent.parent
+    base_dir = pipeline_dir.parent  # /gpfs/home6/hsoudani/total-recall-rag
 
     # File paths
-    input_file = base_dir / "corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl"
-    output_dir = base_dir / "corpus_datasets/dataset_creation_heydar/unified"
+    input_file = base_dir / "corpus_datasets/qald_datasets/wikidata_aggregation.jsonl"
+    output_dir = base_dir / "corpus_datasets/dataset_creation_heydar/qald10"
     step1_output = output_dir / "qald10_annotations.jsonl"
     step1_entity_types = output_dir / "qald10_entity_types.json"
     step2_output = output_dir / "qald10_with_properties.jsonl"
     step3_output = output_dir / "qald10_queries.jsonl"
-    prompt_template = pipeline_dir.parent / "qald10/prompts/query_generation_v1.txt"
+    prompt_template = base_dir / "c1_2_dataset_creation_heydar" / "prompts/query_generation_v1.txt"
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -129,11 +129,9 @@ def run_quest_pipeline(args):
     Run the Quest dataset processing pipeline.
 
     Steps:
-    1. Get annotations (QIDs and properties) from Quest dataset
-    2. Generate Total Recall queries
-
-    Note: Quest pipeline doesn't need step 2 (get properties) separately,
-    as properties are extracted during annotation step.
+    1. Get annotations (QIDs and intermediate QIDs) from Quest dataset
+    2. Extract aggregatable properties
+    3. Generate Total Recall queries
     """
     print("=" * 70)
     print("Quest Dataset Processing Pipeline")
@@ -147,21 +145,21 @@ def run_quest_pipeline(args):
         return 1
 
     # Get paths
-    base_dir = pipeline_dir.parent.parent
+    base_dir = pipeline_dir.parent  # /gpfs/home6/hsoudani/total-recall-rag
     input_file = base_dir / "corpus_datasets" / "quest_dataset" / args.quest_input
-    output_dir = base_dir / "corpus_datasets" / "dataset_creation_heydar" / "unified"
+    output_dir = base_dir / "corpus_datasets" / "dataset_creation_heydar" / "quest"
 
-    # Intermediate file after annotation step
-    annotation_output = output_dir / f"{Path(args.quest_input).stem}_quest_annotations.jsonl"
+    # Output files for each step
+    step1_output = output_dir / f"{Path(args.quest_input).stem}_quest_annotations.jsonl"
+    step2_output = output_dir / f"{Path(args.quest_input).stem}_quest_with_properties.jsonl"
+    step3_output = output_dir / f"{Path(args.quest_input).stem}_quest_queries.jsonl"
 
-    # Final output file after query generation
-    final_output = output_dir / f"{Path(args.quest_input).stem}_quest_queries.jsonl"
-
-    prompt_template = pipeline_dir.parent / "qald10/prompts/query_generation_v1.txt"
+    prompt_template = base_dir / "c1_2_dataset_creation_heydar" / "prompts/query_generation_v1.txt"
 
     print(f"Input: {input_file}")
-    print(f"Annotation output: {annotation_output}")
-    print(f"Final output: {final_output}")
+    print(f"Step 1 output: {step1_output}")
+    print(f"Step 2 output: {step2_output}")
+    print(f"Step 3 output: {step3_output}")
     print()
 
     # Check if input file exists
@@ -176,46 +174,61 @@ def run_quest_pipeline(args):
     try:
         from importlib import import_module
         step1 = import_module('1_get_annotation')
+        step2 = import_module('2_get_properties')
         step3 = import_module('3_query_generation')
     except ImportError as e:
         print(f"Error: Could not import pipeline components: {e}")
         return 1
 
-    # Step 1: Get Annotations (QIDs and Properties)
+    # Step 1: Get Annotations
     print("=" * 70)
     print("STEP 1: Get Annotations")
     print("=" * 70)
 
     result = step1.process_quest_annotations(
         input_file=str(input_file),
-        output_file=str(annotation_output),
+        output_file=str(step1_output),
         subsample=args.subsample,
         limit=args.limit
     )
 
     if result != 0:
-        print("\n✗ Annotation step failed")
+        print("\n✗ Step 1 failed")
         return 1
 
-    print("\n✓ Annotation step completed successfully")
+    print("\n✓ Step 1 completed successfully")
     print()
 
-    # Step 2: Generate Total Recall Queries
+    # Step 2: Get Properties
     print("=" * 70)
-    print("STEP 2: Generate Queries")
+    print("STEP 2: Get Properties")
+    print("=" * 70)
+
+    try:
+        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+        print("\n✓ Step 2 completed successfully")
+    except Exception as e:
+        print(f"\n✗ Step 2 failed: {e}")
+        return 1
+
+    print()
+
+    # Step 3: Generate Total Recall Queries
+    print("=" * 70)
+    print("STEP 3: Generate Queries")
     print("=" * 70)
 
     try:
         step3.process_dataset_for_valid_pairs(
-            dataset_file=str(annotation_output),
-            output_file=str(final_output),
+            dataset_file=str(step2_output),
+            output_file=str(step3_output),
             prompt_template_path=str(prompt_template),
             model_name=args.model,
             resume=args.resume
         )
-        print("\n✓ Query generation step completed successfully")
+        print("\n✓ Step 3 completed successfully")
     except Exception as e:
-        print(f"\n✗ Query generation step failed: {e}")
+        print(f"\n✗ Step 3 failed: {e}")
         return 1
 
     # Pipeline completed
@@ -223,8 +236,9 @@ def run_quest_pipeline(args):
     print("=" * 70)
     print("QUEST PIPELINE COMPLETED SUCCESSFULLY")
     print("=" * 70)
-    print(f"Annotation output: {annotation_output}")
-    print(f"Final output: {final_output}")
+    print(f"Annotations: {step1_output}")
+    print(f"With properties: {step2_output}")
+    print(f"Final queries: {step3_output}")
 
     return 0
 
@@ -243,7 +257,7 @@ def main():
                         help='Input file name for Quest dataset (e.g., train.jsonl, test.jsonl)')
     parser.add_argument('--limit', type=int, default=None,
                         help='Limit number of entries to process (Quest only, for testing)')
-    parser.add_argument('--subsample', type=float, default=200,
+    parser.add_argument('--subsample', type=float, default=50,
                         help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
     parser.add_argument('--resume', action='store_true', default=True,
                         help='Resume query generation from last processed entry (default: True)')

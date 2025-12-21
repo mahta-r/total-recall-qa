@@ -34,13 +34,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 try:
     from importlib import import_module
-    get_properties_module = import_module('unified.2_get_properties')
+    get_properties_module = import_module('2_get_properties')
     get_all_aggregatable_properties = get_properties_module.get_all_aggregatable_properties
     NO_AGGREGATION_PROPS = get_properties_module.NO_AGGREGATION_PROPS
     INTERNAL_WIKI_PROPS = get_properties_module.INTERNAL_WIKI_PROPS
     initialize_internal_props = get_properties_module.initialize_internal_props
 except ImportError:
-    print("Warning: Could not import unified.2_get_properties module. Will try alternative import.")
+    print("Warning: Could not import 2_get_properties module. Will try alternative import.")
     try:
         get_properties_module = import_module('2_get_properties')
         get_all_aggregatable_properties = get_properties_module.get_all_aggregatable_properties
@@ -51,7 +51,7 @@ except ImportError:
         print("Warning: Could not import 2_get_properties module.")
 
 try:
-    from src.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
+    from c3_task_evaluation.src.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 except ImportError:
     SYSTEM_PROMPT_SPARQL_LIST = ""  # Will be loaded if needed
 
@@ -578,14 +578,20 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
             if match:
                 updated_answer_ = get_wikipedia_title_from_qid(match.group(1))
 
-            # Write in file
+            # Write in file - unified format
             item = {
-                "file_id": file_id, "qid": qid, "query": query,
-                "dataset_answer": answer_value, "updated_answer": updated_answer_,
-                "is_changed": not (str(answer_value) == str(updated_answer)),
-                "main_entities": main_qids, "main_properties": main_properties,
-                "intermidate_qids": intermidate_list,
-                "intermidate_qids_instances_of": intermidate_list_instances_of
+                "qid": qid,
+                "query": query,
+                "intermediate_qids": intermidate_list,
+                "answer": updated_answer_,
+                "extra": {
+                    "file_id": file_id,
+                    "dataset_answer": answer_value,
+                    "is_changed": not (str(answer_value) == str(updated_answer)),
+                    "main_entities": main_qids,
+                    "main_properties": main_properties,
+                    "intermediate_qids_instances_of": intermidate_list_instances_of
+                }
             }
             out_f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
@@ -607,22 +613,23 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
 # Quest-specific annotation functions
 # ========================================================================
 
-def process_quest_entry(entry: Dict, aggregatable_props: List[Dict]) -> Optional[Dict]:
+def process_quest_entry(entry: Dict, aggregatable_props: List[Dict], entry_idx: int) -> Optional[Dict]:
     """
     Process a single Quest dataset entry.
 
     Args:
         entry: Quest dataset entry with 'docs' field
         aggregatable_props: List of all aggregatable properties
+        entry_idx: Index of the entry (for generating QID)
 
     Returns:
-        Processed entry with QIDs, properties, or None if processing failed
+        Processed entry with QIDs in unified format, or None if processing failed
     """
     docs = entry.get("docs", [])
     if not docs:
         return None
 
-    # Step 1: Map document titles to QIDs
+    # Step 1: Map document titles to QIDs (these are intermediate_qids)
     title_to_qid = get_qids_batch(docs)
 
     # Check if ALL documents have QIDs - skip if any document is missing a QID
@@ -632,30 +639,29 @@ def process_quest_entry(entry: Dict, aggregatable_props: List[Dict]) -> Optional
         print(f"  Missing QIDs for: {missing_qids[:3]}" + (" ..." if len(missing_qids) > 3 else ""))
         return None
 
-    qids = [qid for qid in title_to_qid.values() if qid is not None]
+    intermediate_qids = [qid for qid in title_to_qid.values() if qid is not None]
 
-    if len(qids) < 2:  # Need at least 2 entities for meaningful properties
+    if len(intermediate_qids) < 2:  # Need at least 2 entities for meaningful properties
         return None
 
-    # Step 2: Get shared aggregatable properties
-    shared_props = get_shared_properties(qids, aggregatable_props)
+    # Step 2: Get instances_of for intermediate QIDs
+    intermediate_qids_instances_of = get_instances_of(intermediate_qids)
 
-    if not shared_props:
-        return None
+    # Step 3: Generate a unique QID for this Quest entry (quest_<index>)
+    qid = f"quest_{entry_idx}"
 
-    # Step 3: Add shared_by_all_items flag to properties (following QALD format)
-    aggregatable_properties = []
-    for prop in shared_props:
-        prop_data = prop.copy()
-        prop_data["shared_by_all_items"] = True
-        aggregatable_properties.append(prop_data)
-
-    # Step 4: Create result entry (following QALD format)
+    # Step 4: Create result entry in unified format
     result = {
-        "original_query": entry.get("query", ""),
-        "docs": docs,
-        "qids": qids,
-        "aggregationableProperties": aggregatable_properties
+        "qid": qid,
+        "query": entry.get("query", ""),
+        "intermediate_qids": intermediate_qids,
+        "answer": None,  # Quest doesn't have answers
+        "extra": {
+            "docs": docs,
+            # "original_query": entry.get("original_query", entry.get("query", "")),
+            # "metadata": entry.get("metadata", {}),
+            "intermediate_qids_instances_of": intermediate_qids_instances_of
+        }
     }
 
     return result
@@ -726,22 +732,9 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
 
     print()
 
-    # Step 1: Get all aggregatable properties
+    # Process Quest entries
     print("=" * 70)
-    print("STEP 1: Initialize Aggregatable Properties")
-    print("=" * 70)
-    try:
-        initialize_internal_props()
-        aggregatable_props = get_all_aggregatable_properties()
-        print(f"Found {len(aggregatable_props)} aggregatable properties")
-        print()
-    except Exception as e:
-        print(f"Error getting aggregatable properties: {e}")
-        return 1
-
-    # Step 2: Process Quest entries
-    print("=" * 70)
-    print("STEP 2: Process Quest Entries")
+    print("Processing Quest Entries")
     print("=" * 70)
 
     processed_count = 0
@@ -751,9 +744,9 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     with open(output_file, 'w', encoding='utf-8') as out_f:
-        for entry in tqdm(sampled_entries, desc="Processing entries"):
-            # Process the entry
-            result = process_quest_entry(entry, aggregatable_props)
+        for idx, entry in enumerate(tqdm(sampled_entries, desc="Processing entries")):
+            # Process the entry with index for QID generation
+            result = process_quest_entry(entry, [], idx)
 
             if result:
                 out_f.write(json.dumps(result, ensure_ascii=False) + "\n")

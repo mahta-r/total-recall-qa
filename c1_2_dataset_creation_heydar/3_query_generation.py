@@ -391,8 +391,8 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
 
                 total_rows += 1
 
-                # Get intermediate QIDs and aggregatable properties
-                intermediate_qids = sample.get('intermidate_qids', [])
+                # Get intermediate QIDs and aggregatable properties from unified format
+                intermediate_qids = sample.get('intermediate_qids', [])
                 aggregatable_properties = sample.get('aggregationableProperties', [])
 
                 # Filter out None values from intermediate_qids
@@ -403,6 +403,9 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                     continue
 
                 print(f"\n[Row {line_num}] Processing {len(intermediate_qids)} items with {len(aggregatable_properties)} properties")
+
+                # Get extra info from unified format
+                extra = sample.get('extra', {})
 
                 # Try each property to find valid pairs
                 for prop in aggregatable_properties:
@@ -421,8 +424,8 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                         # All items have values for this property - valid pair!
                         print("✓ Valid pair found!")
 
-                        # Get entity type for the prompt
-                        entity_type_info = sample.get('intermidate_qids_instances_of', {})
+                        # Get entity type for the prompt from extra dict
+                        entity_type_info = extra.get('intermediate_qids_instances_of', {})
                         entity_type = entity_type_info.get('label', 'entity') if entity_type_info else 'entity'
 
                         # Generate Total Recall query using LLM
@@ -462,23 +465,27 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                             # Continue anyway, but mark as None
                             calculated_answer = None
 
-                        # Create entry with original sample data plus property info and generated query
+                        # Create entry with simplified structure - main fields + extra
                         entry = {
-                            "file_id": sample.get('file_id'),
                             "qid": sample.get('qid'),
                             "original_query": sample.get('query'),
-                            "generated_query": generated_query,
+                            "total_recall_query": generated_query,
+                            "total_recall_answer": calculated_answer,
                             "aggregation_function": aggregation_function,
-                            "generated_answer": calculated_answer,
-                            "dataset_answer": sample.get('dataset_answer'),
-                            "updated_answer": sample.get('updated_answer'),
-                            "intermidate_qids": intermediate_qids,
-                            "selected_property": {
-                                "property_id": property_id,
-                                "property_label": property_label,
-                                "datatype": prop.get('datatype')
-                            },
-                            "property_values": property_values
+                            # "extra": {
+                            #     "file_id": extra.get('file_id'),
+                            #     "dataset_answer": extra.get('dataset_answer'),
+                            #     "updated_answer": sample.get('answer'),
+                            #     "intermediate_qids": intermediate_qids,
+                            #     "aggregationableProperties": aggregatable_properties,
+                            #     "selected_property": {
+                            #         "property_id": property_id,
+                            #         "property_label": property_label,
+                            #         "datatype": prop.get('datatype')
+                            #     },
+                            #     "property_values": property_values,
+                            #     "intermediate_qids_instances_of": extra.get('intermediate_qids_instances_of')
+                            # }
                         }
 
                         # Write entry to output file

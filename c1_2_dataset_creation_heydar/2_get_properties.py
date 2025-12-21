@@ -169,8 +169,8 @@ def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100)
 def process_dataset_with_aggregatable_properties(dataset_file, output_file):
     """
     Loop through the dataset file, and for each query get aggregatable properties
-    based on intermidate_qids and intermidate_qids_instances_of.
-    Output file has same structure as input with new key 'aggregationableProperties'.
+    based on intermediate_qids and intermediate_qids_instances_of.
+    Rewrites the input file with added 'aggregationableProperties' key.
     """
     print(f"Processing dataset: {dataset_file}")
 
@@ -200,12 +200,15 @@ def process_dataset_with_aggregatable_properties(dataset_file, output_file):
             try:
                 # if line_num == 10:
                 #     break
-                
+
                 sample = json.loads(line)
 
-                # Get intermediate QIDs
-                intermediate_qids = sample.get('intermidate_qids', [])
-                type_info = sample.get('intermidate_qids_instances_of', {})
+                # Get intermediate QIDs from unified format
+                intermediate_qids = sample.get('intermediate_qids', [])
+
+                # Get type info from extra dict (for both QALD and Quest)
+                extra = sample.get('extra', {})
+                type_info = extra.get('intermediate_qids_instances_of', {})
 
                 if intermediate_qids and len(intermediate_qids) > 0:
                     type_label = type_info.get('label', 'Unknown') if type_info else 'Unknown'
@@ -214,19 +217,24 @@ def process_dataset_with_aggregatable_properties(dataset_file, output_file):
                     # Get properties for the specific intermediate QIDs
                     properties = get_properties_for_specific_items(intermediate_qids, all_properties_dict)
 
-                    # Add aggregatable properties to the sample
-                    sample['aggregationableProperties'] = properties
-
                     print(f"  Found {len(properties)} shared aggregatable properties (after quality filtering)")
 
                     processed_count += 1
                 else:
                     print(f"\n[Query {line_num}] No intermediate QIDs found, skipping")
-                    sample['aggregationableProperties'] = []
+                    properties = []
 
-                # Write the updated sample to output file only if aggregationableProperties is not empty
-                if sample['aggregationableProperties']:
-                    f_out.write(json.dumps(sample, ensure_ascii=False) + '\n')
+                # Reorder the sample to put aggregationableProperties before extra
+                if properties:
+                    ordered_sample = {
+                        "qid": sample.get("qid"),
+                        "query": sample.get("query"),
+                        "intermediate_qids": sample.get("intermediate_qids"),
+                        "answer": sample.get("answer"),
+                        "aggregationableProperties": properties,
+                        "extra": sample.get("extra")
+                    }
+                    f_out.write(json.dumps(ordered_sample, ensure_ascii=False) + '\n')
                 else:
                     print(f"  Skipping write - no aggregatable properties found")
 
