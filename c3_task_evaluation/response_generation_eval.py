@@ -107,6 +107,10 @@ def run_evaluation(args):
 
     with open(args.output_file, 'a') as res_f:
         for i, (qid, sample) in enumerate(tqdm(filtered_dataset.items(), desc="Processing queries")):
+            
+            # if i == 10:
+            #     break
+            
             # Extract query and ground truth answer
             query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
             gt_answer = sample.get('total_recall_answer', sample.get('answer', {}).get('value', ''))
@@ -123,17 +127,17 @@ def run_evaluation(args):
 
             # === Step 2: Evaluate retrieved documents =============
             # Extract all retrieved documents from reasoning path
-            all_retrieved_docs = []
-            for step in reasoning_path:
-                if 'docs' in step and step['docs']:
-                    all_retrieved_docs.extend(step['docs'])
+            # all_retrieved_docs = []
+            # for step in reasoning_path:
+            #     if 'docs' in step and step['docs']:
+            #         all_retrieved_docs.extend(step['docs'])
 
-            # Get unique documents
-            unique_docs = list({doc['id']: doc for doc in all_retrieved_docs}.values())
+            # # Get unique documents
+            # unique_docs = list({doc['id']: doc for doc in all_retrieved_docs}.values())
 
-            # Evaluate retrieval
-            gold_entities = sample.get('intermidate_list', [])
-            retrieval_metrics = evaluate_retrieval(unique_docs, gold_entities)
+            # # Evaluate retrieval
+            # gold_entities = sample.get('intermidate_list', [])
+            # retrieval_metrics = evaluate_retrieval(unique_docs, gold_entities)
 
             # === Step 4: Evaluate final answer ====================
             if prediction:
@@ -154,11 +158,11 @@ def run_evaluation(args):
                 "em": em_eval,
                 "f1_qald": f1_qald_eval,
                 "f1": f1_eval['f1'],
-                "precision": f1_eval['precision'],
-                "recall": f1_eval['recall'],
+                # "precision": f1_eval['precision'],
+                # "recall": f1_eval['recall'],
                 # Retrieval metrics
-                "num_retrieved_docs": retrieval_metrics['num_retrieved'],
-                "retrieved_doc_ids": retrieval_metrics['retrieved_doc_ids'],
+                # "num_retrieved_docs": retrieval_metrics['num_retrieved'],
+                # "retrieved_doc_ids": retrieval_metrics['retrieved_doc_ids'],
                 # Full reasoning path
                 "reasoning_path": reasoning_path
             }
@@ -188,7 +192,7 @@ def run_evaluation(args):
         print(f"EM Score:      {np.mean(em_scores) * 100:.2f}%")
         print(f"F1 QALD Score: {np.mean(f1_qald_scores) * 100:.2f}%")
         print(f"F1 Score:      {np.mean(f1_scores) * 100:.2f}%")
-        print(f"Average retrieved docs per query: {np.mean([r['num_retrieved_docs'] for r in all_results]):.2f}")
+        # print(f"Average retrieved docs per query: {np.mean([r['num_retrieved_docs'] for r in all_results]):.2f}")
     else:
         print("No new queries were processed.")
 
@@ -206,7 +210,7 @@ if __name__ == "__main__":
                         help='Path to dataset file (overrides dataset_name)')
 
     # Model arguments
-    parser.add_argument('--model_name_or_path', type=str, default='google/gemini-2.5-flash',
+    parser.add_argument('--model_name_or_path', type=str, default='openai/gpt-4o',
                         choices=[
                             "openai/gpt-4o", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash",
                             "deepseek/deepseek-chat-v3-0324", "qwen/qwen3-235b-a22b-2507",
@@ -217,7 +221,7 @@ if __name__ == "__main__":
                         ])
 
     # Generation model arguments
-    parser.add_argument('--generation_model', type=str, default='single_retrieval',
+    parser.add_argument('--generation_model', type=str, default='no_retrieval',
                         choices=[
                             'no_retrieval', 'single_retrieval',
                             'self_ask', 'react', 'search_o1',
@@ -240,7 +244,7 @@ if __name__ == "__main__":
     # Other arguments
     parser.add_argument('--max_iter', type=int, default=10, help='Maximum iterations for multi-step models')
     parser.add_argument('--device', type=int, default=0, help='CUDA device ID')
-    parser.add_argument('--run', type=str, default='run_1', help='Run identifier')
+    parser.add_argument('--run', type=str, default='run_2', help='Run identifier')
     parser.add_argument("--seed", type=int, default=10, help='Random seed')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory (overrides default)')
 
@@ -301,5 +305,4 @@ if __name__ == "__main__":
     run_evaluation(args)
 
     # Example usage:
-    # python c3_task_evaluation/run_evaluation.py --dataset_name qald10 --generation_model single_retrieval --retriever_name contriever
-    # python c3_task_evaluation/run_evaluation.py --dataset_name quest --generation_model react --retriever_name bm25
+    # python c3_task_evaluation/response_generation_eval.py
