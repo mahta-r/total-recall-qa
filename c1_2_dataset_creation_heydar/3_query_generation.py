@@ -455,9 +455,8 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                             # Continue anyway, but mark as None
                             calculated_answer = None
 
-                        # Create entry with simplified structure
                         entry = {
-                            "qid": sample.get('qid'),
+                            "qid": f"{sample.get('qid')}_{property_id.lower()}",
                             "original_query": sample.get('query'),
                             "total_recall_query": generated_query,
                             "total_recall_answer": calculated_answer,

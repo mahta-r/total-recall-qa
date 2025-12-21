@@ -50,7 +50,7 @@ except ImportError:
         print("Warning: Could not import 2_get_properties module.")
 
 try:
-    from c3_task_evaluation.src.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
+    from c3_task_evaluation.prompts.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 except ImportError:
     SYSTEM_PROMPT_SPARQL_LIST = ""  # Will be loaded if needed
 

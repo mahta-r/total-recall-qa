@@ -66,35 +66,35 @@ def run_qald10_pipeline(args):
         print(f"Error: Could not import pipeline components: {e}")
         return 1
 
-    # Step 1: Get Annotations
-    print("=" * 70)
-    print("STEP 1: Get Annotations")
-    print("=" * 70)
-    try:
-        result = step1.process_qald10_annotations(
-            input_file=str(input_file),
-            output_file=str(step1_output),
-            entity_type_output_file=str(step1_entity_types),
-            model_name=args.model
-        )
-        if result != 0:
-            print("✗ Step 1 failed")
-            return 1
-        print("✓ Step 1 completed\n")
-    except Exception as e:
-        print(f"✗ Step 1 failed: {e}")
-        return 1
+    # # Step 1: Get Annotations
+    # print("=" * 70)
+    # print("STEP 1: Get Annotations")
+    # print("=" * 70)
+    # try:
+    #     result = step1.process_qald10_annotations(
+    #         input_file=str(input_file),
+    #         output_file=str(step1_output),
+    #         entity_type_output_file=str(step1_entity_types),
+    #         model_name=args.model
+    #     )
+    #     if result != 0:
+    #         print("✗ Step 1 failed")
+    #         return 1
+    #     print("✓ Step 1 completed\n")
+    # except Exception as e:
+    #     print(f"✗ Step 1 failed: {e}")
+    #     return 1
 
-    # Step 2: Get Properties
-    print("=" * 70)
-    print("STEP 2: Get Properties")
-    print("=" * 70)
-    try:
-        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-        print("✓ Step 2 completed\n")
-    except Exception as e:
-        print(f"✗ Step 2 failed: {e}")
-        return 1
+    # # Step 2: Get Properties
+    # print("=" * 70)
+    # print("STEP 2: Get Properties")
+    # print("=" * 70)
+    # try:
+    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+    #     print("✓ Step 2 completed\n")
+    # except Exception as e:
+    #     print(f"✗ Step 2 failed: {e}")
+    #     return 1
 
     # Step 3: Generate Queries
     print("=" * 70)
