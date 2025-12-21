@@ -141,9 +141,6 @@ def generate_total_recall_query(client, prompt_template, original_query, propert
     )
 
     try:
-        # Debug: print prompt being sent
-        # print(f"\n    Sending prompt to {model_name}...")
-
         response = client.chat.completions.create(
             model=model_name,
             messages=[
@@ -154,9 +151,6 @@ def generate_total_recall_query(client, prompt_template, original_query, propert
         )
 
         response_text = response.choices[0].message.content.strip()
-
-        # Debug: print the raw response
-        # print(f"\n    Raw LLM Response: {response_text}")
 
         # Try to parse JSON response
         try:
@@ -373,10 +367,6 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
          open(output_file, file_mode, encoding='utf-8') as f_out:
 
         for line_num, line in enumerate(f_in, 1):
-
-            # if line_num == 50:
-            #     break
-
             try:
                 sample = json.loads(line)
                 current_qid = sample.get('qid')
@@ -465,27 +455,13 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                             # Continue anyway, but mark as None
                             calculated_answer = None
 
-                        # Create entry with simplified structure - main fields + extra
+                        # Create entry with simplified structure
                         entry = {
                             "qid": sample.get('qid'),
                             "original_query": sample.get('query'),
                             "total_recall_query": generated_query,
                             "total_recall_answer": calculated_answer,
                             "aggregation_function": aggregation_function,
-                            # "extra": {
-                            #     "file_id": extra.get('file_id'),
-                            #     "dataset_answer": extra.get('dataset_answer'),
-                            #     "updated_answer": sample.get('answer'),
-                            #     "intermediate_qids": intermediate_qids,
-                            #     "aggregationableProperties": aggregatable_properties,
-                            #     "selected_property": {
-                            #         "property_id": property_id,
-                            #         "property_label": property_label,
-                            #         "datatype": prop.get('datatype')
-                            #     },
-                            #     "property_values": property_values,
-                            #     "intermediate_qids_instances_of": extra.get('intermediate_qids_instances_of')
-                            # }
                         }
 
                         # Write entry to output file

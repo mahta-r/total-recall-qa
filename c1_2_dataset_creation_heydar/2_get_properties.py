@@ -198,9 +198,6 @@ def process_dataset_with_aggregatable_properties(dataset_file, output_file):
 
         for line_num, line in enumerate(f_in, 1):
             try:
-                # if line_num == 10:
-                #     break
-
                 sample = json.loads(line)
 
                 # Get intermediate QIDs from unified format

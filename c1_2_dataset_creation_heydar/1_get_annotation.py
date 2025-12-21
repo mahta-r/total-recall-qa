@@ -27,7 +27,6 @@ from tqdm import tqdm
 from typing import List, Dict, Optional, Any
 from collections import Counter
 from openai import OpenAI
-from string import Template
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -188,83 +187,6 @@ def get_wikipedia_title_from_qid(qid: str, lang: str = "en") -> Optional[str]:
     except Exception as e:
         print(f"Error fetching {qid}: {e}")
         return None
-
-
-def get_shared_properties(qids: List[str], aggregatable_props: List[Dict]) -> List[Dict]:
-    """
-    Get properties that are shared across all entities in the QID list,
-    filtered to only aggregatable properties.
-
-    Args:
-        qids: List of Wikidata QIDs
-        aggregatable_props: List of aggregatable property dicts from get_all_aggregatable_properties
-
-    Returns:
-        List of shared property dicts with datatype info
-    """
-    if not qids:
-        return []
-
-    # Create a set of aggregatable property IDs for fast lookup
-    agg_prop_ids = {p['property_id'] for p in aggregatable_props}
-
-    # Build SPARQL query to find properties shared by all entities
-    from SPARQLWrapper import SPARQLWrapper, JSON
-
-    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
-    sparql.addCustomHttpHeader("User-Agent", "Quest-Pipeline/1.0 (research)")
-    sparql.setTimeout(60)
-
-    # VALUES block for QIDs
-    values_block = " ".join(f"wd:{qid}" for qid in qids)
-
-    query = f"""
-    SELECT ?property ?propertyLabel ?datatype (COUNT(DISTINCT ?entity) as ?entityCount) WHERE {{
-      VALUES ?entity {{ {values_block} }}
-      ?entity ?prop ?value .
-      ?property wikibase:directClaim ?prop .
-      ?property wikibase:propertyType ?datatype .
-
-      # Only aggregatable datatypes
-      FILTER(?datatype IN (
-        wikibase:Quantity,
-        wikibase:Time,
-        wikibase:GlobeCoordinate
-      ))
-
-      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-    }}
-    GROUP BY ?property ?propertyLabel ?datatype
-    HAVING (COUNT(DISTINCT ?entity) = {len(qids)})
-    """
-
-    sparql.setQuery(query)
-    sparql.setReturnFormat(JSON)
-
-    try:
-        results = sparql.query().convert()
-
-        shared_props = []
-        for result in results["results"]["bindings"]:
-            prop_id = result["property"]["value"].split("/")[-1]
-
-            # Filter out non-aggregatable and internal properties
-            if prop_id in NO_AGGREGATION_PROPS or prop_id in INTERNAL_WIKI_PROPS:
-                continue
-
-            # Only include if in our aggregatable list
-            if prop_id in agg_prop_ids:
-                shared_props.append({
-                    "property_id": prop_id,
-                    "property_label": result["propertyLabel"]["value"],
-                    "datatype": result["datatype"]["value"].split("#")[-1]
-                })
-
-        return shared_props
-
-    except Exception as e:
-        print(f"Error querying for shared properties: {e}")
-        return []
 
 
 # ========================================================================
@@ -613,13 +535,12 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
 # Quest-specific annotation functions
 # ========================================================================
 
-def process_quest_entry(entry: Dict, aggregatable_props: List[Dict], entry_idx: int) -> Optional[Dict]:
+def process_quest_entry(entry: Dict, entry_idx: int) -> Optional[Dict]:
     """
     Process a single Quest dataset entry.
 
     Args:
         entry: Quest dataset entry with 'docs' field
-        aggregatable_props: List of all aggregatable properties
         entry_idx: Index of the entry (for generating QID)
 
     Returns:
@@ -658,8 +579,6 @@ def process_quest_entry(entry: Dict, aggregatable_props: List[Dict], entry_idx: 
         "answer": None,  # Quest doesn't have answers
         "extra": {
             "docs": docs,
-            # "original_query": entry.get("original_query", entry.get("query", "")),
-            # "metadata": entry.get("metadata", {}),
             "intermediate_qids_instances_of": intermediate_qids_instances_of
         }
     }
@@ -746,7 +665,7 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     with open(output_file, 'w', encoding='utf-8') as out_f:
         for idx, entry in enumerate(tqdm(sampled_entries, desc="Processing entries")):
             # Process the entry with index for QID generation
-            result = process_quest_entry(entry, [], idx)
+            result = process_quest_entry(entry, idx)
 
             if result:
                 out_f.write(json.dumps(result, ensure_ascii=False) + "\n")
@@ -766,30 +685,6 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     print(f"Output: {output_file}")
 
     return 0
-
-
-# ========================================================================
-# Main entry point with dataset routing
-# ========================================================================
-
-def process_annotations(dataset: str, **kwargs) -> int:
-    """
-    Route to appropriate annotation function based on dataset type.
-
-    Args:
-        dataset: Dataset type ("qald10" or "quest")
-        **kwargs: Additional arguments to pass to the annotation function
-
-    Returns:
-        0 on success, 1 on error
-    """
-    if dataset.lower() == "qald10":
-        return process_qald10_annotations(**kwargs)
-    elif dataset.lower() == "quest":
-        return process_quest_annotations(**kwargs)
-    else:
-        print(f"Error: Unknown dataset type '{dataset}'. Supported: qald10, quest")
-        return 1
 
 
 if __name__ == "__main__":
