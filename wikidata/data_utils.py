@@ -67,7 +67,7 @@ def normalize_value_units(property_id: str, entity_values: List[Dict], in_place:
     return (common_unit, entity_values) if in_place else (common_unit, normalized_values)
 
 
-def convert_numerical_values(entity_values: List[Dict], in_place: bool = True) -> List[Dict]:
+def normalize_numerical_types(entity_values: List[Dict], in_place: bool = True) -> List[Dict]:
     for entity_value in entity_values:
         value_str = entity_value['value']
         if isinstance(value_str, (int, float)):

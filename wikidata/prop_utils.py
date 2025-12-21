@@ -30,6 +30,8 @@ NO_AGGREGATION_PROPS = [
     "P4565", # electoral district number -- number of the constituency/electoral district established by law. Only to be used if the number is established by law, regulation, or other legally-binding decision; not to be used for database identifier numbers which lack legal force, even if contained in a government database.
 ]
 
+POINT_IN_TIME_QUALIFIER = 'P585'  # https://www.wikidata.org/wiki/Property:P585
+
 
 INTERNAL_WIKI_PROPS = set()
 INTERNAL_WIKI_PROPS.update(["P31"]) # instance of
