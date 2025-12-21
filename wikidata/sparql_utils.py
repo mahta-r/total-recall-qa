@@ -1,14 +1,16 @@
 import time
 import random
+import requests
 import tqdm
 from typing import Dict, List, Optional, Set, Tuple
+from collections import defaultdict
 from urllib.parse import unquote
 from urllib.error import HTTPError
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 MW_API = "https://en.wikipedia.org/w/api.php"
-USER_AGENT = "TotalRecallRAG/0.1 (contact: mrafiee@umass.edu)"
+USER_AGENT = "TotalRecallRAG/0.1 (contact: email@example.edu)"
 
 
 def safe_query(sparql, max_retries=5):
@@ -48,7 +50,7 @@ def is_wikidata_id(value):
 
 def get_subclasses_of_class(qid, endpoint=WDQS_ENDPOINT):
     sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomHttpHeader('User-Agent', 'vscode (mrafiee@umass.edu)')
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
     query = f"""
     SELECT ?subclass ?subclassLabel WHERE {{
       ?subclass wdt:P279* wd:{qid}.
@@ -83,7 +85,7 @@ def count_instances_in_batches(subclass_ids, endpoint=WDQS_ENDPOINT):
     GROUP BY ?subclass
     """
     sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomHttpHeader('User-Agent', 'vscode (mrafiee@umass.edu)')
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
     results = safe_query(sparql)
@@ -121,7 +123,7 @@ def add_instance_counts(subclasses, endpoint=WDQS_ENDPOINT, batch_size=20, sleep
 
 def get_instances_of_class(qid, endpoint=WDQS_ENDPOINT, limit=100):
     sparql = SPARQLWrapper(endpoint)
-    sparql.addCustomHttpHeader('User-Agent', 'vscode (mrafiee@umass.edu)')
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
     query = f"""
     SELECT ?entity ?entityLabel ?wikipedia WHERE {{
       ?entity wdt:P31 wd:{qid}.
@@ -149,15 +151,16 @@ def get_instances_of_class(qid, endpoint=WDQS_ENDPOINT, limit=100):
 
 def get_properties_of_subclass(subclass_qid, limit=100, endpoint=WDQS_ENDPOINT):
     query = f"""
-    SELECT ?property ?propertyLabel ?propertyDescription (COUNT(*) AS ?count) WHERE {{
+    SELECT ?property ?propertyLabel ?propertyDescription ?datatype (COUNT(*) AS ?count) WHERE {{
       ?entity wdt:P31 wd:{subclass_qid}.
       ?entity ?prop ?value.
       ?statementProperty wikibase:directClaim ?prop.
       FILTER(STRSTARTS(STR(?prop), "http://www.wikidata.org/prop/direct/"))
       BIND(IRI(STR(?statementProperty)) AS ?property)
+      ?property wikibase:propertyType ?datatype .
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
     }}
-    GROUP BY ?property ?propertyLabel ?propertyDescription
+    GROUP BY ?property ?propertyLabel ?propertyDescription ?datatype
     ORDER BY DESC(?count)
     LIMIT {limit}
     """
@@ -165,7 +168,7 @@ def get_properties_of_subclass(subclass_qid, limit=100, endpoint=WDQS_ENDPOINT):
     sparql = SPARQLWrapper(endpoint)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
-    sparql.addCustomHttpHeader('User-Agent', 'vscode (mrafiee@umass.edu)')
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
     results = safe_query(sparql)
 
     properties = []
@@ -176,6 +179,7 @@ def get_properties_of_subclass(subclass_qid, limit=100, endpoint=WDQS_ENDPOINT):
             "property_id": prop_id,
             "label": result.get("propertyLabel", {}).get("value", ""),
             "description": result.get("propertyDescription", {}).get("value", ""),
+            "datatype": result.get("datatype", {}).get("value", "").split('#')[-1],
             "count": int(result["count"]["value"]),
         })
         
@@ -290,27 +294,26 @@ def get_quantity_property(qid: str, endpoint=WDQS_ENDPOINT) -> Optional[int]:
     return None
 
 
-# def get_classes_with_quantity_property(endpoint=WDQS_ENDPOINT, limit=1000):
-#     sparql = SPARQLWrapper(endpoint)
-#     sparql.setReturnFormat(JSON)
-#     sparql.addCustomHttpHeader("User-Agent", USER_AGENT)
-#     query = f"""
-#     SELECT ?class ?classLabel ?quantity WHERE {{
-#       ?class wdt:P1114 ?quantity .
-#       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
-#     }}
-#     ORDER BY DESC(?quantity)
-#     """
-#     # LIMIT {limit}
-#     sparql.setQuery(query)
-#     results = safe_query(sparql)
-#     classes = []
-#     for result in results["results"]["bindings"]:
-#         qid = result["class"]["value"].split("/")[-1]
-#         label = result.get("classLabel", {}).get("value", "")
-#         quantity = result["quantity"]["value"]
-#         classes.append({"id": qid, "label": label, "quantity": quantity})
-#     return classes
+def get_classes_with_quantity_property(endpoint=WDQS_ENDPOINT):
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader("User-Agent", USER_AGENT)
+    query = f"""
+    SELECT ?class ?classLabel ?quantity WHERE {{
+      ?class wdt:P1114 ?quantity .
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+    }}
+    ORDER BY DESC(?quantity)
+    """
+    sparql.setQuery(query)
+    results = safe_query(sparql)
+    classes = []
+    for result in results["results"]["bindings"]:
+        qid = result["class"]["value"].split("/")[-1]
+        label = result.get("classLabel", {}).get("value", "")
+        quantity = result["quantity"]["value"]
+        classes.append({"id": qid, "label": label, "quantity": quantity})
+    return classes
 
 
 def get_classes_with_single_quantity(endpoint=WDQS_ENDPOINT):
@@ -370,6 +373,157 @@ def is_property_fully_populated(subclass_qid, property_id, endpoint=WDQS_ENDPOIN
     return not result["boolean"]  # False = not fully populated, so we return True if boolean is False
 
 
+# def build_property_value_query(subclass_qid, property_id, datatype):
+#     if datatype == "Quantity":
+#         value_pattern = f"""
+#         ?entity p:{property_id} ?statement .
+#         ?statement psv:{property_id} ?valueNode .
+#         ?valueNode wikibase:quantityAmount ?value .
+#         OPTIONAL {{ ?valueNode wikibase:quantityUnit ?unit . }}
+#         """
+#     elif datatype == "Time":
+#         value_pattern = f"""
+#         ?entity p:{property_id} ?statement .
+#         ?statement psv:{property_id} ?valueNode .
+#         ?valueNode wikibase:timeValue ?value .
+#         OPTIONAL {{ ?valueNode wikibase:timePrecision ?precision . }}
+#         OPTIONAL {{ ?valueNode wikibase:timeCalendarModel ?calendar . }}
+#         """
+#     elif datatype == "GlobeCoordinate":
+#         value_pattern = f"""
+#         ?entity p:{property_id} ?statement .
+#         ?statement psv:{property_id} ?valueNode .
+#         ?valueNode wikibase:geoLatitude ?lat .
+#         ?valueNode wikibase:geoLongitude ?lon .
+#         OPTIONAL {{ ?valueNode wikibase:geoGlobe ?globe . }}
+#         """
+
+
+def group_qualifiers(results, value_keys):
+    grouped = defaultdict(lambda: [])
+    for r in results["results"]["bindings"]:
+        eid = r["entity"]["value"].split("/")[-1]
+        vals = [r[key]["value"] for key in value_keys]
+        key = (eid, *vals)
+        entry = grouped[key]
+        if "qualifierProp" in r:
+            qid = r["qualifierProp"]["value"].split("/")[-1]
+            qlabel = r.get("qualifierPropLabel", {}).get("value", ""),
+            qval = r["qualifierValue"]["value"]
+            entry.append({"id": qid, "label": qlabel, "value": qval})
+    return grouped
+
+
+def get_numerical_values(subclass_qid, property_id, endpoint=WDQS_ENDPOINT):
+    query = f"""
+    SELECT ?entity ?entityLabel ?statement ?value ?unit ?unitLabel ?qualifierProp ?qualifierPropLabel ?qualifierValue 
+    WHERE {{
+      ?entity wdt:P31 wd:{subclass_qid}.
+      ?entity p:{property_id} ?statement.
+      ?statement psv:{property_id} ?valueNode.
+      ?valueNode wikibase:quantityAmount ?value.
+      OPTIONAL {{ ?valueNode wikibase:quantityUnit ?unit. }}
+      OPTIONAL {{
+        ?statement ?qualifierPred ?qualifierValue.
+        ?qualifierProp wikibase:qualifier ?qualifierPred.
+      }}
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+    }}
+    """
+    # OPTIONAL {{ ?valueNode wikibase:quantityUpperBound ?upperBound . }}
+    # OPTIONAL {{ ?valueNode wikibase:quantityLowerBound ?lowerBound . }}
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
+    results = safe_query(sparql)
+    
+    entity2values2qualifiers = {}
+    
+    for r in results["results"]["bindings"]:
+        stmt = r["statement"]["value"]
+        entity_id = r["entity"]["value"].split("/")[-1]
+        entity_label = r.get("entityLabel", {}).get("value", "")
+        if entity_id not in entity2values2qualifiers:
+            entity2values2qualifiers[entity_id] = {
+                "entity_label": entity_label,
+                "values": {}}
+        else:
+            assert entity_label == entity2values2qualifiers[entity_id]["entity_label"]
+        
+        value = r["value"]["value"]
+        unit_id = r.get("unit", {}).get("value", "").split("/")[-1] if r.get("unit", {}) else None
+        unit_label = r.get("unitLabel", {}).get("value", "") if r.get("unit", {}) else None
+        if stmt not in entity2values2qualifiers[entity_id]["values"]:
+            entity2values2qualifiers[entity_id]["values"][stmt] = {
+                "value": value,
+                "unit_id": unit_id,
+                "unit_label": unit_label,
+                "qualifiers": {}}
+        else:
+            assert value == entity2values2qualifiers[entity_id]["values"][stmt]["value"]
+            assert unit_id == entity2values2qualifiers[entity_id]["values"][stmt]["unit_id"]
+            assert unit_label == entity2values2qualifiers[entity_id]["values"][stmt]["unit_label"]
+
+        if "qualifierProp" in r:
+            qualifier_id = r["qualifierProp"]["value"].split("/")[-1]
+            qualifier_label = r.get("qualifierPropLabel", {}).get("value", ""),
+            qualifier_val = r["qualifierValue"]["value"]
+
+            if qualifier_id not in entity2values2qualifiers[entity_id]["values"][stmt]["qualifiers"]:
+                entity2values2qualifiers[entity_id]["values"][stmt]["qualifiers"][qualifier_id] = {
+                    "label": qualifier_label,
+                    "values": [qualifier_val]
+                }
+            else:
+                assert qualifier_label == entity2values2qualifiers[entity_id]["values"][stmt]["qualifiers"][qualifier_id]["label"]
+                if qualifier_val not in entity2values2qualifiers[entity_id]["values"][stmt]["qualifiers"][qualifier_id]["values"]:
+                    entity2values2qualifiers[entity_id]["values"][stmt]["qualifiers"][qualifier_id]["values"].append(qualifier_val)
+
+    return entity2values2qualifiers
+
+
+def get_coordinate_values(subclass_qid, property_id, endpoint=WDQS_ENDPOINT):
+    query = f"""
+    SELECT ?entity ?entityLabel ?lat ?lon ?globe ?globeLabel ?qualifierProp ?qualifierPropLabel ?qualifierValue 
+    WHERE {{
+      ?entity wdt:P31 wd:{subclass_qid}.
+      ?entity p:{property_id} ?statement.
+      ?statement psv:{property_id} ?valueNode.
+      ?valueNode wikibase:geoLatitude ?lat .
+      ?valueNode wikibase:geoLongitude ?lon .
+      OPTIONAL {{ ?valueNode wikibase:geoGlobe ?globe . }}
+      OPTIONAL {{
+        ?statement ?qualifierPred ?qualifierValue.
+        ?qualifierProp wikibase:qualifier ?qualifierPred.
+      }}
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en,mul". }}
+    }}
+    """
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
+    results = safe_query(sparql)
+    
+    rows = []
+    value_keys = ["lat", "lon"]
+    qualifiers = group_qualifiers(results, value_keys)
+    for r in results["results"]["bindings"]:
+        entity_id = r["entity"]["value"].split("/")[-1]
+        vals = [r[key]["value"] for key in value_keys]
+        rows.append({
+            "entity_id": entity_id,
+            "entity_label": r.get("entityLabel", {}).get("value", ""),
+            "value": {"lat": vals[0], "lon": vals[1]},
+            "globe_id": r.get("globe", {}).get("value", "").split("/")[-1] if r.get("globe", {}) else None,
+            "globe_label": r.get("globeLabel", {}).get("value", "") if r.get("globe", {}) else None,
+            "qualifiers": qualifiers[(entity_id, *vals)]
+            })
+    return rows
+
+
 def get_entity_property_values(subclass_qid, property_id, endpoint=WDQS_ENDPOINT):
     query = f"""
     SELECT ?entity ?entityLabel ?value WHERE {{
@@ -382,7 +536,7 @@ def get_entity_property_values(subclass_qid, property_id, endpoint=WDQS_ENDPOINT
     sparql = SPARQLWrapper(endpoint)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
-    sparql.addCustomHttpHeader('User-Agent', 'vscode (mrafiee@umass.edu)')
+    sparql.addCustomHttpHeader('User-Agent', USER_AGENT)
     results = safe_query(sparql)
 
     rows = []
@@ -419,5 +573,83 @@ def get_label_and_description(entity_id: str, endpoint=WDQS_ENDPOINT) -> Optiona
             "description": bindings[0].get("entityDescription", {}).get("value", "")
         }
     return None
+
+
+# def wikipedia_page_id_from_url(url, endpoint=WDQS_ENDPOINT) -> str:
+#     # Extract the Wikipedia title using SPARQL
+#     query = f"""
+#     SELECT ?title WHERE {{
+#       BIND(IRI("{url}") AS ?link)
+#       ?item schema:about ?link .
+#       ?link schema:name ?title .
+#     }} LIMIT 1
+#     """
+    
+#     sparql = SPARQLWrapper(endpoint)
+#     sparql.setReturnFormat(JSON)
+#     sparql.setQuery(query)
+#     result = sparql.query().convert()
+#     title = result["results"]["bindings"][0]["title"]["value"]
+
+#     # Query MediaWiki API for the page ID
+#     resp = requests.get(
+#         MW_API,
+#         params={"action": "query", "titles": title, "format": "json"}
+#     ).json()
+#     pageid = list(resp["query"]["pages"].keys())[0]
+    
+#     return title, int(pageid)
+
+
+
+def get_wikimedia_lists_with_p360_qualifiers(endpoint=WDQS_ENDPOINT):
+    query = """
+    SELECT DISTINCT
+        ?list ?listLabel
+        ?enwiki
+        ?category
+        ?stmt
+        ?items ?itemsLabel
+        ?qualProp ?qualPropLabel
+        ?qualValue ?qualValueLabel
+    WHERE {
+        ?list wdt:P31 wd:Q13406463 . # instance of Wikimedia list article
+        ?enwiki schema:about ?list ; # English Wikipedia sitelink
+                schema:isPartOf <https://en.wikipedia.org/> . 
+        ?list wdt:P1754 ?category . # category related to list (truthy)
+        ?list p:P360 ?stmt . # 'is a list of' as a statement (not truthy)
+        ?stmt ps:P360 ?items .
+        ?stmt ?qualProp ?qualValue . # retrieve ANY qualifier on the P360 statement
+        FILTER(STRSTARTS(STR(?qualProp), STR(pq:))) # restrict to qualifier namespace only
+        OPTIONAL { ?list wdt:P3921 ?sparql . }
+        SERVICE wikibase:label {
+            bd:serviceParam wikibase:language "en".
+        }
+    }
+    """
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader("User-Agent", USER_AGENT)
+    results = safe_query(sparql)
+
+    rows = []
+    for r in results["results"]["bindings"]:
+        rows.append({
+            "list_id": r["list"]["value"].split("/")[-1],
+            "list_label": r.get("listLabel", {}).get("value", ""),
+            "enwiki": r["enwiki"]["value"],
+            "category_id": r["category"]["value"].split("/")[-1],
+            "p360_stmt": r["stmt"]["value"].split("/")[-1],
+            "p360_item_id": r["items"]["value"].split("/")[-1],
+            "p360_item_label": r.get("itemsLabel", {}).get("value", ""),
+            "qualifier_property_id": r["qualProp"]["value"].split("/")[-1],
+            "qualifier_property_label": r.get("qualPropLabel", {}).get("value", ""),
+            "qualifier_value_id": r["qualValue"]["value"].split("/")[-1],
+            "qualifier_value_label": r.get("qualValueLabel", {}).get("value", ""),
+        })
+
+    return rows
 
 

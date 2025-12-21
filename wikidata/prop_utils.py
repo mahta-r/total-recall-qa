@@ -37,5 +37,13 @@ INTERNAL_WIKI_PROPS.update(get_structural_properties("Q19847637")) # identifier
 INTERNAL_WIKI_PROPS.update(get_structural_properties("Q51118821")) # wikimedia property
 INTERNAL_WIKI_PROPS.update(get_structural_properties("Q18614948")) # authority control
 
+
+VALID_PROP_DATATYPES = [
+    "Quantity",
+    "GlobeCoordinate",
+    "Time",
+    "WikibaseItem"
+]
+
 prop_type_mapping = read_json_from_file("wikidata/resources/prop_type_mapping.json")
 prop_operation_mapping = read_json_from_file("wikidata/resources/prop_operation_mapping.json")
