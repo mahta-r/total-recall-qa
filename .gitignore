@@ -34,6 +34,7 @@ venv.bak/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints
+*.ipynb
 
 # PyCharm
 .idea/
@@ -96,6 +97,7 @@ Desktop.ini
 # data and notebooks 
 data/
 notebooks/
+archive/
 
 # API keys and secrets
 *.key
