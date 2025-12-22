@@ -210,6 +210,47 @@ def generate_total_recall_query(client, prompt_template, original_query, propert
         return None
 
 
+def get_property_description(property_id):
+    """
+    Query Wikidata to get the description of a property.
+
+    Args:
+        property_id: A property ID (e.g., 'P569')
+
+    Returns:
+        Property description string, or empty string if not found
+    """
+    if not property_id:
+        return ""
+
+    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
+    sparql.setTimeout(30)
+
+    query = f"""
+    SELECT ?description
+    WHERE {{
+      wd:{property_id} schema:description ?description .
+      FILTER(LANG(?description) = "en")
+    }}
+    LIMIT 1
+    """
+
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+
+    try:
+        results = sparql.query().convert()
+        bindings = results["results"]["bindings"]
+
+        if bindings:
+            return bindings[0]["description"]["value"]
+        return ""
+    except Exception as e:
+        print(f"  Error querying property description: {e}")
+        return ""
+
+
 def get_property_values_for_items(item_qids, property_id):
     """
     Query Wikidata to get the values of a specific property for a list of items.
@@ -414,6 +455,14 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                         # All items have values for this property - valid pair!
                         print("✓ Valid pair found!")
 
+                        # Get property description from SPARQL
+                        print(f"    Fetching property description...", end=" ")
+                        property_description = get_property_description(property_id)
+                        if property_description:
+                            print("✓")
+                        else:
+                            print("✗ (empty)")
+
                         # Get entity type for the prompt from extra dict
                         entity_type_info = extra.get('intermediate_qids_instances_of', {})
                         entity_type = entity_type_info.get('label', 'entity') if entity_type_info else 'entity'
@@ -455,12 +504,21 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                             # Continue anyway, but mark as None
                             calculated_answer = None
 
+                        # Create the new property object with updated format
+                        property_obj = {
+                            "property_id": property_id,
+                            "property_label": property_label,
+                            "property_description": property_description
+                        }
+
                         entry = {
                             "qid": f"{sample.get('qid')}_{property_id.lower()}",
                             "original_query": sample.get('query'),
                             "total_recall_query": generated_query,
                             "total_recall_answer": calculated_answer,
                             "aggregation_function": aggregation_function,
+                            "property": property_obj,
+                            "total_recall_qids": intermediate_qids
                         }
 
                         # Write entry to output file

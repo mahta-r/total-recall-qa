@@ -180,38 +180,38 @@ def run_quest_pipeline(args):
         print(f"Error: Could not import pipeline components: {e}")
         return 1
 
-    # Step 1: Get Annotations
-    print("=" * 70)
-    print("STEP 1: Get Annotations")
-    print("=" * 70)
+    # # Step 1: Get Annotations
+    # print("=" * 70)
+    # print("STEP 1: Get Annotations")
+    # print("=" * 70)
 
-    result = step1.process_quest_annotations(
-        input_file=str(input_file),
-        output_file=str(step1_output),
-        subsample=args.subsample,
-        limit=args.limit
-    )
+    # result = step1.process_quest_annotations(
+    #     input_file=str(input_file),
+    #     output_file=str(step1_output),
+    #     subsample=args.subsample,
+    #     limit=args.limit
+    # )
 
-    if result != 0:
-        print("\n✗ Step 1 failed")
-        return 1
+    # if result != 0:
+    #     print("\n✗ Step 1 failed")
+    #     return 1
 
-    print("\n✓ Step 1 completed successfully")
-    print()
+    # print("\n✓ Step 1 completed successfully")
+    # print()
 
-    # Step 2: Get Properties
-    print("=" * 70)
-    print("STEP 2: Get Properties")
-    print("=" * 70)
+    # # Step 2: Get Properties
+    # print("=" * 70)
+    # print("STEP 2: Get Properties")
+    # print("=" * 70)
 
-    try:
-        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-        print("\n✓ Step 2 completed successfully")
-    except Exception as e:
-        print(f"\n✗ Step 2 failed: {e}")
-        return 1
+    # try:
+    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+    #     print("\n✓ Step 2 completed successfully")
+    # except Exception as e:
+    #     print(f"\n✗ Step 2 failed: {e}")
+    #     return 1
 
-    print()
+    # print()
 
     # Step 3: Generate Total Recall Queries
     print("=" * 70)
