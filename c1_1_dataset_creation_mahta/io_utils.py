@@ -24,6 +24,7 @@ def read_jsonl_from_file(file_path):
             jsonl_obj_list.append(json.loads(line))
     return jsonl_obj_list
 
+
 def read_text_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return f.read()
