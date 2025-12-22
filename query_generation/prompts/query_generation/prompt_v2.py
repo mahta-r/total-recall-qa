@@ -1,3 +1,4 @@
+QUERY_GENERATION_PROMPT = """
 Your task is to generate total-recall queries based on inputs provided.
 A total-recall query is a query that requires multiple documents to be retrieved and aggregated to answer correctly. 
 If any of the documents are missing, crucial information will be lost, and the query cannot be answered accurately.
@@ -35,3 +36,4 @@ Your output should be in a strictly specific format. Here is the format:
 Do not add any extra text, or change the starting [Query] or [Aggregation] or [Answer] tags, or modify the format in any way.
 
 {inputs}
+"""

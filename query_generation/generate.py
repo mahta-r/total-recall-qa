@@ -13,7 +13,7 @@ from io_utils import read_json_from_file, write_jsonl_to_file, read_text_from_fi
 from wikidata.prop_utils import prop_operation_mapping
 from wikidata.operation_utils import operation_descriptions, apply_operation
 from query_generation.parse_generations import extract_query_text
-
+from prompts.query_generation.prompt_v2 import QUERY_GENERATION_PROMPT
 
 
 
@@ -103,7 +103,6 @@ def generate_queries(args):
     client = OpenAI(api_key=api_key)
     
     query_generation_candidates = read_json_from_file(args.query_candidates_path)
-    prompt_template = read_text_from_file(args.prompt_template_path)
     generations = []
     queries = []
 
@@ -147,7 +146,7 @@ def generate_queries(args):
                 model=args.model, 
                 messages=[
                     {"role": "system", "content": "You are a helpful query generation assistant."},
-                    {"role": "user", "content": prompt_template.format(inputs=prompt_inputs)}
+                    {"role": "user", "content": QUERY_GENERATION_PROMPT.format(inputs=prompt_inputs)}
                 ],
                 temperature=args.temperature,
             )
@@ -200,7 +199,6 @@ if __name__ == "__main__":
     parser.add_argument("--property_num", type=str, default="all", help="Strategy for number of properties to select per subclass: all, log")
     parser.add_argument("--max_props", type=int, default=2, help="Maximum number of properties to select per subclass")
     parser.add_argument("--property_selection", type=str, default="all", help="Selection strategy for properties: random, least")
-    parser.add_argument("--prompt_template_path", type=str, required=True, help="Path to prompt template file")
     
     parser.add_argument("--model", type=str, required=True, help="Model to use for generation e.g gpt-4o-mini, gpt-4o, etc.")    
     parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for generation")
@@ -220,8 +218,7 @@ if __name__ == "__main__":
     #     --property_num all \
     #     --max_props 11 \
     #     --property_selection least \
-    #     --prompt_template_path query_generation/prompts/query_generation/prompt_v2.txt \
-    #     --model gpt-4o-mini \
+    #     --model gpt-5-mini \
     #     --log_file data/generations/V2/query_generation.log \
     #     --output_file data/generations/V2/generations.json \
     #     --queries_file data/generations/V2/queries.json
