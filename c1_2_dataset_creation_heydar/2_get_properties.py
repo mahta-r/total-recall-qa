@@ -71,7 +71,8 @@ def get_all_aggregatable_properties():
       FILTER(?datatype IN (
         wikibase:Quantity,
         wikibase:Time,
-        wikibase:GlobeCoordinate
+        wikibase:GlobeCoordinate,
+        wikibase:WikibaseItem
       ))
 
       SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
@@ -332,6 +333,7 @@ def process_dataset_with_aggregatable_properties(dataset_file, output_file):
                         "extra": sample.get("extra")
                     }
                     f_out.write(json.dumps(ordered_sample, ensure_ascii=False) + '\n')
+                    f_out.flush()
                 else:
                     print(f"  Skipping write - no aggregatable properties found")
 
