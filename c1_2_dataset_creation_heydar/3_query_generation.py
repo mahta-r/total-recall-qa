@@ -3,17 +3,57 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import json
 import argparse
+import io
+import random
 from SPARQLWrapper import SPARQLWrapper, JSON
 import time
 from openai import OpenAI
+import tqdm
 
 try:
-    from c1_2_qald_dataset_augmentation.utils.io_utils import read_text_from_file
+    from c1_2_dataset_creation_heydar.utils.operation_utils import operation_descriptions, apply_operation, get_operations_for_datatype
+    from c1_2_dataset_creation_heydar.utils.parse_generations import extract_query_text, extract_aggregation
+    from c1_2_dataset_creation_heydar.prompts.query_generation_v2 import QUERY_GENERATION_PROMPT
 except:
-    from utils.io_utils import read_text_from_file
+    from utils.operation_utils import operation_descriptions, apply_operation, get_operations_for_datatype
+    from utils.parse_generations import extract_query_text, extract_aggregation
+    from prompts.query_generation_v2 import QUERY_GENERATION_PROMPT
 
 from datetime import datetime
 from statistics import mean
+
+
+def parse_value_for_aggregation(value_data, datatype):
+    """
+    Parse a value from Wikidata into a numeric form for aggregation.
+
+    Args:
+        value_data: Value dictionary from Wikidata
+        datatype: Property datatype (Time, Quantity, etc.)
+
+    Returns:
+        Numeric value or None
+    """
+    try:
+        if datatype == 'Time':
+            # Parse dates and extract years
+            val = value_data.get('value', '')
+            if isinstance(val, str) and 'T' in val:
+                dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
+                return dt.year
+        elif datatype == 'Quantity':
+            # Extract numeric values
+            val = value_data.get('value', '')
+            if isinstance(val, (int, float)):
+                return float(val)
+            elif isinstance(val, str):
+                # Try to extract number from string (remove + prefix if present)
+                num_str = val.lstrip('+').split()[0]
+                return float(num_str)
+    except Exception as e:
+        return None
+
+    return None
 
 
 def calculate_answer(property_values, aggregation_function, datatype):
@@ -31,209 +71,50 @@ def calculate_answer(property_values, aggregation_function, datatype):
     if not property_values:
         return None
 
-    # Extract all values
-    all_values = []
+    # Extract all values and parse them
+    numeric_values = []
     for item_values in property_values.values():
         for val in item_values:
-            if val['type'] == 'literal':
-                all_values.append(val['value'])
-            elif val['type'] == 'entity':
-                # For entity values, we can count them
-                all_values.append(val['id'])
+            parsed_val = parse_value_for_aggregation(val, datatype)
+            if parsed_val is not None:
+                numeric_values.append(parsed_val)
 
-    if not all_values:
+    if not numeric_values:
         return None
 
-    agg_func = aggregation_function.upper()
-
     try:
-        # COUNT aggregation
-        if agg_func == 'COUNT':
-            return len(all_values)
-
-        # For Time datatype - always return years, not full dates
-        if datatype == 'Time':
-            # Parse dates and extract years
-            years = []
-            for val in all_values:
-                try:
-                    # Parse ISO format datetime
-                    if isinstance(val, str) and 'T' in val:
-                        dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-                        years.append(dt.year)
-                except:
-                    continue
-
-            if not years:
-                return None
-
-            if agg_func == 'EARLIEST' or agg_func == 'MIN':
-                return min(years)
-            elif agg_func == 'LATEST' or agg_func == 'MAX':
-                return max(years)
-            elif agg_func == 'AVG':
-                return round(mean(years), 2)
-            else:
-                # Default to earliest for Time
-                return min(years)
-
-        # For Quantity datatype
-        elif datatype == 'Quantity':
-            # Extract numeric values
-            numeric_values = []
-            for val in all_values:
-                try:
-                    if isinstance(val, (int, float)):
-                        numeric_values.append(float(val))
-                    elif isinstance(val, str):
-                        # Try to extract number from string
-                        num_str = val.split()[0]  # Take first token
-                        numeric_values.append(float(num_str))
-                except:
-                    continue
-
-            if not numeric_values:
-                return None
-
-            if agg_func == 'SUM':
-                return round(sum(numeric_values), 2)
-            elif agg_func == 'AVG':
-                return round(mean(numeric_values), 2)
-            elif agg_func == 'MAX':
-                return round(max(numeric_values), 2)
-            elif agg_func == 'MIN':
-                return round(min(numeric_values), 2)
-
-        # Default to count for other cases
-        return len(all_values)
-
+        return apply_operation(aggregation_function, numeric_values)
     except Exception as e:
         print(f"      Error calculating answer: {e}")
         return None
 
 
-def generate_total_recall_query(client, prompt_template, original_query, property_label, property_id, datatype, entity_type, num_entities, model_name):
+def get_entity_labels(item_qids):
     """
-    Generate a new Total Recall query using LLM.
+    Query Wikidata to get labels for a list of entity QIDs.
 
     Args:
-        client: OpenAI client instance
-        prompt_template: Prompt template string
-        original_query: The original query
-        property_label: Label of the property
-        property_id: ID of the property (e.g., P569)
-        datatype: Datatype of the property
-        entity_type: Type of entities (e.g., "human")
-        num_entities: Number of entities
-        model_name: Name of the model to use
+        item_qids: List of Wikidata item QIDs (e.g., ['Q123', 'Q456'])
 
     Returns:
-        Generated query string
+        Dictionary mapping item_qid -> label
     """
-    # Fill in the prompt template
-    prompt = prompt_template.format(
-        original_query=original_query,
-        property_label=property_label,
-        property_id=property_id,
-        datatype=datatype,
-        entity_type=entity_type,
-        num_entities=num_entities
-    )
-
-    try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=200
-        )
-
-        response_text = response.choices[0].message.content.strip()
-
-        # Try to parse JSON response
-        try:
-            # Sometimes LLMs wrap JSON in markdown code blocks
-            if response_text.startswith('```'):
-                # Extract JSON from code block
-                lines = response_text.split('\n')
-                json_lines = []
-                in_code_block = False
-                for line in lines:
-                    if line.startswith('```'):
-                        in_code_block = not in_code_block
-                        continue
-                    if in_code_block or (not line.startswith('```') and '{' in line):
-                        json_lines.append(line)
-                response_text = '\n'.join(json_lines).strip()
-
-            response_json = json.loads(response_text)
-            generated_query = response_json.get('question', '').strip()
-            aggregation_function = response_json.get('aggregation', '').strip().upper()
-
-            if not generated_query or not aggregation_function:
-                print(f"    Invalid response format - missing fields. Response: {response_text}")
-                return None
-
-            return {
-                'question': generated_query,
-                'aggregation': aggregation_function
-            }
-        except json.JSONDecodeError as e:
-            # Fallback: try to extract from text manually
-            print(f"    JSON parse error: {e}")
-            print(f"    Attempting manual extraction...")
-
-            # Try to find JSON pattern in the text
-            import re
-            json_match = re.search(r'\{[^}]+\}', response_text)
-            if json_match:
-                try:
-                    response_json = json.loads(json_match.group(0))
-                    generated_query = response_json.get('question', '').strip()
-                    aggregation_function = response_json.get('aggregation', '').strip().upper()
-
-                    if generated_query and aggregation_function:
-                        return {
-                            'question': generated_query,
-                            'aggregation': aggregation_function
-                        }
-                except:
-                    pass
-
-            print(f"    Could not extract valid JSON from response: {response_text}")
-            return None
-
-    except Exception as e:
-        print(f"    Error generating query with LLM: {e}")
-        return None
-
-
-def get_property_description(property_id):
-    """
-    Query Wikidata to get the description of a property.
-
-    Args:
-        property_id: A property ID (e.g., 'P569')
-
-    Returns:
-        Property description string, or empty string if not found
-    """
-    if not property_id:
-        return ""
+    if not item_qids:
+        return {}
 
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
     sparql.setTimeout(30)
 
+    # Create VALUES clause for items
+    items_values = " ".join([f"wd:{qid}" for qid in item_qids])
+
     query = f"""
-    SELECT ?description
+    SELECT ?item ?itemLabel
     WHERE {{
-      wd:{property_id} schema:description ?description .
-      FILTER(LANG(?description) = "en")
+      VALUES ?item {{ {items_values} }}
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
     }}
-    LIMIT 1
     """
 
     sparql.setQuery(query)
@@ -241,14 +122,84 @@ def get_property_description(property_id):
 
     try:
         results = sparql.query().convert()
-        bindings = results["results"]["bindings"]
 
-        if bindings:
-            return bindings[0]["description"]["value"]
-        return ""
+        entity_labels = {}
+        for result in results["results"]["bindings"]:
+            item_uri = result["item"]["value"]
+            item_id = item_uri.split("/")[-1]
+            entity_labels[item_id] = result["itemLabel"]["value"]
+
+        return entity_labels
     except Exception as e:
-        print(f"  Error querying property description: {e}")
-        return ""
+        print(f"  Error querying entity labels: {e}")
+        return {}
+
+
+def generate_total_recall_query(client, model_name, temperature, original_query, entity_class_label,
+                                  entity_class_id, entity_class_description, property_label, property_id,
+                                  property_description, datatype, operation, entity_values, instance_count,
+                                  unit_label=None, unit_id=None, point_in_time=None):
+    """
+    Generate a new Total Recall query using LLM with detailed context.
+
+    Args:
+        client: OpenAI client instance
+        model_name: Name of the model to use
+        temperature: Temperature for generation
+        original_query: The original query from the dataset
+        entity_class_label: Label of the entity class
+        entity_class_id: ID of the entity class
+        entity_class_description: Description of the entity class
+        property_label: Label of the property
+        property_id: ID of the property
+        property_description: Description of the property
+        datatype: Datatype of the property
+        operation: Aggregation operation to use
+        entity_values: List of dicts with entity_id, entity_label, and value
+        instance_count: Total number of instances
+        unit_label: Optional unit label
+        unit_id: Optional unit ID
+        point_in_time: Optional point in time
+
+    Returns:
+        Response object with completion
+    """
+    # Build the prompt inputs with original query at the top
+    prompt_inputs_buffer = io.StringIO()
+    print(f"original-query: {original_query}", file=prompt_inputs_buffer)
+    print(f"class (set of entities): {entity_class_label} ({entity_class_id}) - {entity_class_description}", file=prompt_inputs_buffer)
+    print(f"attribute: {property_label} ({property_id}) - {property_description}", file=prompt_inputs_buffer)
+
+    if unit_id is not None and unit_id != "Q199":  # excluding unit "1" (Q199)
+        print(f"unit: {unit_label} ({unit_id})", file=prompt_inputs_buffer)
+
+    if point_in_time is not None:
+        print(f"point-in-time: {point_in_time}", file=prompt_inputs_buffer)
+
+    print(f"aggregation-operation: {operation} - {operation_descriptions.get(operation, '')}", file=prompt_inputs_buffer)
+    print(f"entity-values: ({instance_count} instances):", file=prompt_inputs_buffer)
+
+    for record in entity_values:
+        print(f"  {record['entity_id']}: {record['entity_label']} -> {record['value']}", file=prompt_inputs_buffer)
+
+    prompt_inputs = prompt_inputs_buffer.getvalue()
+    prompt_inputs_buffer.close()
+
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": "You are a helpful query generation assistant."},
+                {"role": "user", "content": QUERY_GENERATION_PROMPT.format(inputs=prompt_inputs)}
+            ],
+            temperature=temperature,
+        )
+
+        return response, prompt_inputs
+
+    except Exception as e:
+        print(f"    Error generating query with LLM: {e}")
+        return None, prompt_inputs
 
 
 def get_property_values_for_items(item_qids, property_id):
@@ -361,7 +312,7 @@ def get_last_processed_qid(output_file):
         return None
 
 
-def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_path, model_name, resume=True):
+def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log_file, model_name, temperature, seed, resume=True):
     """
     Loop through the dataset file, and for each row find valid pairs of
     (intermediate_qids, property) where all items have a value for that property.
@@ -371,13 +322,19 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
 
     Args:
         dataset_file: Path to input dataset
-        output_file: Path to output file
-        prompt_template_path: Path to prompt template
+        output_file: Path to output file for full generations
+        queries_file: Path to output file for parsed queries
+        log_file: Path to log file
         model_name: Model name to use
+        temperature: Temperature for generation
+        seed: Random seed
         resume: If True, resume from last processed QID
     """
+    random.seed(seed)
     print(f"Processing dataset: {dataset_file}")
     print(f"Using model: {model_name}")
+    print(f"Temperature: {temperature}")
+    print(f"Random seed: {seed}")
 
     # Check if we should resume from a previous run
     last_processed_qid = None
@@ -394,20 +351,21 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
         raise ValueError("OPENAI_API_KEY environment variable not set")
 
     client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
-    prompt_template = read_text_from_file(prompt_template_path)
 
+    generations = []
+    queries = []
     valid_pairs_count = 0
     total_rows = 0
     skipped_rows = 0
     found_last_qid = False if last_processed_qid else True
 
-    # Open output file in append mode if resuming, otherwise write mode
+    # Open output files
     file_mode = 'a' if (resume and last_processed_qid) else 'w'
 
     with open(dataset_file, 'r', encoding='utf-8') as f_in, \
-         open(output_file, file_mode, encoding='utf-8') as f_out:
+         open(log_file, file_mode, encoding='utf-8') as log:
 
-        for line_num, line in enumerate(f_in, 1):
+        for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
             try:
                 sample = json.loads(line)
                 current_qid = sample.get('qid')
@@ -430,106 +388,148 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                 intermediate_qids = [qid for qid in intermediate_qids if qid is not None]
 
                 if not intermediate_qids or not aggregatable_properties:
-                    print(f"\n[Row {line_num}] No intermediate QIDs or properties, skipping")
                     continue
-
-                print(f"\n[Row {line_num}] Processing {len(intermediate_qids)} items with {len(aggregatable_properties)} properties")
 
                 # Get extra info from unified format
                 extra = sample.get('extra', {})
+                entity_type_info = extra.get('intermediate_qids_instances_of', {})
+                entity_class_label = entity_type_info.get('label', 'entity') if entity_type_info else 'entity'
+                entity_class_id = entity_type_info.get('id', '') if entity_type_info else ''
+                entity_class_description = entity_type_info.get('description', '') if entity_type_info else ''
+
+                # Get entity labels once for all properties
+                print(f"\n[Query {line_num}] Fetching entity labels for {len(intermediate_qids)} items...", end=" ")
+                entity_labels = get_entity_labels(intermediate_qids)
+                print("✓" if entity_labels else "✗")
 
                 # Try each property to find valid pairs
                 for prop in aggregatable_properties:
                     property_id = prop.get('property_id')
                     property_label = prop.get('property_label')
+                    property_description = prop.get('property_description', '')
+                    datatype = prop.get('datatype', '')
 
                     if not property_id:
                         continue
 
-                    print(f"  Checking property {property_id} ({property_label})...", end=" ")
+                    print(f"  Property {property_id} ({property_label})...", end=" ")
 
                     # Get property values for all intermediate items
                     property_values = get_property_values_for_items(intermediate_qids, property_id)
 
-                    if property_values is not None:
-                        # All items have values for this property - valid pair!
-                        print("✓ Valid pair found!")
-
-                        # Get property description from SPARQL
-                        print(f"    Fetching property description...", end=" ")
-                        property_description = get_property_description(property_id)
-                        if property_description:
-                            print("✓")
-                        else:
-                            print("✗ (empty)")
-
-                        # Get entity type for the prompt from extra dict
-                        entity_type_info = extra.get('intermediate_qids_instances_of', {})
-                        entity_type = entity_type_info.get('label', 'entity') if entity_type_info else 'entity'
-
-                        # Generate Total Recall query using LLM
-                        print(f"    Generating Total Recall query...", end=" ")
-                        generation_result = generate_total_recall_query(
-                            client=client,
-                            prompt_template=prompt_template,
-                            original_query=sample.get('query', ''),
-                            property_label=property_label,
-                            property_id=property_id,
-                            datatype=prop.get('datatype', ''),
-                            entity_type=entity_type,
-                            num_entities=len(intermediate_qids),
-                            model_name=model_name
-                        )
-
-                        if generation_result and isinstance(generation_result, dict):
-                            print("✓")
-                            generated_query = generation_result['question']
-                            aggregation_function = generation_result['aggregation']
-                        else:
-                            print("✗ Failed to generate query")
-                            continue
-
-                        # Calculate the answer based on aggregation function
-                        print(f"    Calculating answer using {aggregation_function}...", end=" ")
-                        calculated_answer = calculate_answer(
-                            property_values=property_values,
-                            aggregation_function=aggregation_function,
-                            datatype=prop.get('datatype', '')
-                        )
-
-                        if calculated_answer is not None:
-                            print("✓")
-                        else:
-                            print("✗ Failed to calculate")
-                            # Continue anyway, but mark as None
-                            calculated_answer = None
-
-                        # Create the new property object with updated format
-                        property_obj = {
-                            "property_id": property_id,
-                            "property_label": property_label,
-                            "property_description": property_description
-                        }
-
-                        entry = {
-                            "qid": f"{sample.get('qid')}_{property_id.lower()}",
-                            "original_query": sample.get('query'),
-                            "total_recall_query": generated_query,
-                            "total_recall_answer": calculated_answer,
-                            "aggregation_function": aggregation_function,
-                            "property": property_obj,
-                            "total_recall_qids": intermediate_qids
-                        }
-
-                        # Write entry to output file
-                        f_out.write(json.dumps(entry, ensure_ascii=False) + '\n')
-                        f_out.flush()  # Ensure it's written immediately
-
-                        valid_pairs_count += 1
-                    else:
+                    if property_values is None:
                         print("✗ Not all items have values")
+                        continue
 
-                    # Be respectful to Wikidata's servers - add delay between requests
+                    print("✓ Valid pair")
+
+                    # Select a random operation based on datatype
+                    valid_operations = get_operations_for_datatype(datatype)
+                    operation = random.choice(valid_operations)
+
+                    # Build entity_values list for prompt
+                    entity_values_list = []
+                    for qid in intermediate_qids:
+                        qid_values = property_values.get(qid, [])
+                        if qid_values:
+                            parsed_val = parse_value_for_aggregation(qid_values[0], datatype)
+                            if parsed_val is not None:
+                                entity_values_list.append({
+                                    'entity_id': qid,
+                                    'entity_label': entity_labels.get(qid, qid),
+                                    'value': parsed_val
+                                })
+
+                    if not entity_values_list:
+                        print("    ✗ No valid values for aggregation")
+                        continue
+
+                    # Calculate ground truth
+                    ground_truth = calculate_answer(property_values, operation, datatype)
+
+                    if ground_truth is None:
+                        print("    ✗ Failed to calculate ground truth")
+                        continue
+
+                    # Generate query using LLM
+                    print(f"    Generating query with {operation}...", end=" ")
+                    response, prompt_inputs = generate_total_recall_query(
+                        client=client,
+                        model_name=model_name,
+                        temperature=temperature,
+                        original_query=sample.get('query', ''),
+                        entity_class_label=entity_class_label,
+                        entity_class_id=entity_class_id,
+                        entity_class_description=entity_class_description,
+                        property_label=property_label,
+                        property_id=property_id,
+                        property_description=property_description,
+                        datatype=datatype,
+                        operation=operation,
+                        entity_values=entity_values_list,
+                        instance_count=len(intermediate_qids),
+                        unit_label=None,  # TODO: extract from property values
+                        unit_id=None,
+                        point_in_time=None  # TODO: extract from property values
+                    )
+
+                    if response is None:
+                        print("✗ Failed")
+                        continue
+
+                    print("✓")
+
+                    # Log the prompt and response
+                    print("PROMPT:\n" + prompt_inputs, file=log)
+                    print(response.choices[0].message.content.strip(), file=log)
+                    print(f"GROUND TRUTH VALUE: {ground_truth}", file=log)
+                    print("\n---------------------------------------------------------------------------------------------------\n", file=log)
+
+                    # Extract query text
+                    generated_text = response.choices[0].message.content.strip()
+                    query_text = extract_query_text(generated_text)
+
+                    if not query_text:
+                        print("    ✗ Failed to extract query text")
+                        continue
+
+                    # Create generation record
+                    generation = {
+                        "qid": f"{current_qid}_{property_id.lower()}",
+                        "original_query": sample.get('query', ''),
+                        "subclass_id": entity_class_id,
+                        "subclass_label": entity_class_label,
+                        "subclass_description": entity_class_description,
+                        "property_id": property_id,
+                        "property": {
+                            "property_info": {
+                                "label": property_label,
+                                "property_id": property_id,
+                                "description": property_description,
+                                "datatype": datatype
+                            },
+                            "entities_values": entity_values_list
+                        },
+                        "operation": operation,
+                        "ground_truth": ground_truth,
+                        "completion": response.to_dict()
+                    }
+
+                    # Create query record
+                    query = {
+                        "id": f"{current_qid}_{property_id.lower()}",
+                        "question": query_text,
+                        "answer": {
+                            "type": datatype,
+                            "value": ground_truth,
+                        }
+                    }
+
+                    generations.append(generation)
+                    queries.append(query)
+                    valid_pairs_count += 1
+
+                    # Be respectful to Wikidata's servers
                     time.sleep(0.5)
 
             except json.JSONDecodeError as e:
@@ -537,14 +537,28 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, prompt_template_p
                 continue
             except Exception as e:
                 print(f"\n[Row {line_num}] Error processing sample: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
+
+    # Write output files
+    print("\nWriting output files...")
+    with open(output_file, 'w', encoding='utf-8') as f_out:
+        for gen in generations:
+            f_out.write(json.dumps(gen, ensure_ascii=False) + '\n')
+
+    with open(queries_file, 'w', encoding='utf-8') as f_out:
+        for query in queries:
+            f_out.write(json.dumps(query, ensure_ascii=False) + '\n')
 
     print(f"\n\nProcessing complete!")
     if skipped_rows > 0:
         print(f"Skipped rows (already processed): {skipped_rows}")
     print(f"Total rows processed: {total_rows}")
     print(f"Total valid pairs found: {valid_pairs_count}")
-    print(f"Output saved to: {output_file}")
+    print(f"Generations saved to: {output_file}")
+    print(f"Queries saved to: {queries_file}")
+    print(f"Log saved to: {log_file}")
 
 
 if __name__ == "__main__":
@@ -552,26 +566,44 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset_file",
         type=str,
-        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl",
+        required=True,
         help="Path to the input dataset file with properties"
     )
     parser.add_argument(
         "--output_file",
         type=str,
-        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_total_recall_queries.jsonl",
-        help="Path to the output file for generated queries"
+        required=True,
+        help="Path to the output file for full generation records"
     )
     parser.add_argument(
-        "--prompt_template_path",
+        "--queries_file",
         type=str,
-        default="c1_2_dataset_creation_heydar/qald10/prompts/query_generation_v1.txt",
-        help="Path to the prompt template file"
+        required=True,
+        help="Path to the output file for parsed queries"
     )
     parser.add_argument(
-        "--model_name_or_path",
+        "--log_file",
         type=str,
-        default="openai/gpt-4o",
-        help="Model name to use for query generation"
+        required=True,
+        help="Path to the log file"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="gpt-4o-mini",
+        help="Model name to use for query generation (e.g., gpt-4o-mini, gpt-4o)"
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.7,
+        help="Temperature for generation"
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for generation"
     )
     parser.add_argument(
         "--resume",
@@ -589,14 +621,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     process_dataset_for_valid_pairs(
-        args.dataset_file,
-        args.output_file,
-        args.prompt_template_path,
-        args.model_name_or_path,
-        args.resume
+        dataset_file=args.dataset_file,
+        output_file=args.output_file,
+        queries_file=args.queries_file,
+        log_file=args.log_file,
+        model_name=args.model,
+        temperature=args.temperature,
+        seed=args.seed,
+        resume=args.resume
     )
 
     # Usage:
-    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py
-    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py --model_name_or_path anthropic/claude-3.5-sonnet
-    # python c1_2_dataset_creation_heydar/qald10/3_query_generation.py --no-resume  # Start fresh
+    # python c1_2_dataset_creation_heydar/3_query_generation.py \
+    #     --dataset_file corpus_datasets/dataset_creation_heydar/quest/test_quest_with_properties.jsonl \
+    #     --output_file corpus_datasets/dataset_creation_heydar/quest/generations.jsonl \
+    #     --queries_file corpus_datasets/dataset_creation_heydar/quest/queries.jsonl \
+    #     --log_file corpus_datasets/dataset_creation_heydar/quest/query_generation.log \
+    #     --model gpt-4o-mini \
+    #     --temperature 0.7 \
+    #     --seed 42

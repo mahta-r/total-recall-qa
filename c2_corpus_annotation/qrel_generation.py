@@ -18,11 +18,11 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from openai import OpenAI
 from tqdm import tqdm
+from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import utility functions from c1_1_dataset_creation_mahta
 from c1_1_dataset_creation_mahta.io_utils import read_jsonl_from_file, read_json_from_file
 from c1_1_dataset_creation_mahta.query_generation.prompts.LLM_as_relevance_judge.prompt_property_check import (
     PROPERTY_PROMPT,
@@ -110,7 +110,7 @@ def get_passages_for_page(
     Args:
         pageid: Wikipedia page ID
         corpus_jsonl_path: Path to corpus JSONL file
-        page2passage_mapping: Optional pre-built mapping from page ID to passage indices
+        page2passage_mapping: Optional pre-built mapping from page ID to line numbers
 
     Returns:
         List of passage dictionaries with 'id', 'title', 'contents'
@@ -119,16 +119,33 @@ def get_passages_for_page(
 
     # If we have a pre-built mapping, use it for efficiency
     if page2passage_mapping and pageid in page2passage_mapping:
-        passage_indices = page2passage_mapping[pageid]
+        line_numbers = page2passage_mapping[pageid]
+
+        # Sort line numbers to read sequentially (more efficient file access)
+        sorted_line_numbers = sorted(line_numbers)
+        target_lines = set(sorted_line_numbers)
+
         with open(corpus_jsonl_path, 'r', encoding='utf-8') as f:
-            for line_num, line in enumerate(f):
-                if line_num in passage_indices:
+            current_line = 0
+            for target_line_num in sorted_line_numbers:
+                # Skip lines until we reach the target
+                while current_line < target_line_num:
+                    f.readline()
+                    current_line += 1
+
+                # Read the target line
+                line = f.readline()
+                current_line += 1
+
+                if line:
                     passage = json.loads(line.strip())
                     passages.append(passage)
+
         return passages
 
-    # Otherwise, scan the corpus file
+    # Otherwise, scan the corpus file (SLOW - not recommended for large corpora)
     # Passages have IDs like "pageid-0000", "pageid-0001", etc.
+    print(f"Warning: No index mapping found for page {pageid}. Falling back to full corpus scan (slow).", file=sys.stderr)
     with open(corpus_jsonl_path, 'r', encoding='utf-8') as f:
         for line in f:
             passage = json.loads(line.strip())
@@ -242,6 +259,7 @@ def process_query(
     """
     query_id = query_obj['qid']
     total_recall_qids = query_obj['total_recall_qids']
+    total_recall_qids_with_values = query_obj.get('total_recall_qids_with_values', {})
     property_info = query_obj['property']
     property_label = property_info['property_label']
     property_description = property_info['property_description']
@@ -261,7 +279,8 @@ def process_query(
 
     # Process each QID
     for qid in total_recall_qids:
-        log_file.write(f"\n--- Processing QID: {qid} ---\n")
+        qid_value = total_recall_qids_with_values.get(qid, "N/A")
+        log_file.write(f"\n--- Processing QID: {qid} (value: {qid_value}) ---\n")
 
         # Get Wikipedia page info
         wiki_info = None
@@ -315,12 +334,11 @@ def process_query(
             log_file.write(f"Content: {passage_content[:200]}...\n")
             log_file.write(f"Judgment: {judgment}\n")
 
-            # Write qrel
+            # Write qrel only when relevance is 1
             relevance = 1 if judgment == "YES" else 0
-            write_trec_qrel(qrel_output_file, query_id, passage_id, relevance)
-            qrel_output_file.flush()  # Flush immediately to disk
-
             if relevance == 1:
+                write_trec_qrel(qrel_output_file, query_id, passage_id, relevance)
+                qrel_output_file.flush()  # Flush immediately to disk
                 stats['relevant_passages'] += 1
 
     return stats
@@ -340,6 +358,12 @@ def main(args):
         print(f"Loading page2passage mapping from {args.page2passage_mapping}...")
         page2passage_mapping = read_json_from_file(args.page2passage_mapping)
         print(f"Loaded mapping for {len(page2passage_mapping)} pages")
+    else:
+        print("\nWARNING: No page2passage mapping provided!")
+        print("This will result in VERY SLOW performance as the entire corpus will be scanned for each entity.")
+        print("To build an index, run:")
+        print(f"  python c2_corpus_annotation/build_page_index.py --corpus_jsonl {args.corpus_jsonl}")
+        print("Then use the generated index file with --page2passage_mapping\n")
 
     # Initialize OpenAI client
     api_key = os.getenv("OPENAI_API_KEY")
@@ -437,14 +461,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--log_dir",
         type=str,
-        default="logs",
+        default="qrel_logging",
         help="Directory to write log file (log filename will be auto-generated based on dataset)"
     )
 
     parser.add_argument(
         "--page2passage_mapping",
         type=str,
-        default=None,
+        default="/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.index.json",
         help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup"
     )
 
@@ -469,10 +493,11 @@ if __name__ == "__main__":
     args.query_file = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/test_{dataset_name}_queries.jsonl"
     args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/qrels_{dataset_name}.txt"
 
-    # Create log file path based on dataset name
+    # Create log file path based on dataset name with timestamp
     log_dir = Path(args.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
-    args.log_file = str(log_dir / f"qrel_generation_{dataset_name}.log")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    args.log_file = str(log_dir / f"qrel_generation_{dataset_name}_{timestamp}.log")
 
     # Print configuration
     print("="*80)

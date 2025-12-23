@@ -99,6 +99,91 @@ def get_all_aggregatable_properties():
         print(f"Error querying Wikidata for aggregatable properties: {e}")
         return []
 
+def get_property_description(property_id):
+    """
+    Query Wikidata to get the description of a property.
+
+    Args:
+        property_id: A property ID (e.g., 'P569')
+
+    Returns:
+        Property description string, or empty string if not found
+    """
+    if not property_id:
+        return ""
+
+    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
+    sparql.setTimeout(30)
+
+    query = f"""
+    SELECT ?description
+    WHERE {{
+      wd:{property_id} schema:description ?description .
+      FILTER(LANG(?description) = "en")
+    }}
+    LIMIT 1
+    """
+
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+
+    try:
+        results = sparql.query().convert()
+        bindings = results["results"]["bindings"]
+
+        if bindings:
+            return bindings[0]["description"]["value"]
+        return ""
+    except Exception as e:
+        print(f"  Error querying property description: {e}")
+        return ""
+
+def get_entity_labels(item_qids):
+    """
+    Query Wikidata to get labels for a list of entity QIDs.
+
+    Args:
+        item_qids: List of Wikidata item QIDs (e.g., ['Q123', 'Q456'])
+
+    Returns:
+        Dictionary mapping item_qid -> label
+    """
+    if not item_qids:
+        return {}
+
+    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+    sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
+    sparql.setTimeout(30)
+
+    # Create VALUES clause for items
+    items_values = " ".join([f"wd:{qid}" for qid in item_qids])
+
+    query = f"""
+    SELECT ?item ?itemLabel
+    WHERE {{
+      VALUES ?item {{ {items_values} }}
+      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+    }}
+    """
+
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+
+    try:
+        results = sparql.query().convert()
+
+        entity_labels = {}
+        for result in results["results"]["bindings"]:
+            item_uri = result["item"]["value"]
+            item_id = item_uri.split("/")[-1]
+            entity_labels[item_id] = result["itemLabel"]["value"]
+
+        return entity_labels
+    except Exception as e:
+        print(f"  Error querying entity labels: {e}")
+        return {}
+
 def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100):
     """
     Query Wikidata to get aggregatable properties used by specific items.
@@ -107,6 +192,7 @@ def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100)
     Improvements:
     1. Filter by shared properties: Only includes properties shared by ALL items
     2. Add quality filters: Excludes NO_AGGREGATION_PROPS and INTERNAL_WIKI_PROPS
+    3. Retrieves property descriptions
     """
     if not item_qids:
         return []
@@ -158,7 +244,21 @@ def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100)
                 prop_data = all_properties_dict[prop_id].copy()
                 # Add count information for transparency
                 prop_data["shared_by_all_items"] = True
+
+                # Fetch property description
+                print(f"    Fetching description for {prop_id}...", end=" ")
+                description = get_property_description(prop_id)
+                if description:
+                    prop_data["property_description"] = description
+                    print("✓")
+                else:
+                    prop_data["property_description"] = ""
+                    print("✗")
+
                 used_properties.append(prop_data)
+
+                # Add delay to be respectful to Wikidata servers
+                time.sleep(0.3)
 
         return used_properties
 

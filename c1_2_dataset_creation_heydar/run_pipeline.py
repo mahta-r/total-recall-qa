@@ -50,8 +50,9 @@ def run_qald10_pipeline(args):
     step1_output = output_dir / "qald10_annotations.jsonl"
     step1_entity_types = output_dir / "qald10_entity_types.json"
     step2_output = output_dir / "qald10_with_properties.jsonl"
-    step3_output = output_dir / "qald10_queries.jsonl"
-    prompt_template = base_dir / "c1_2_dataset_creation_heydar" / "prompts/query_generation_v1.txt"
+    step3_generations = output_dir / "qald10_generations.jsonl"
+    step3_queries = output_dir / "qald10_queries.jsonl"
+    step3_log = output_dir / "qald10_query_generation.log"
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -102,10 +103,13 @@ def run_qald10_pipeline(args):
     print("=" * 70)
     try:
         step3.process_dataset_for_valid_pairs(
-            str(step2_output),
-            str(step3_output),
-            str(prompt_template),
-            args.model,
+            dataset_file=str(step2_output),
+            output_file=str(step3_generations),
+            queries_file=str(step3_queries),
+            log_file=str(step3_log),
+            model_name=args.model,
+            temperature=args.temperature,
+            seed=args.seed,
             resume=True
         )
         print("✓ Step 3 completed\n")
@@ -119,7 +123,9 @@ def run_qald10_pipeline(args):
     print("=" * 70)
     print(f"Annotations: {step1_output}")
     print(f"With properties: {step2_output}")
-    print(f"Final queries: {step3_output}")
+    print(f"Generations: {step3_generations}")
+    print(f"Queries: {step3_queries}")
+    print(f"Log: {step3_log}")
 
     return 0
 
@@ -152,14 +158,16 @@ def run_quest_pipeline(args):
     # Output files for each step
     step1_output = output_dir / f"{Path(args.quest_input).stem}_quest_annotations.jsonl"
     step2_output = output_dir / f"{Path(args.quest_input).stem}_quest_with_properties.jsonl"
-    step3_output = output_dir / f"{Path(args.quest_input).stem}_quest_queries.jsonl"
-
-    prompt_template = base_dir / "c1_2_dataset_creation_heydar" / "prompts/query_generation_v1.txt"
+    step3_generations = output_dir / f"{Path(args.quest_input).stem}_quest_generations.jsonl"
+    step3_queries = output_dir / f"{Path(args.quest_input).stem}_quest_queries.jsonl"
+    step3_log = output_dir / f"{Path(args.quest_input).stem}_quest_query_generation.log"
 
     print(f"Input: {input_file}")
     print(f"Step 1 output: {step1_output}")
     print(f"Step 2 output: {step2_output}")
-    print(f"Step 3 output: {step3_output}")
+    print(f"Step 3 generations: {step3_generations}")
+    print(f"Step 3 queries: {step3_queries}")
+    print(f"Step 3 log: {step3_log}")
     print()
 
     # Check if input file exists
@@ -199,7 +207,7 @@ def run_quest_pipeline(args):
     # print("\n✓ Step 1 completed successfully")
     # print()
 
-    # # Step 2: Get Properties
+    # Step 2: Get Properties
     # print("=" * 70)
     # print("STEP 2: Get Properties")
     # print("=" * 70)
@@ -221,14 +229,19 @@ def run_quest_pipeline(args):
     try:
         step3.process_dataset_for_valid_pairs(
             dataset_file=str(step2_output),
-            output_file=str(step3_output),
-            prompt_template_path=str(prompt_template),
+            output_file=str(step3_generations),
+            queries_file=str(step3_queries),
+            log_file=str(step3_log),
             model_name=args.model,
+            temperature=args.temperature,
+            seed=args.seed,
             resume=args.resume
         )
         print("\n✓ Step 3 completed successfully")
     except Exception as e:
         print(f"\n✗ Step 3 failed: {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
     # Pipeline completed
@@ -238,7 +251,9 @@ def run_quest_pipeline(args):
     print("=" * 70)
     print(f"Annotations: {step1_output}")
     print(f"With properties: {step2_output}")
-    print(f"Final queries: {step3_output}")
+    print(f"Generations: {step3_generations}")
+    print(f"Queries: {step3_queries}")
+    print(f"Log: {step3_log}")
 
     return 0
 
@@ -249,8 +264,12 @@ def main():
     # Common arguments
     parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'],
                         help='Dataset type to process (qald10 or quest)')
-    parser.add_argument('--model', type=str, default='openai/gpt-4o',
-                        help='Model to use for LLM steps (default: openai/gpt-4o)')
+    parser.add_argument('--model', type=str, default='gpt-4o-mini',
+                        help='Model to use for LLM steps (default: gpt-4o-mini)')
+    parser.add_argument('--temperature', type=float, default=0.7,
+                        help='Temperature for generation (default: 0.7)')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='Random seed for generation (default: 42)')
 
     # Quest-specific arguments
     parser.add_argument('--quest_input', type=str,
