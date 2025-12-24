@@ -156,14 +156,14 @@ class PropertySelector:
 
 def parse_value_for_aggregation(value_data, datatype):
     """
-    Parse a value from Wikidata into a numeric form for aggregation.
+    Parse a value from Wikidata into a form suitable for aggregation.
 
     Args:
         value_data: Value dictionary from Wikidata
-        datatype: Property datatype (Time, Quantity, etc.)
+        datatype: Property datatype (Time, Quantity, WikibaseItem, etc.)
 
     Returns:
-        Numeric value or None
+        Parsed value (numeric for Time/Quantity, label for WikibaseItem/entity) or None
     """
     try:
         if datatype == 'Time':
@@ -181,6 +181,15 @@ def parse_value_for_aggregation(value_data, datatype):
                 # Try to extract number from string (remove + prefix if present)
                 num_str = val.lstrip('+').split()[0]
                 return float(num_str)
+        elif datatype == 'WikibaseItem':
+            # Handle entity values (for COUNT aggregation)
+            # Check both 'type': 'entity' and direct entity structure
+            if value_data.get('type') == 'entity':
+                # Return the entity label if available, otherwise the ID
+                return value_data.get('label') or value_data.get('id')
+            elif 'label' in value_data or 'id' in value_data:
+                # Direct entity structure
+                return value_data.get('label') or value_data.get('id')
     except Exception as e:
         return None
 
@@ -333,89 +342,6 @@ def generate_total_recall_query(client, model_name, temperature, original_query,
         return None, prompt_inputs
 
 
-def get_property_values_for_items(item_qids, property_id):
-    """
-    Query Wikidata to get the values of a specific property for a list of items.
-
-    Args:
-        item_qids: List of Wikidata item QIDs (e.g., ['Q123', 'Q456'])
-        property_id: A single property ID (e.g., 'P569')
-
-    Returns:
-        Dictionary mapping item_qid -> list of values
-        Returns None if any item doesn't have a value for this property
-    """
-    if not item_qids or not property_id:
-        return None
-
-    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
-    sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
-
-    # Create VALUES clause for items
-    items_values = " ".join([f"wd:{qid}" for qid in item_qids])
-
-    # Query to get property values for all items
-    query = f"""
-    SELECT ?item ?value ?valueLabel
-    WHERE {{
-      VALUES ?item {{ {items_values} }}
-
-      ?item wdt:{property_id} ?value .
-
-      SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
-    }}
-    """
-
-    sparql.setQuery(query)
-    sparql.setReturnFormat(JSON)
-
-    try:
-        results = sparql.query().convert()
-
-        # Organize results by item
-        property_values = {}
-
-        for result in results["results"]["bindings"]:
-            item_uri = result["item"]["value"]
-            item_id = item_uri.split("/")[-1]
-
-            value_data = result["value"]
-            value_type = value_data.get("type", "literal")
-
-            # Extract the actual value based on type
-            if value_type == "uri":
-                # Entity value
-                value = {
-                    "type": "entity",
-                    "id": value_data["value"].split("/")[-1],
-                    "label": result.get("valueLabel", {}).get("value", "")
-                }
-            else:
-                # Literal value (quantity, time, string, etc.)
-                value = {
-                    "type": value_type,
-                    "value": value_data.get("value", ""),
-                    "datatype": value_data.get("datatype", "").split("#")[-1] if "datatype" in value_data else ""
-                }
-
-            # Initialize list if needed
-            if item_id not in property_values:
-                property_values[item_id] = []
-
-            property_values[item_id].append(value)
-
-        # Check if all items have values
-        if len(property_values) != len(item_qids):
-            return None
-
-        return property_values
-
-    except Exception as e:
-        print(f"  Error querying property values: {e}")
-        return None
-
-
 def get_last_processed_qid(output_file):
     """
     Read the output file and find the last processed QID.
@@ -510,7 +436,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
         for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
             
-            if line_num == 3:
+            if line_num == 4:
                 break
             
             try:
@@ -547,7 +473,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                 # Get entity labels once for all properties
                 print(f"\n[Query {line_num}] Fetching entity labels for {len(intermediate_qids)} items...", end=" ")
                 entity_labels = get_entity_labels(intermediate_qids)
-                print("✓" if entity_labels else "✗")
+                print(f"✓ {entity_labels}" if entity_labels else "✗")
 
                 # Select properties using intelligent selection strategy
                 selected_properties = property_selector.select_properties(aggregatable_properties)
@@ -565,11 +491,11 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
                     print(f"  Property {property_id} ({property_label})...", end=" ")
 
-                    # Get property values for all intermediate items
-                    property_values = get_property_values_for_items(intermediate_qids, property_id)
+                    # Get property values from the dataset (already fetched in step 2)
+                    property_values = prop.get('property_values')
 
                     if property_values is None:
-                        print("✗ Not all items have values")
+                        print("✗ No property values found in dataset")
                         continue
 
                     print("✓ Valid pair")
@@ -596,10 +522,12 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                     if not entity_values_list:
                         print("    ✗ No valid values for aggregation")
                         continue
+                    else:
+                        print(f"    ✓ Found {len(entity_values_list)} valid values: {[v['value'] for v in entity_values_list]}")
 
                     # Calculate ground truth
                     ground_truth = calculate_answer(property_values, operation, datatype)
-
+                    
                     if ground_truth is None:
                         print("    ✗ Failed to calculate ground truth")
                         continue
