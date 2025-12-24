@@ -21,6 +21,137 @@ except:
 
 from datetime import datetime
 from statistics import mean
+from collections import Counter
+import math
+
+
+class PropertySelector:
+    """
+    Intelligent property selection and operation balancing based on Mahta's method.
+    Provides strategies for selecting diverse properties and balanced operations.
+    """
+
+    def __init__(self, property_num="all", selection_strategy="random", max_props=None):
+        """
+        Initialize the property selector.
+
+        Args:
+            property_num: Strategy for number of properties to select ("all" or "log")
+            selection_strategy: How to prioritize properties ("random" or "least")
+            max_props: Maximum number of properties to select per query (None = unlimited)
+        """
+        self.property_num = property_num
+        self.selection_strategy = selection_strategy
+        self.max_props = max_props
+
+        # Track usage across all queries
+        self.used_property_operation_combos = {}
+        self.all_props_usage = Counter()
+
+    def select_properties(self, properties):
+        """
+        Select a subset of properties based on the configured strategy.
+
+        Args:
+            properties: List of property dictionaries with 'property_id' key
+
+        Returns:
+            List of selected property dictionaries
+        """
+        if not properties:
+            return []
+
+        # Determine how many properties to select
+        if self.property_num == "all":
+            num_to_select = len(properties)
+        elif self.property_num == "log":
+            num_to_select = math.floor(math.log(len(properties), 2)) + 1
+        else:
+            raise ValueError(f"Invalid property_num strategy: {self.property_num}")
+
+        # Apply max_props limit if specified
+        if self.max_props is not None:
+            num_to_select = min(num_to_select, self.max_props)
+
+        # Select properties based on strategy
+        if self.selection_strategy == "random":
+            selected_properties = random.sample(properties, min(num_to_select, len(properties)))
+        elif self.selection_strategy == "least":
+            # Prioritize properties that have been used least across all queries
+            def property_scarcity(prop):
+                prop_id = prop.get('property_id')
+                return self.all_props_usage.get(prop_id, 0)
+
+            sorted_properties = sorted(properties, key=property_scarcity)
+            selected_properties = sorted_properties[:num_to_select]
+        else:
+            raise ValueError(f"Invalid selection_strategy: {self.selection_strategy}")
+
+        # Track property usage
+        for prop in selected_properties:
+            prop_id = prop.get('property_id')
+            if prop_id:
+                self.all_props_usage[prop_id] += 1
+                if prop_id not in self.used_property_operation_combos:
+                    self.used_property_operation_combos[prop_id] = {}
+
+        return selected_properties
+
+    def select_operation(self, property_id, datatype):
+        """
+        Select an operation for a property, balancing usage across operations.
+
+        Args:
+            property_id: The property ID
+            datatype: The property datatype
+
+        Returns:
+            Selected operation string
+        """
+        # Get valid operations for this datatype
+        valid_ops = get_operations_for_datatype(datatype)
+
+        if not valid_ops:
+            return None
+
+        # Initialize tracking for this property if needed
+        if property_id not in self.used_property_operation_combos:
+            self.used_property_operation_combos[property_id] = {}
+
+        # Get operation counts for this property
+        op_counts = [(op, self.used_property_operation_combos[property_id].get(op, 0))
+                     for op in valid_ops]
+
+        # Sort by usage count (least-used first)
+        op_counts_sorted = sorted(op_counts, key=lambda x: x[1])
+        min_count = op_counts_sorted[0][1]
+
+        # Select randomly from least-used operations
+        least_used_ops = [op for op, count in op_counts_sorted if count == min_count]
+        selected_op = random.choice(least_used_ops)
+
+        # Update usage count
+        self.used_property_operation_combos[property_id][selected_op] = \
+            self.used_property_operation_combos[property_id].get(selected_op, 0) + 1
+
+        return selected_op
+
+    def get_usage_stats(self):
+        """
+        Get statistics about property and operation usage.
+
+        Returns:
+            Dictionary with usage statistics
+        """
+        total_props_used = sum(self.all_props_usage.values())
+        unique_props_used = len(self.all_props_usage)
+
+        return {
+            "total_property_uses": total_props_used,
+            "unique_properties_used": unique_props_used,
+            "property_usage": dict(self.all_props_usage.most_common()),
+            "operation_combos": dict(self.used_property_operation_combos)
+        }
 
 
 def parse_value_for_aggregation(value_data, datatype):
@@ -312,7 +443,8 @@ def get_last_processed_qid(output_file):
         return None
 
 
-def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log_file, model_name, temperature, seed, resume=True):
+def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log_file, model_name, temperature, seed,
+                                     property_num="all", selection_strategy="random", max_props=None, resume=True):
     """
     Loop through the dataset file, and for each row find valid pairs of
     (intermediate_qids, property) where all items have a value for that property.
@@ -328,6 +460,9 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
         model_name: Model name to use
         temperature: Temperature for generation
         seed: Random seed
+        property_num: Property selection strategy ("all" or "log")
+        selection_strategy: Property prioritization strategy ("random" or "least")
+        max_props: Maximum properties to select per query (None = unlimited)
         resume: If True, resume from last processed QID
     """
     random.seed(seed)
@@ -335,6 +470,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
     print(f"Using model: {model_name}")
     print(f"Temperature: {temperature}")
     print(f"Random seed: {seed}")
+    print(f"Property selection: {property_num} (strategy: {selection_strategy}, max: {max_props})")
 
     # Check if we should resume from a previous run
     last_processed_qid = None
@@ -352,6 +488,13 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
     client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
 
+    # Initialize PropertySelector for intelligent property selection
+    property_selector = PropertySelector(
+        property_num=property_num,
+        selection_strategy=selection_strategy,
+        max_props=max_props
+    )
+
     generations = []
     queries = []
     valid_pairs_count = 0
@@ -366,6 +509,10 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
          open(log_file, file_mode, encoding='utf-8') as log:
 
         for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
+            
+            if line_num == 3:
+                break
+            
             try:
                 sample = json.loads(line)
                 current_qid = sample.get('qid')
@@ -402,8 +549,12 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                 entity_labels = get_entity_labels(intermediate_qids)
                 print("✓" if entity_labels else "✗")
 
-                # Try each property to find valid pairs
-                for prop in aggregatable_properties:
+                # Select properties using intelligent selection strategy
+                selected_properties = property_selector.select_properties(aggregatable_properties)
+                print(f"  Selected {len(selected_properties)}/{len(aggregatable_properties)} properties for this query")
+
+                # Try each selected property to find valid pairs
+                for prop in selected_properties:
                     property_id = prop.get('property_id')
                     property_label = prop.get('property_label')
                     property_description = prop.get('property_description', '')
@@ -423,9 +574,11 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
                     print("✓ Valid pair")
 
-                    # Select a random operation based on datatype
-                    valid_operations = get_operations_for_datatype(datatype)
-                    operation = random.choice(valid_operations)
+                    # Select operation using intelligent balancing
+                    operation = property_selector.select_operation(property_id, datatype)
+                    if not operation:
+                        print("    ✗ No valid operations for this datatype")
+                        continue
 
                     # Build entity_values list for prompt
                     entity_values_list = []
@@ -541,6 +694,9 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                 traceback.print_exc()
                 continue
 
+    # Get usage statistics from PropertySelector
+    usage_stats = property_selector.get_usage_stats()
+
     # Write output files
     print("\nWriting output files...")
     with open(output_file, 'w', encoding='utf-8') as f_out:
@@ -551,11 +707,24 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
         for query in queries:
             f_out.write(json.dumps(query, ensure_ascii=False) + '\n')
 
+    # Write usage statistics to log file
+    with open(log_file, 'a', encoding='utf-8') as log:
+        print("\n" + "="*80, file=log)
+        print("PROPERTY SELECTION STATISTICS", file=log)
+        print("="*80, file=log)
+        print(f"Total property uses: {usage_stats['total_property_uses']}", file=log)
+        print(f"Unique properties used: {usage_stats['unique_properties_used']}", file=log)
+        print(f"\nProperty usage counts:", file=log)
+        print(json.dumps(usage_stats['property_usage'], indent=2), file=log)
+        print(f"\nOperation combinations:", file=log)
+        print(json.dumps(usage_stats['operation_combos'], indent=2), file=log)
+
     print(f"\n\nProcessing complete!")
     if skipped_rows > 0:
         print(f"Skipped rows (already processed): {skipped_rows}")
     print(f"Total rows processed: {total_rows}")
     print(f"Total valid pairs found: {valid_pairs_count}")
+    print(f"Unique properties used: {usage_stats['unique_properties_used']}")
     print(f"Generations saved to: {output_file}")
     print(f"Queries saved to: {queries_file}")
     print(f"Log saved to: {log_file}")
@@ -606,6 +775,26 @@ if __name__ == "__main__":
         help="Random seed for generation"
     )
     parser.add_argument(
+        "--property_num",
+        type=str,
+        default="all",
+        choices=["all", "log"],
+        help="Strategy for number of properties to select per query: 'all' (use all properties) or 'log' (logarithmic selection)"
+    )
+    parser.add_argument(
+        "--selection_strategy",
+        type=str,
+        default="random",
+        choices=["random", "least"],
+        help="Property selection strategy: 'random' (random selection) or 'least' (prioritize least-used properties)"
+    )
+    parser.add_argument(
+        "--max_props",
+        type=int,
+        default=None,
+        help="Maximum number of properties to select per query (None = unlimited)"
+    )
+    parser.add_argument(
         "--resume",
         action="store_true",
         default=True,
@@ -628,10 +817,15 @@ if __name__ == "__main__":
         model_name=args.model,
         temperature=args.temperature,
         seed=args.seed,
+        property_num=args.property_num,
+        selection_strategy=args.selection_strategy,
+        max_props=args.max_props,
         resume=args.resume
     )
 
-    # Usage:
+    # Usage Examples:
+    #
+    # 1. Default (use all properties, random selection, random operations):
     # python c1_2_dataset_creation_heydar/3_query_generation.py \
     #     --dataset_file corpus_datasets/dataset_creation_heydar/quest/test_quest_with_properties.jsonl \
     #     --output_file corpus_datasets/dataset_creation_heydar/quest/generations.jsonl \
@@ -640,3 +834,23 @@ if __name__ == "__main__":
     #     --model gpt-4o-mini \
     #     --temperature 0.7 \
     #     --seed 42
+    #
+    # 2. Logarithmic selection with max 5 properties, prioritize rare properties:
+    # python c1_2_dataset_creation_heydar/3_query_generation.py \
+    #     --dataset_file corpus_datasets/dataset_creation_heydar/quest/test_quest_with_properties.jsonl \
+    #     --output_file corpus_datasets/dataset_creation_heydar/quest/generations.jsonl \
+    #     --queries_file corpus_datasets/dataset_creation_heydar/quest/queries.jsonl \
+    #     --log_file corpus_datasets/dataset_creation_heydar/quest/query_generation.log \
+    #     --model gpt-4o-mini \
+    #     --property_num log \
+    #     --selection_strategy least \
+    #     --max_props 5
+    #
+    # 3. Limit to 3 properties per query with balanced operations:
+    # python c1_2_dataset_creation_heydar/3_query_generation.py \
+    #     --dataset_file corpus_datasets/dataset_creation_heydar/quest/test_quest_with_properties.jsonl \
+    #     --output_file corpus_datasets/dataset_creation_heydar/quest/generations.jsonl \
+    #     --queries_file corpus_datasets/dataset_creation_heydar/quest/queries.jsonl \
+    #     --log_file corpus_datasets/dataset_creation_heydar/quest/query_generation.log \
+    #     --model gpt-4o-mini \
+    #     --max_props 3
