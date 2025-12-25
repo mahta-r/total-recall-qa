@@ -12,12 +12,12 @@ import tqdm
 
 try:
     from c1_2_dataset_creation_heydar.utils.operation_utils import operation_descriptions, apply_operation, get_operations_for_datatype
-    from c1_2_dataset_creation_heydar.utils.parse_generations import extract_query_text, extract_aggregation
-    from c1_2_dataset_creation_heydar.prompts.query_generation_v2 import QUERY_GENERATION_PROMPT
+    from c1_2_dataset_creation_heydar.utils.parse_generations import extract_query_text, extract_aggregation, extract_answer
+    from c1_2_dataset_creation_heydar.prompts.query_generation_v3 import QUERY_GENERATION_PROMPT
 except:
     from utils.operation_utils import operation_descriptions, apply_operation, get_operations_for_datatype
-    from utils.parse_generations import extract_query_text, extract_aggregation
-    from prompts.query_generation_v2 import QUERY_GENERATION_PROMPT
+    from utils.parse_generations import extract_query_text, extract_aggregation, extract_answer
+    from prompts.query_generation_v3 import QUERY_GENERATION_PROMPT
 
 from datetime import datetime
 from statistics import mean
@@ -182,7 +182,7 @@ def parse_value_for_aggregation(value_data, datatype):
                 num_str = val.lstrip('+').split()[0]
                 return float(num_str)
         elif datatype == 'WikibaseItem':
-            # Handle entity values (for COUNT aggregation)
+            # Handle entity values (return as-is for counting)
             # Check both 'type': 'entity' and direct entity structure
             if value_data.get('type') == 'entity':
                 # Return the entity label if available, otherwise the ID
@@ -196,37 +196,121 @@ def parse_value_for_aggregation(value_data, datatype):
     return None
 
 
-def calculate_answer(property_values, aggregation_function, datatype):
+def calculate_answer(property_values, aggregation_function, datatype, target_entity=None):
     """
     Calculate the answer based on property values and aggregation function.
 
     Args:
         property_values: Dictionary mapping item_qid -> list of values
         aggregation_function: One of COUNT, SUM, AVG, MAX, MIN, EARLIEST, LATEST
-        datatype: Property datatype (Time, Quantity, etc.)
+        datatype: Property datatype (Time, Quantity, WikibaseItem, etc.)
+        target_entity: For WikibaseItem COUNT, the entity to count (if None, select entity with count >= 2 but not all)
 
     Returns:
-        Calculated answer as string or number
+        Tuple of (calculated answer, target_entity_used) - answer as string or number, entity that was counted
     """
     if not property_values:
-        return None
+        return None, None
 
     # Extract all values and parse them
-    numeric_values = []
+    all_values = []
     for item_values in property_values.values():
         for val in item_values:
             parsed_val = parse_value_for_aggregation(val, datatype)
             if parsed_val is not None:
-                numeric_values.append(parsed_val)
+                all_values.append(parsed_val)
 
-    if not numeric_values:
-        return None
+    if not all_values:
+        return None, None
 
     try:
-        return apply_operation(aggregation_function, numeric_values)
+        # Special handling for WikibaseItem with COUNT
+        if datatype == 'WikibaseItem' and aggregation_function.upper() == 'COUNT':
+            # Count occurrences of each entity across all items
+            entity_counts = Counter(all_values)
+            total_items = len(property_values)
+
+            # If no target entity specified, select an entity that appears more than once but not in all items
+            if target_entity is None:
+                # Skip 2-entity sets (handled by validation, but adding safeguard)
+                if total_items == 2:
+                    return None, None
+
+                # For 3+ entities: require entities that appear at least twice but not in all
+                min_count = 2
+                valid_entities = [(entity, count) for entity, count in entity_counts.items()
+                                 if min_count <= count < total_items]
+
+                if valid_entities:
+                    # Prefer entities with intermediate counts (not too rare, not too common)
+                    # Sort by count to get the one with the most occurrences among valid ones
+                    valid_entities.sort(key=lambda x: x[1], reverse=True)
+                    target_entity = valid_entities[0][0]
+                else:
+                    # Fallback: use the most common entity if no valid intermediate exists
+                    # This happens when all entities are unique or all have the same value
+                    target_entity = entity_counts.most_common(1)[0][0]
+
+            # Count how many times the target entity appears
+            count = entity_counts.get(target_entity, 0)
+            return count, target_entity
+        else:
+            # For numeric types, use the existing apply_operation
+            result = apply_operation(aggregation_function, all_values)
+            return result, None
     except Exception as e:
         print(f"      Error calculating answer: {e}")
-        return None
+        return None, None
+
+
+def is_valid_entity_list_property(property_values, datatype):
+    """
+    Check if an entity-list property is valid for query generation.
+
+    A property is valid if:
+    1. Not a 2-entity set (too trivial for COUNT queries)
+    2. Not all entities have the same value
+    3. At least one entity value appears at least twice but not in all items
+
+    Args:
+        property_values: Dictionary mapping item_qid -> list of values
+        datatype: Property datatype
+
+    Returns:
+        Tuple of (is_valid, reason) where reason explains why it's invalid
+    """
+    if datatype != 'WikibaseItem':
+        return True, None
+
+    # Extract all unique values
+    all_entity_values = []
+    for qid_values in property_values.values():
+        for val in qid_values:
+            parsed_val = parse_value_for_aggregation(val, datatype)
+            if parsed_val is not None:
+                all_entity_values.append(parsed_val)
+
+    # Check if all entities have the same value
+    unique_entities = set(all_entity_values)
+    if len(unique_entities) <= 1:
+        return False, "All entities have the same value (trivial query)"
+
+    # Check if there's at least one entity value that appears more than once but not in all items
+    entity_counts = Counter(all_entity_values)
+    total_items = len(property_values)
+
+    # Skip all entity-list properties for 2-entity sets (too trivial)
+    if total_items == 2:
+        return False, "2-entity sets are not suitable for entity-list COUNT queries"
+
+    # For 3+ entities: require entities that appear at least twice but not in all
+    min_count = 2
+    valid_entities = [e for e, c in entity_counts.items() if min_count <= c < total_items]
+
+    if not valid_entities:
+        return False, f"No entity appears in multiple items but not all (trivial query, all counts={total_items})"
+
+    return True, None
 
 
 def get_entity_labels(item_qids):
@@ -278,7 +362,7 @@ def get_entity_labels(item_qids):
 def generate_total_recall_query(client, model_name, temperature, original_query, entity_class_label,
                                   entity_class_id, entity_class_description, property_label, property_id,
                                   property_description, datatype, operation, entity_values, instance_count,
-                                  unit_label=None, unit_id=None, point_in_time=None):
+                                  unit_label=None, unit_id=None, point_in_time=None, target_entity=None):
     """
     Generate a new Total Recall query using LLM with detailed context.
 
@@ -300,15 +384,27 @@ def generate_total_recall_query(client, model_name, temperature, original_query,
         unit_label: Optional unit label
         unit_id: Optional unit ID
         point_in_time: Optional point in time
+        target_entity: For WikibaseItem, the entity to count
 
     Returns:
         Response object with completion
     """
+    # Determine attribute type based on datatype
+    if datatype == 'Time':
+        attribute_type = 'time'
+    elif datatype == 'Quantity':
+        attribute_type = 'quantity'
+    elif datatype == 'WikibaseItem':
+        attribute_type = 'entity-list'
+    else:
+        attribute_type = 'other'
+
     # Build the prompt inputs with original query at the top
     prompt_inputs_buffer = io.StringIO()
     print(f"original-query: {original_query}", file=prompt_inputs_buffer)
     print(f"class (set of entities): {entity_class_label} ({entity_class_id}) - {entity_class_description}", file=prompt_inputs_buffer)
     print(f"attribute: {property_label} ({property_id}) - {property_description}", file=prompt_inputs_buffer)
+    print(f"attribute-type: {attribute_type}", file=prompt_inputs_buffer)
 
     if unit_id is not None and unit_id != "Q199":  # excluding unit "1" (Q199)
         print(f"unit: {unit_label} ({unit_id})", file=prompt_inputs_buffer)
@@ -317,10 +413,23 @@ def generate_total_recall_query(client, model_name, temperature, original_query,
         print(f"point-in-time: {point_in_time}", file=prompt_inputs_buffer)
 
     print(f"aggregation-operation: {operation} - {operation_descriptions.get(operation, '')}", file=prompt_inputs_buffer)
+
+    # For entity-list, add note about which entity is being counted
+    if datatype == 'WikibaseItem' and target_entity:
+        print(f"target-entity-to-count: {target_entity}", file=prompt_inputs_buffer)
+
     print(f"entity-values: ({instance_count} instances):", file=prompt_inputs_buffer)
 
     for record in entity_values:
-        print(f"  {record['entity_id']}: {record['entity_label']} -> {record['value']}", file=prompt_inputs_buffer)
+        # Handle both list values (for entity-list) and scalar values
+        value = record['value']
+        if isinstance(value, list):
+            # For entity-list properties, show all values
+            values_str = ', '.join(str(v) for v in value)
+            print(f"  {record['entity_id']}: {record['entity_label']} -> {values_str}", file=prompt_inputs_buffer)
+        else:
+            # For scalar properties, show single value
+            print(f"  {record['entity_id']}: {record['entity_label']} -> {value}", file=prompt_inputs_buffer)
 
     prompt_inputs = prompt_inputs_buffer.getvalue()
     prompt_inputs_buffer.close()
@@ -436,7 +545,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
         for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
             
-            if line_num == 4:
+            if line_num == 50:
                 break
             
             try:
@@ -475,9 +584,26 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                 entity_labels = get_entity_labels(intermediate_qids)
                 print(f"✓ {entity_labels}" if entity_labels else "✗")
 
-                # Select properties using intelligent selection strategy
-                selected_properties = property_selector.select_properties(aggregatable_properties)
-                print(f"  Selected {len(selected_properties)}/{len(aggregatable_properties)} properties for this query")
+                # Pre-filter properties to remove invalid entity-list properties
+                # This ensures PropertySelector only considers valid properties
+                valid_properties = []
+                for prop in aggregatable_properties:
+                    property_values = prop.get('property_values')
+                    datatype = prop.get('datatype', '')
+
+                    if property_values is None:
+                        continue
+
+                    # Check validity for entity-list properties
+                    is_valid, reason = is_valid_entity_list_property(property_values, datatype)
+                    if is_valid:
+                        valid_properties.append(prop)
+
+                print(f"  Valid properties: {len(valid_properties)}/{len(aggregatable_properties)} (filtered out {len(aggregatable_properties) - len(valid_properties)} invalid entity-list properties)")
+
+                # Select properties using intelligent selection strategy from valid properties only
+                selected_properties = property_selector.select_properties(valid_properties)
+                print(f"  Selected {len(selected_properties)}/{len(valid_properties)} properties for query generation")
 
                 # Try each selected property to find valid pairs
                 for prop in selected_properties:
@@ -498,7 +624,8 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                         print("✗ No property values found in dataset")
                         continue
 
-                    print("✓ Valid pair")
+                    # Properties are already pre-filtered, so this is a valid pair
+                    print("✓ Valid pair (pre-filtered)")
 
                     # Select operation using intelligent balancing
                     operation = property_selector.select_operation(property_id, datatype)
@@ -511,26 +638,50 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                     for qid in intermediate_qids:
                         qid_values = property_values.get(qid, [])
                         if qid_values:
-                            parsed_val = parse_value_for_aggregation(qid_values[0], datatype)
-                            if parsed_val is not None:
-                                entity_values_list.append({
-                                    'entity_id': qid,
-                                    'entity_label': entity_labels.get(qid, qid),
-                                    'value': parsed_val
-                                })
+                            # For entity-list properties (WikibaseItem), include all values
+                            # For scalar properties (Time, Quantity), use only the first value
+                            if datatype == 'WikibaseItem':
+                                # Parse all values for entity-list properties
+                                parsed_values = []
+                                for val in qid_values:
+                                    parsed_val = parse_value_for_aggregation(val, datatype)
+                                    if parsed_val is not None:
+                                        parsed_values.append(parsed_val)
+
+                                if parsed_values:
+                                    entity_values_list.append({
+                                        'entity_id': qid,
+                                        'entity_label': entity_labels.get(qid, qid),
+                                        'value': parsed_values  # List of values
+                                    })
+                            else:
+                                # For scalar properties, use only first value
+                                parsed_val = parse_value_for_aggregation(qid_values[0], datatype)
+                                if parsed_val is not None:
+                                    entity_values_list.append({
+                                        'entity_id': qid,
+                                        'entity_label': entity_labels.get(qid, qid),
+                                        'value': parsed_val
+                                    })
 
                     if not entity_values_list:
                         print("    ✗ No valid values for aggregation")
                         continue
                     else:
-                        print(f"    ✓ Found {len(entity_values_list)} valid values: {[v['value'] for v in entity_values_list]}")
+                        # Format values string and truncate to 100 characters
+                        values_str = str([v['value'] for v in entity_values_list])
+                        if len(values_str) > 100:
+                            values_str = values_str[:100] + "..."
+                        print(f"    ✓ Found {len(entity_values_list)} valid values: {values_str}")
 
-                    # Calculate ground truth
-                    ground_truth = calculate_answer(property_values, operation, datatype)
-                    
-                    if ground_truth is None:
+                    # Calculate ground truth from data
+                    ground_truth_calc, target_entity = calculate_answer(property_values, operation, datatype)
+
+                    if ground_truth_calc is None:
                         print("    ✗ Failed to calculate ground truth")
                         continue
+                    else:
+                        print(f"    ✓ Ground truth calculated: {ground_truth_calc}")
 
                     # Generate query using LLM
                     print(f"    Generating query with {operation}...", end=" ")
@@ -551,7 +702,8 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                         instance_count=len(intermediate_qids),
                         unit_label=None,  # TODO: extract from property values
                         unit_id=None,
-                        point_in_time=None  # TODO: extract from property values
+                        point_in_time=None,  # TODO: extract from property values
+                        target_entity=target_entity
                     )
 
                     if response is None:
@@ -560,19 +712,46 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
                     print("✓")
 
-                    # Log the prompt and response
-                    print("PROMPT:\n" + prompt_inputs, file=log)
-                    print(response.choices[0].message.content.strip(), file=log)
-                    print(f"GROUND TRUTH VALUE: {ground_truth}", file=log)
-                    print("\n---------------------------------------------------------------------------------------------------\n", file=log)
-
-                    # Extract query text
+                    # Extract query text and answer from LLM response
                     generated_text = response.choices[0].message.content.strip()
                     query_text = extract_query_text(generated_text)
+                    llm_answer = extract_answer(generated_text)
 
                     if not query_text:
                         print("    ✗ Failed to extract query text")
                         continue
+
+                    # Determine final ground truth based on datatype
+                    if datatype == 'WikibaseItem':
+                        # For entity lists, use LLM answer as ground truth
+                        ground_truth = llm_answer
+                        validation_note = f"Entity type: using LLM answer ({llm_answer})"
+                    else:
+                        # For Quantity/Time, validate LLM answer against calculated answer
+                        ground_truth = ground_truth_calc
+                        if llm_answer is not None:
+                            # Check if answers match (with some tolerance for floats)
+                            if isinstance(llm_answer, (int, float)) and isinstance(ground_truth_calc, (int, float)):
+                                if abs(llm_answer - ground_truth_calc) < 0.01:
+                                    validation_note = f"✓ LLM answer matches calculated ({llm_answer} ≈ {ground_truth_calc})"
+                                else:
+                                    validation_note = f"✗ LLM answer mismatch: LLM={llm_answer}, Calc={ground_truth_calc}"
+                                    print(f"    ⚠ Warning: {validation_note}")
+                            else:
+                                validation_note = f"Answers: LLM={llm_answer}, Calc={ground_truth_calc}"
+                        else:
+                            validation_note = "Could not extract LLM answer"
+
+                    # Log the prompt and response
+                    print("PROMPT:\n" + prompt_inputs, file=log)
+                    print(generated_text, file=log)
+                    print(f"CALCULATED ANSWER: {ground_truth_calc}", file=log)
+                    print(f"LLM ANSWER: {llm_answer}", file=log)
+                    print(f"FINAL GROUND TRUTH: {ground_truth}", file=log)
+                    print(f"VALIDATION: {validation_note}", file=log)
+                    if target_entity:
+                        print(f"TARGET ENTITY COUNTED: {target_entity}", file=log)
+                    print("\n---------------------------------------------------------------------------------------------------\n", file=log)
 
                     # Create generation record
                     generation = {
@@ -593,8 +772,15 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                         },
                         "operation": operation,
                         "ground_truth": ground_truth,
+                        "ground_truth_calculated": ground_truth_calc,
+                        "ground_truth_llm": llm_answer,
+                        "validation_note": validation_note,
                         "completion": response.to_dict()
                     }
+
+                    # Add target_entity for WikibaseItem types
+                    if target_entity:
+                        generation["target_entity"] = target_entity
 
                     # Create query record
                     query = {

@@ -57,7 +57,7 @@ def get_operations_for_datatype(datatype):
     Get valid operations for a given datatype.
 
     Args:
-        datatype: Property datatype (Time, Quantity, GlobeCoordinate)
+        datatype: Property datatype (Time, Quantity, GlobeCoordinate, WikibaseItem)
 
     Returns:
         List of valid operation names
@@ -66,6 +66,10 @@ def get_operations_for_datatype(datatype):
         return ["EARLIEST", "LATEST", "AVG"]
     elif datatype == "Quantity":
         return ["SUM", "AVG", "MAX", "MIN", "COUNT"]
+    elif datatype == "WikibaseItem":
+        # For entity lists, COUNT is the only valid operation
+        # This counts how many entities have a specific value
+        return ["COUNT"]
     elif datatype == "GlobeCoordinate":
         return ["COUNT"]
     else:

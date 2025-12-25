@@ -42,3 +42,30 @@ def extract_aggregation(text):
     if agg_match:
         return agg_match.group(1).strip()
     return None
+
+
+def extract_answer(text):
+    """
+    Extract the answer from LLM generation.
+
+    Args:
+        text: Generated text from LLM
+
+    Returns:
+        Answer string or None if invalid format
+    """
+    ans_pattern = r"\[Answer\]\s*(.+)"
+    ans_match = re.search(ans_pattern, text)
+
+    if ans_match:
+        answer_str = ans_match.group(1).strip()
+        # Try to parse as number
+        try:
+            # Remove any non-numeric characters except decimal point and minus
+            numeric_str = re.sub(r'[^\d.-]', '', answer_str)
+            if numeric_str:
+                return float(numeric_str) if '.' in numeric_str else int(numeric_str)
+        except ValueError:
+            pass
+        return answer_str
+    return None

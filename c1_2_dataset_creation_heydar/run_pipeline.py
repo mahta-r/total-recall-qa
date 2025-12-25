@@ -21,7 +21,7 @@ Usage:
 
     # For Quest with limited properties per query
     python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o \
-        --max_props 3
+        --property_num log --selection_strategy least --max_props 5
 
 Property Selection Options:
     --property_num {all,log}         # "all" = use all valid properties, "log" = logarithmic selection
@@ -224,18 +224,18 @@ def run_quest_pipeline(args):
     # print()
 
     # Step 2: Get Properties
-    # print("=" * 70)
-    # print("STEP 2: Get Properties")
-    # print("=" * 70)
+    print("=" * 70)
+    print("STEP 2: Get Properties")
+    print("=" * 70)
 
-    # try:
-    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-    #     print("\n✓ Step 2 completed successfully")
-    # except Exception as e:
-    #     print(f"\n✗ Step 2 failed: {e}")
-    #     return 1
+    try:
+        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+        print("\n✓ Step 2 completed successfully")
+    except Exception as e:
+        print(f"\n✗ Step 2 failed: {e}")
+        return 1
 
-    # print()
+    print()
 
     # Step 3: Generate Total Recall Queries
     print("=" * 70)
@@ -309,6 +309,7 @@ def main():
                         help='Property selection strategy: "random" or "least" (prioritize least-used) (default: random)')
     parser.add_argument('--max_props', type=int, default=None,
                         help='Maximum number of properties to select per query (None = unlimited, default: None)')
+
 
     args = parser.parse_args()
 
