@@ -2,11 +2,39 @@
 QRel Generation for Total Recall RAG
 
 This script generates TREC-format qrels by:
-1. Reading queries from JSONL file (e.g., test_quest_queries.jsonl)
-2. For each query, mapping Wikidata QIDs to Wikipedia pages
-3. Retrieving passages from those Wikipedia pages
-4. Using LLM to judge relevance of passages for the given property
-5. Writing qrels in TREC format
+1. Reading queries from generations JSONL file (e.g., quest_generations.jsonl)
+   - Input format from c1_2_dataset_creation_heydar pipeline
+   - Contains full metadata including entity IDs, labels, property info, and values
+2. For each query, extracting entity QIDs from property['entities_values']
+3. Mapping Wikidata QIDs to Wikipedia pages
+4. Retrieving passages from those Wikipedia pages
+5. Using LLM to judge relevance of passages for the given property
+6. Writing qrels in TREC format
+
+Input Format (from c1_2_dataset_creation_heydar):
+{
+    "qid": "quest_1_p136",
+    "original_query": "...",
+    "property": {
+        "property_info": {
+            "label": "genre",
+            "property_id": "P136",
+            "description": "...",
+            "datatype": "WikibaseItem"
+        },
+        "entities_values": [
+            {
+                "entity_id": "Q4193501",
+                "entity_label": "1",
+                "value": ["thriller film"]
+            },
+            ...
+        ]
+    },
+    "operation": "COUNT",
+    "ground_truth": 5,
+    ...
+}
 """
 
 import os
@@ -98,7 +126,6 @@ def get_wikipedia_info_from_qid(qid: str) -> Optional[Dict[str, str]]:
         print(f"Error getting Wikipedia info for {qid}: {e}", file=sys.stderr)
         return None
 
-
 def get_passages_for_page(
     pageid: str,
     corpus_jsonl_path: str,
@@ -156,7 +183,6 @@ def get_passages_for_page(
 
     return passages
 
-
 def judge_passage_relevance(
     passage_content: str,
     entity_label: str,
@@ -208,7 +234,6 @@ def judge_passage_relevance(
         print(f"Error in LLM judgment: {e}", file=sys.stderr)
         return "NO"
 
-
 def write_trec_qrel(
     output_file,
     query_id: str,
@@ -228,7 +253,6 @@ def write_trec_qrel(
     # TREC format: query_id 0 doc_id relevance
     output_file.write(f"{query_id} 0 {passage_id} {relevance}\n")
 
-
 def process_query(
     query_obj: Dict,
     corpus_jsonl_path: str,
@@ -244,7 +268,7 @@ def process_query(
     Process a single query to generate qrels.
 
     Args:
-        query_obj: Query object from JSONL
+        query_obj: Query object from JSONL (generations format from c1_2_dataset_creation_heydar)
         corpus_jsonl_path: Path to corpus JSONL file
         client: OpenAI client
         qrel_output_file: Open file handle for qrel output
@@ -258,11 +282,27 @@ def process_query(
         Statistics dict
     """
     query_id = query_obj['qid']
-    total_recall_qids = query_obj['total_recall_qids']
-    total_recall_qids_with_values = query_obj.get('total_recall_qids_with_values', {})
+
+    # Extract entity QIDs and their values from the new nested structure
     property_info = query_obj['property']
-    property_label = property_info['property_label']
-    property_description = property_info['property_description']
+    entities_values = property_info.get('entities_values', [])
+
+    # Build list of QIDs and their labels/values
+    total_recall_qids = [entity['entity_id'] for entity in entities_values]
+    total_recall_qids_with_values = {
+        entity['entity_id']: {
+            'label': entity['entity_label'],
+            'value': entity.get('value', 'N/A')
+        }
+        for entity in entities_values
+    }
+
+    # Extract property metadata from nested property_info structure
+    property_metadata = property_info['property_info']
+    property_label = property_metadata['label']
+    property_description = property_metadata['description']
+    property_id = property_metadata['property_id']
+    property_datatype = property_metadata.get('datatype', 'Unknown')
 
     stats = {
         'total_qids': len(total_recall_qids),
@@ -273,14 +313,20 @@ def process_query(
 
     log_file.write(f"\n{'='*80}\n")
     log_file.write(f"Query ID: {query_id}\n")
-    log_file.write(f"Query: {query_obj['total_recall_query']}\n")
-    log_file.write(f"Property: {property_label} - {property_description}\n")
+    log_file.write(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
+    log_file.write(f"Property: {property_label} ({property_id}) - {property_description}\n")
+    log_file.write(f"Property Datatype: {property_datatype}\n")
+    log_file.write(f"Operation: {query_obj.get('operation', 'N/A')}\n")
+    log_file.write(f"Subclass: {query_obj.get('subclass_label', 'N/A')} ({query_obj.get('subclass_id', 'N/A')})\n")
+    log_file.write(f"Ground Truth: {query_obj.get('ground_truth', 'N/A')}\n")
     log_file.write(f"{'='*80}\n\n")
 
     # Process each QID
     for qid in total_recall_qids:
-        qid_value = total_recall_qids_with_values.get(qid, "N/A")
-        log_file.write(f"\n--- Processing QID: {qid} (value: {qid_value}) ---\n")
+        qid_info = total_recall_qids_with_values.get(qid, {})
+        qid_label = qid_info.get('label', 'N/A') if isinstance(qid_info, dict) else qid_info
+        qid_value = qid_info.get('value', 'N/A') if isinstance(qid_info, dict) else 'N/A'
+        log_file.write(f"\n--- Processing QID: {qid} | Label: {qid_label} | Value: {qid_value} ---\n")
 
         # Get Wikipedia page info
         wiki_info = None
@@ -288,7 +334,7 @@ def process_query(
             wiki_info = qid2wikipedia_cache[qid]
         else:
             wiki_info = get_wikipedia_info_from_qid(qid)
-            print(wiki_info)
+            print(f"\n{wiki_info}")
             print("-----")
             if qid2wikipedia_cache is not None:
                 qid2wikipedia_cache[qid] = wiki_info
@@ -330,16 +376,19 @@ def process_query(
                 temperature=temperature
             )
 
-            log_file.write(f"\nPassage ID: {passage_id}\n")
-            log_file.write(f"Content: {passage_content[:200]}...\n")
-            log_file.write(f"Judgment: {judgment}\n")
-
             # Write qrel only when relevance is 1
             relevance = 1 if judgment == "YES" else 0
+
             if relevance == 1:
+                log_file.write(f"✓ RELEVANT - Passage ID: {passage_id}\n")
+                log_file.write(f"Full Content:\n{passage_content}\n\n")
+
                 write_trec_qrel(qrel_output_file, query_id, passage_id, relevance)
                 qrel_output_file.flush()  # Flush immediately to disk
                 stats['relevant_passages'] += 1
+            else:
+                # For non-relevant passages, just log the ID
+                log_file.write(f"✗ NOT RELEVANT - Passage ID: {passage_id} - Content: {passage_content[:100]}...\n")
 
     return stats
 
@@ -446,7 +495,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset",
         type=str,
-        default="quest",
+        default="qald10",
         choices=["quest", "qald10"],
         help="Dataset name (e.g., 'quest', 'custom'). Used to construct file paths."
     )
@@ -490,7 +539,8 @@ if __name__ == "__main__":
 
     # Construct file paths based on dataset name
     dataset_name = args.dataset
-    args.query_file = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/test_{dataset_name}_queries.jsonl"
+    # Use the generations file which contains full metadata including entity values
+    args.query_file = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/{dataset_name}_generations.jsonl"
     args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/qrels_{dataset_name}.txt"
 
     # Create log file path based on dataset name with timestamp
