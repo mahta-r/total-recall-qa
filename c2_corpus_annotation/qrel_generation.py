@@ -10,6 +10,28 @@ This script generates TREC-format qrels by:
 4. Retrieving passages from those Wikipedia pages
 5. Using LLM to judge relevance of passages for the given property
 6. Writing qrels in TREC format
+7. Tracking entity coverage for Total Recall analysis
+
+Outputs:
+- qrels_*.txt: TREC-format qrels (query_id 0 passage_id relevance)
+- qrels_*_entity_coverage.jsonl: Per-query entity coverage analysis
+  Each line contains:
+  {
+    "query_id": "quest_1_p136",
+    "query": "How many films...",
+    "property": "genre (P136)",
+    "total_entities": 10,
+    "entities_with_coverage": 8,
+    "entities_without_coverage": 2,
+    "entities_with_relevant_passages": [
+      {"entity_id": "Q123", "entity_label": "Film 1", "entity_value": ["thriller"], "relevant_passage_count": 3},
+      ...
+    ],
+    "entities_without_relevant_passages": [
+      {"entity_id": "Q456", "entity_label": "Film 2", "entity_value": ["drama"], "reason": "no_relevant_passages_found"},
+      ...
+    ]
+  }
 
 Input Format (from c1_2_dataset_creation_heydar):
 {
@@ -279,7 +301,7 @@ def process_query(
         qid2wikipedia_cache: Optional cache for QID->Wikipedia mappings
 
     Returns:
-        Statistics dict
+        Statistics dict with entity coverage information
     """
     query_id = query_obj['qid']
 
@@ -311,6 +333,16 @@ def process_query(
         'relevant_passages': 0
     }
 
+    # Track entity coverage for this query
+    entity_coverage = {
+        'query_id': query_id,
+        'query': query_obj.get('question', query_obj.get('original_query', 'N/A')),
+        'property': f"{property_label} ({property_id})",
+        'total_entities': len(total_recall_qids),
+        'entities_with_relevant_passages': [],
+        'entities_without_relevant_passages': []
+    }
+
     log_file.write(f"\n{'='*80}\n")
     log_file.write(f"Query ID: {query_id}\n")
     log_file.write(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
@@ -328,6 +360,9 @@ def process_query(
         qid_value = qid_info.get('value', 'N/A') if isinstance(qid_info, dict) else 'N/A'
         log_file.write(f"\n--- Processing QID: {qid} | Label: {qid_label} | Value: {qid_value} ---\n")
 
+        # Track if this entity has at least one relevant passage
+        entity_has_relevant_passage = False
+
         # Get Wikipedia page info
         wiki_info = None
         if qid2wikipedia_cache and qid in qid2wikipedia_cache:
@@ -341,6 +376,12 @@ def process_query(
 
         if not wiki_info:
             log_file.write(f"No Wikipedia page found for {qid}\n")
+            entity_coverage['entities_without_relevant_passages'].append({
+                'entity_id': qid,
+                'entity_label': qid_label,
+                'entity_value': qid_value,
+                'reason': 'no_wikipedia_page'
+            })
             continue
 
         stats['qids_with_wikipedia'] += 1
@@ -355,10 +396,19 @@ def process_query(
 
         if not passages:
             log_file.write(f"No passages found for page {pageid}\n")
+            entity_coverage['entities_without_relevant_passages'].append({
+                'entity_id': qid,
+                'entity_label': qid_label,
+                'entity_value': qid_value,
+                'reason': 'no_passages_in_corpus'
+            })
             continue
 
         log_file.write(f"Found {len(passages)} passages\n")
         stats['total_passages_checked'] += len(passages)
+
+        # Track relevant passages for this entity
+        entity_relevant_passage_count = 0
 
         # Check each passage with LLM
         for passage in passages:
@@ -386,9 +436,47 @@ def process_query(
                 write_trec_qrel(qrel_output_file, query_id, passage_id, relevance)
                 qrel_output_file.flush()  # Flush immediately to disk
                 stats['relevant_passages'] += 1
+                entity_has_relevant_passage = True
+                entity_relevant_passage_count += 1
             else:
                 # For non-relevant passages, just log the ID
                 log_file.write(f"✗ NOT RELEVANT - Passage ID: {passage_id} - Content: {passage_content[:100]}...\n")
+
+        # Record entity coverage results
+        if entity_has_relevant_passage:
+            entity_coverage['entities_with_relevant_passages'].append({
+                'entity_id': qid,
+                'entity_label': qid_label,
+                'entity_value': qid_value,
+                'relevant_passage_count': entity_relevant_passage_count
+            })
+        else:
+            entity_coverage['entities_without_relevant_passages'].append({
+                'entity_id': qid,
+                'entity_label': qid_label,
+                'entity_value': qid_value,
+                'reason': 'no_relevant_passages_found'
+            })
+
+    # Add coverage counts to entity_coverage
+    entity_coverage['entities_with_coverage'] = len(entity_coverage['entities_with_relevant_passages'])
+    entity_coverage['entities_without_coverage'] = len(entity_coverage['entities_without_relevant_passages'])
+
+    # Log entity coverage summary for this query
+    log_file.write(f"\n{'='*80}\n")
+    log_file.write(f"ENTITY COVERAGE SUMMARY FOR QUERY: {query_id}\n")
+    log_file.write(f"{'='*80}\n")
+    log_file.write(f"Total entities: {entity_coverage['total_entities']}\n")
+    log_file.write(f"Entities with relevant passages: {entity_coverage['entities_with_coverage']} ({100*entity_coverage['entities_with_coverage']/entity_coverage['total_entities']:.1f}%)\n")
+    log_file.write(f"Entities without relevant passages: {entity_coverage['entities_without_coverage']} ({100*entity_coverage['entities_without_coverage']/entity_coverage['total_entities']:.1f}%)\n")
+
+    if entity_coverage['entities_without_relevant_passages']:
+        log_file.write(f"\nEntities without coverage:\n")
+        for entity in entity_coverage['entities_without_relevant_passages']:
+            log_file.write(f"  - {entity['entity_id']} ({entity['entity_label']}): {entity['reason']}\n")
+
+    # Also add to stats for backward compatibility
+    stats['entity_coverage'] = entity_coverage
 
     return stats
 
@@ -427,9 +515,13 @@ def main(args):
     # Cache for QID to Wikipedia mappings
     qid2wikipedia_cache = {}
 
+    # Create entity coverage output file path
+    entity_coverage_file = args.output_qrel.replace('.txt', '_entity_coverage.jsonl')
+
     # Open output files
     with open(args.output_qrel, 'w', encoding='utf-8') as qrel_file, \
-         open(args.log_file, 'w', encoding='utf-8') as log_file:
+         open(args.log_file, 'w', encoding='utf-8') as log_file, \
+         open(entity_coverage_file, 'w', encoding='utf-8') as coverage_file:
 
         log_file.write(f"QRel Generation Log\n")
         log_file.write(f"Query file: {args.query_file}\n")
@@ -441,10 +533,10 @@ def main(args):
         # Process queries
         all_stats = []
         for idx, query_obj in tqdm(enumerate(queries), desc="Processing queries"):
-            
-            if idx == 2:
+
+            if idx == 1:
                 break
-            
+
             stats = process_query(
                 query_obj=query_obj,
                 corpus_jsonl_path=args.corpus_jsonl,
@@ -458,6 +550,11 @@ def main(args):
             )
             all_stats.append(stats)
 
+            # Write entity coverage for this query to JSONL file
+            if 'entity_coverage' in stats:
+                coverage_file.write(json.dumps(stats['entity_coverage']) + '\n')
+                coverage_file.flush()
+
         # Write summary
         log_file.write(f"\n\n{'='*80}\n")
         log_file.write("SUMMARY\n")
@@ -469,11 +566,43 @@ def main(args):
         total_passages = sum(s['total_passages_checked'] for s in all_stats)
         total_relevant = sum(s['relevant_passages'] for s in all_stats)
 
+        # Entity coverage statistics
+        total_entities_with_coverage = sum(
+            s['entity_coverage']['entities_with_coverage'] for s in all_stats if 'entity_coverage' in s
+        )
+        total_entities_without_coverage = sum(
+            s['entity_coverage']['entities_without_coverage'] for s in all_stats if 'entity_coverage' in s
+        )
+
+        # Count queries by coverage status
+        queries_full_coverage = sum(
+            1 for s in all_stats
+            if 'entity_coverage' in s and s['entity_coverage']['entities_without_coverage'] == 0
+        )
+        queries_partial_coverage = sum(
+            1 for s in all_stats
+            if 'entity_coverage' in s
+            and s['entity_coverage']['entities_with_coverage'] > 0
+            and s['entity_coverage']['entities_without_coverage'] > 0
+        )
+        queries_no_coverage = sum(
+            1 for s in all_stats
+            if 'entity_coverage' in s and s['entity_coverage']['entities_with_coverage'] == 0
+        )
+
         log_file.write(f"Total queries processed: {total_queries}\n")
         log_file.write(f"Total QIDs: {total_qids}\n")
         log_file.write(f"QIDs with Wikipedia pages: {total_with_wiki}\n")
         log_file.write(f"Total passages checked: {total_passages}\n")
         log_file.write(f"Relevant passages found: {total_relevant}\n")
+        log_file.write(f"\n--- Entity Coverage (Total Recall) ---\n")
+        log_file.write(f"Total entities: {total_qids}\n")
+        log_file.write(f"Entities with relevant passages: {total_entities_with_coverage} ({100*total_entities_with_coverage/total_qids:.1f}%)\n")
+        log_file.write(f"Entities without relevant passages: {total_entities_without_coverage} ({100*total_entities_without_coverage/total_qids:.1f}%)\n")
+        log_file.write(f"\n--- Query Coverage Analysis ---\n")
+        log_file.write(f"Queries with full entity coverage: {queries_full_coverage} ({100*queries_full_coverage/total_queries:.1f}%)\n")
+        log_file.write(f"Queries with partial entity coverage: {queries_partial_coverage} ({100*queries_partial_coverage/total_queries:.1f}%)\n")
+        log_file.write(f"Queries with no entity coverage: {queries_no_coverage} ({100*queries_no_coverage/total_queries:.1f}%)\n")
 
         print("\n" + "="*80)
         print("SUMMARY")
@@ -483,7 +612,16 @@ def main(args):
         print(f"QIDs with Wikipedia pages: {total_with_wiki}")
         print(f"Total passages checked: {total_passages}")
         print(f"Relevant passages found: {total_relevant}")
+        print(f"\n--- Entity Coverage (Total Recall) ---")
+        print(f"Total entities: {total_qids}")
+        print(f"Entities with relevant passages: {total_entities_with_coverage} ({100*total_entities_with_coverage/total_qids:.1f}%)")
+        print(f"Entities without relevant passages: {total_entities_without_coverage} ({100*total_entities_without_coverage/total_qids:.1f}%)")
+        print(f"\n--- Query Coverage Analysis ---")
+        print(f"Queries with full entity coverage: {queries_full_coverage} ({100*queries_full_coverage/total_queries:.1f}%)")
+        print(f"Queries with partial entity coverage: {queries_partial_coverage} ({100*queries_partial_coverage/total_queries:.1f}%)")
+        print(f"Queries with no entity coverage: {queries_no_coverage} ({100*queries_no_coverage/total_queries:.1f}%)")
         print(f"\nQRels written to: {args.output_qrel}")
+        print(f"Entity coverage written to: {entity_coverage_file}")
         print(f"Log written to: {args.log_file}")
 
 

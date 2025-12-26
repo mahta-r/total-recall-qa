@@ -14,7 +14,7 @@ Usage:
 
     # For QALD10 with intelligent property selection (logarithmic + prioritize rare properties)
     python c1_2_dataset_creation_heydar/run_pipeline.py --dataset qald10 --model openai/gpt-4o \
-        --property_num log --selection_strategy least --max_props 5
+        --property_num log --selection_strategy least --max_props 3
 
     # For Quest (default)
     python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o
