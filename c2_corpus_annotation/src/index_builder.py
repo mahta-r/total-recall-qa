@@ -32,9 +32,9 @@ from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 
 # == For testing the index ====
 def subsample_corpus():
-    num_rows = 5000
-    input_file = "corpus_datasets/enwiki_20251001.jsonl"
-    output_file = f"corpus_datasets/enwiki_20251001_{num_rows}.jsonl"
+    num_rows = 225000
+    input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
+    output_file = f"./enwiki_20251001_{num_rows}.jsonl"
     
     with open(input_file, 'r', encoding='utf-8', errors='replace') as infile, \
          open(output_file, 'w', encoding='utf-8') as outfile:
@@ -47,6 +47,21 @@ def subsample_corpus():
                 outfile.write("\n")
             except json.JSONDecodeError:
                 print(f"Skipping line {i}: invalid JSON")
+
+
+def print_by_id(doc_id):
+    input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
+    with open(input_file, 'r', encoding='utf-8', errors='replace') as infile:
+        for line in infile:
+            try:
+                data = json.loads(line)
+                if data.get('id') == doc_id:
+                    print(json.dumps(data, indent=2, ensure_ascii=False))
+                    return
+            except json.JSONDecodeError:
+                continue
+    print(f"Document with id {doc_id} not found.")
+    
 
 
 # =============================
@@ -428,11 +443,13 @@ def main():
 
 
 if __name__ == "__main__":
-    subsample_corpus()
+    
+    print_by_id('307-0000')
+    # subsample_corpus()
     # main()
     
     
-# python c2_model_generation/src/index_builder.py
+# python c2_corpus_annotation/src/index_builder.py
 
 
 
