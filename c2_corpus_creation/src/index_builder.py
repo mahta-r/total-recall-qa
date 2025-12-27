@@ -32,9 +32,10 @@ from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 
 # == For testing the index ====
 def subsample_corpus():
-    num_rows = 225000
+    num_rows = 5000000
     input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
-    output_file = f"./enwiki_20251001_{num_rows}.jsonl"
+    # output_file = f"./enwiki_20251001_{num_rows}.jsonl"
+    output_file = f"/projects/0/prjs0834/heydars/INDICES/enwiki_20251001_{num_rows}.jsonl"
     
     with open(input_file, 'r', encoding='utf-8', errors='replace') as infile, \
          open(output_file, 'w', encoding='utf-8') as outfile:

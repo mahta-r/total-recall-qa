@@ -69,6 +69,8 @@ from typing import List, Dict, Optional, Tuple
 from openai import OpenAI
 from tqdm import tqdm
 from datetime import datetime
+from multiprocessing import Pool, Manager, Lock
+from functools import partial
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -275,33 +277,33 @@ def write_trec_qrel(
     # TREC format: query_id 0 doc_id relevance
     output_file.write(f"{query_id} 0 {passage_id} {relevance}\n")
 
-def process_query(
+def process_query_core(
     query_obj: Dict,
     corpus_jsonl_path: str,
     client: OpenAI,
-    qrel_output_file,
-    log_file,
     model: str = "gpt-4o",
     temperature: float = 0.0,
     page2passage_mapping: Optional[Dict] = None,
     qid2wikipedia_cache: Optional[Dict] = None
-) -> Dict:
+) -> Tuple[Dict, List[str], List[str], str]:
     """
-    Process a single query to generate qrels.
+    Process a single query to generate qrels (core logic without file I/O).
 
     Args:
         query_obj: Query object from JSONL (generations format from c1_2_dataset_creation_heydar)
         corpus_jsonl_path: Path to corpus JSONL file
         client: OpenAI client
-        qrel_output_file: Open file handle for qrel output
-        log_file: Open file handle for logging
         model: LLM model to use
         temperature: Temperature for LLM
         page2passage_mapping: Optional mapping for efficiency
         qid2wikipedia_cache: Optional cache for QID->Wikipedia mappings
 
     Returns:
-        Statistics dict with entity coverage information
+        Tuple of (stats, qrel_lines, log_lines, entity_coverage_json)
+        - stats: Statistics dict with entity coverage information
+        - qrel_lines: List of qrel lines to write
+        - log_lines: List of log lines to write
+        - entity_coverage_json: JSON string of entity coverage
     """
     query_id = query_obj['qid']
 
@@ -343,22 +345,26 @@ def process_query(
         'entities_without_relevant_passages': []
     }
 
-    log_file.write(f"\n{'='*80}\n")
-    log_file.write(f"Query ID: {query_id}\n")
-    log_file.write(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
-    log_file.write(f"Property: {property_label} ({property_id}) - {property_description}\n")
-    log_file.write(f"Property Datatype: {property_datatype}\n")
-    log_file.write(f"Operation: {query_obj.get('operation', 'N/A')}\n")
-    log_file.write(f"Subclass: {query_obj.get('subclass_label', 'N/A')} ({query_obj.get('subclass_id', 'N/A')})\n")
-    log_file.write(f"Ground Truth: {query_obj.get('ground_truth', 'N/A')}\n")
-    log_file.write(f"{'='*80}\n\n")
+    # Collect log lines and qrel lines instead of writing directly
+    log_lines = []
+    qrel_lines = []
+
+    log_lines.append(f"\n{'='*80}\n")
+    log_lines.append(f"Query ID: {query_id}\n")
+    log_lines.append(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
+    log_lines.append(f"Property: {property_label} ({property_id}) - {property_description}\n")
+    log_lines.append(f"Property Datatype: {property_datatype}\n")
+    log_lines.append(f"Operation: {query_obj.get('operation', 'N/A')}\n")
+    log_lines.append(f"Subclass: {query_obj.get('subclass_label', 'N/A')} ({query_obj.get('subclass_id', 'N/A')})\n")
+    log_lines.append(f"Ground Truth: {query_obj.get('ground_truth', 'N/A')}\n")
+    log_lines.append(f"{'='*80}\n\n")
 
     # Process each QID
     for qid in total_recall_qids:
         qid_info = total_recall_qids_with_values.get(qid, {})
         qid_label = qid_info.get('label', 'N/A') if isinstance(qid_info, dict) else qid_info
         qid_value = qid_info.get('value', 'N/A') if isinstance(qid_info, dict) else 'N/A'
-        log_file.write(f"\n--- Processing QID: {qid} | Label: {qid_label} | Value: {qid_value} ---\n")
+        log_lines.append(f"\n--- Processing QID: {qid} | Label: {qid_label} | Value: {qid_value} ---\n")
 
         # Track if this entity has at least one relevant passage
         entity_has_relevant_passage = False
@@ -369,13 +375,11 @@ def process_query(
             wiki_info = qid2wikipedia_cache[qid]
         else:
             wiki_info = get_wikipedia_info_from_qid(qid)
-            print(f"\n{wiki_info}")
-            print("-----")
             if qid2wikipedia_cache is not None:
                 qid2wikipedia_cache[qid] = wiki_info
 
         if not wiki_info:
-            log_file.write(f"No Wikipedia page found for {qid}\n")
+            log_lines.append(f"No Wikipedia page found for {qid}\n")
             entity_coverage['entities_without_relevant_passages'].append({
                 'entity_id': qid,
                 'entity_label': qid_label,
@@ -388,14 +392,14 @@ def process_query(
         entity_title = wiki_info['title']
         pageid = wiki_info['pageid']
 
-        log_file.write(f"Wikipedia Title: {entity_title}\n")
-        log_file.write(f"Wikipedia Page ID: {pageid}\n")
+        log_lines.append(f"Wikipedia Title: {entity_title}\n")
+        log_lines.append(f"Wikipedia Page ID: {pageid}\n")
 
         # Get passages for this page
         passages = get_passages_for_page(pageid, corpus_jsonl_path, page2passage_mapping)
 
         if not passages:
-            log_file.write(f"No passages found for page {pageid}\n")
+            log_lines.append(f"No passages found for page {pageid}\n")
             entity_coverage['entities_without_relevant_passages'].append({
                 'entity_id': qid,
                 'entity_label': qid_label,
@@ -404,7 +408,7 @@ def process_query(
             })
             continue
 
-        log_file.write(f"Found {len(passages)} passages\n")
+        log_lines.append(f"Found {len(passages)} passages\n")
         stats['total_passages_checked'] += len(passages)
 
         # Track relevant passages for this entity
@@ -430,17 +434,17 @@ def process_query(
             relevance = 1 if judgment == "YES" else 0
 
             if relevance == 1:
-                log_file.write(f"✓ RELEVANT - Passage ID: {passage_id}\n")
-                log_file.write(f"Full Content:\n{passage_content}\n\n")
+                log_lines.append(f"✓ RELEVANT - Passage ID: {passage_id}\n")
+                log_lines.append(f"Full Content:\n{passage_content}\n\n")
 
-                write_trec_qrel(qrel_output_file, query_id, passage_id, relevance)
-                qrel_output_file.flush()  # Flush immediately to disk
+                # Add qrel line instead of writing directly
+                qrel_lines.append(f"{query_id} 0 {passage_id} {relevance}\n")
                 stats['relevant_passages'] += 1
                 entity_has_relevant_passage = True
                 entity_relevant_passage_count += 1
             else:
                 # For non-relevant passages, just log the ID
-                log_file.write(f"✗ NOT RELEVANT - Passage ID: {passage_id} - Content: {passage_content[:100]}...\n")
+                log_lines.append(f"✗ NOT RELEVANT - Passage ID: {passage_id} - Content: {passage_content[:100]}...\n")
 
         # Record entity coverage results
         if entity_has_relevant_passage:
@@ -463,22 +467,62 @@ def process_query(
     entity_coverage['entities_without_coverage'] = len(entity_coverage['entities_without_relevant_passages'])
 
     # Log entity coverage summary for this query
-    log_file.write(f"\n{'='*80}\n")
-    log_file.write(f"ENTITY COVERAGE SUMMARY FOR QUERY: {query_id}\n")
-    log_file.write(f"{'='*80}\n")
-    log_file.write(f"Total entities: {entity_coverage['total_entities']}\n")
-    log_file.write(f"Entities with relevant passages: {entity_coverage['entities_with_coverage']} ({100*entity_coverage['entities_with_coverage']/entity_coverage['total_entities']:.1f}%)\n")
-    log_file.write(f"Entities without relevant passages: {entity_coverage['entities_without_coverage']} ({100*entity_coverage['entities_without_coverage']/entity_coverage['total_entities']:.1f}%)\n")
+    log_lines.append(f"\n{'='*80}\n")
+    log_lines.append(f"ENTITY COVERAGE SUMMARY FOR QUERY: {query_id}\n")
+    log_lines.append(f"{'='*80}\n")
+    log_lines.append(f"Total entities: {entity_coverage['total_entities']}\n")
+    log_lines.append(f"Entities with relevant passages: {entity_coverage['entities_with_coverage']} ({100*entity_coverage['entities_with_coverage']/entity_coverage['total_entities']:.1f}%)\n")
+    log_lines.append(f"Entities without relevant passages: {entity_coverage['entities_without_coverage']} ({100*entity_coverage['entities_without_coverage']/entity_coverage['total_entities']:.1f}%)\n")
 
     if entity_coverage['entities_without_relevant_passages']:
-        log_file.write(f"\nEntities without coverage:\n")
+        log_lines.append(f"\nEntities without coverage:\n")
         for entity in entity_coverage['entities_without_relevant_passages']:
-            log_file.write(f"  - {entity['entity_id']} ({entity['entity_label']}): {entity['reason']}\n")
+            log_lines.append(f"  - {entity['entity_id']} ({entity['entity_label']}): {entity['reason']}\n")
 
     # Also add to stats for backward compatibility
     stats['entity_coverage'] = entity_coverage
 
-    return stats
+    # Return data instead of writing to files
+    entity_coverage_json = json.dumps(entity_coverage)
+    return stats, qrel_lines, log_lines, entity_coverage_json
+
+
+def process_query_wrapper(
+    query_obj: Dict,
+    corpus_jsonl_path: str,
+    model: str,
+    temperature: float,
+    page2passage_mapping: Optional[Dict],
+    qid2wikipedia_cache: Optional[Dict],
+    api_key: str
+) -> Tuple[Dict, List[str], List[str], str]:
+    """
+    Wrapper function for multiprocessing that creates its own OpenAI client.
+
+    Args:
+        query_obj: Query object
+        corpus_jsonl_path: Path to corpus
+        model: LLM model
+        temperature: Temperature
+        page2passage_mapping: Page to passage mapping
+        qid2wikipedia_cache: QID to Wikipedia cache
+        api_key: OpenAI API key
+
+    Returns:
+        Tuple of (stats, qrel_lines, log_lines, entity_coverage_json)
+    """
+    # Create a new OpenAI client for this process
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+
+    return process_query_core(
+        query_obj=query_obj,
+        corpus_jsonl_path=corpus_jsonl_path,
+        client=client,
+        model=model,
+        temperature=temperature,
+        page2passage_mapping=page2passage_mapping,
+        qid2wikipedia_cache=qid2wikipedia_cache
+    )
 
 
 def main(args):
@@ -506,54 +550,81 @@ def main(args):
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable not set")
-    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
 
     # Create output directory if needed
     output_dir = Path(args.output_qrel).parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Cache for QID to Wikipedia mappings
-    qid2wikipedia_cache = {}
-
     # Create entity coverage output file path
     entity_coverage_file = args.output_qrel.replace('.txt', '_entity_coverage.jsonl')
 
-    # Open output files
+    # Use multiprocessing Manager for shared cache
+    with Manager() as manager:
+        # Create a shared cache for QID to Wikipedia mappings
+        qid2wikipedia_cache = manager.dict()
+
+        # Create partial function with fixed parameters
+        process_func = partial(
+            process_query_wrapper,
+            corpus_jsonl_path=args.corpus_jsonl,
+            model=args.model,
+            temperature=args.temperature,
+            page2passage_mapping=page2passage_mapping,
+            qid2wikipedia_cache=qid2wikipedia_cache,
+            api_key=api_key
+        )
+
+        # Process queries in parallel
+        all_stats = []
+        all_qrel_lines = []
+        all_log_lines = []
+        all_coverage_jsons = []
+
+        print(f"Processing {len(queries)} queries with {args.num_workers} parallel workers...")
+
+        if args.num_workers > 1:
+            # Use multiprocessing Pool with imap_unordered for faster progress updates
+            with Pool(processes=args.num_workers) as pool:
+                results = list(tqdm(
+                    pool.imap_unordered(process_func, queries, chunksize=1),
+                    total=len(queries),
+                    desc="Processing queries"
+                ))
+        else:
+            # Sequential processing (for debugging)
+            results = [process_func(q) for q in tqdm(queries, desc="Processing queries")]
+
+        # Unpack results
+        for stats, qrel_lines, log_lines, coverage_json in results:
+            all_stats.append(stats)
+            all_qrel_lines.extend(qrel_lines)
+            all_log_lines.extend(log_lines)
+            all_coverage_jsons.append(coverage_json)
+
+    # Write all results to files
+    print("Writing results to files...")
     with open(args.output_qrel, 'w', encoding='utf-8') as qrel_file, \
          open(args.log_file, 'w', encoding='utf-8') as log_file, \
          open(entity_coverage_file, 'w', encoding='utf-8') as coverage_file:
 
+        # Write log header
         log_file.write(f"QRel Generation Log\n")
         log_file.write(f"Query file: {args.query_file}\n")
         log_file.write(f"Corpus: {args.corpus_jsonl}\n")
         log_file.write(f"Model: {args.model}\n")
         log_file.write(f"Temperature: {args.temperature}\n")
+        log_file.write(f"Parallel workers: {args.num_workers}\n")
         log_file.write(f"\n{'='*80}\n")
 
-        # Process queries
-        all_stats = []
-        for idx, query_obj in tqdm(enumerate(queries), desc="Processing queries"):
+        # Write all qrel lines
+        qrel_file.writelines(all_qrel_lines)
 
-            if idx == 1:
-                break
+        # Write all log lines
+        log_file.writelines(all_log_lines)
 
-            stats = process_query(
-                query_obj=query_obj,
-                corpus_jsonl_path=args.corpus_jsonl,
-                client=client,
-                qrel_output_file=qrel_file,
-                log_file=log_file,
-                model=args.model,
-                temperature=args.temperature,
-                page2passage_mapping=page2passage_mapping,
-                qid2wikipedia_cache=qid2wikipedia_cache
-            )
-            all_stats.append(stats)
-
-            # Write entity coverage for this query to JSONL file
-            if 'entity_coverage' in stats:
-                coverage_file.write(json.dumps(stats['entity_coverage']) + '\n')
-                coverage_file.flush()
+        # Write all coverage JSONs
+        for coverage_json in all_coverage_jsons:
+            coverage_file.write(coverage_json + '\n')
 
         # Write summary
         log_file.write(f"\n\n{'='*80}\n")
@@ -673,13 +744,22 @@ if __name__ == "__main__":
         help="Temperature for LLM generation (default: 0.0 for consistency)"
     )
 
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=1,
+        help="Number of parallel workers for processing queries (default: 1 for sequential processing)"
+    )
+
     args = parser.parse_args()
 
     # Construct file paths based on dataset name
-    dataset_name = args.dataset
+    dataset_name = "test_quest" if args.dataset == "quest" else args.dataset
+    # Map dataset name to directory name (quest -> test_quest)
+    dir_name = args.dataset
     # Use the generations file which contains full metadata including entity values
-    args.query_file = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/{dataset_name}_generations.jsonl"
-    args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{dataset_name}/qrels_{dataset_name}.txt"
+    args.query_file = f"corpus_datasets/dataset_creation_heydar/{dir_name}/{dataset_name}_generations.jsonl"
+    args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{dir_name}/qrels_{dataset_name}.txt"
 
     # Create log file path based on dataset name with timestamp
     log_dir = Path(args.log_dir)
@@ -698,10 +778,18 @@ if __name__ == "__main__":
     print(f"Corpus: {args.corpus_jsonl}")
     print(f"Model: {args.model}")
     print(f"Temperature: {args.temperature}")
+    print(f"Parallel workers: {args.num_workers}")
     print("="*80)
     print()
 
     main(args)
-    
-    
-# python c2_corpus_annotation/qrel_generation.py 
+
+    # Usage examples:
+    # Sequential (1 worker):
+    # python c2_corpus_annotation/qrel_generation.py --dataset qald10
+
+    # Parallel (20 workers):
+    # python c2_corpus_annotation/qrel_generation.py --dataset qald10 --num_workers 32
+
+    # Parallel (50 workers):
+    # python c2_corpus_annotation/qrel_generation.py --dataset qald10 --num_workers 50 
