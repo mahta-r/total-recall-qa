@@ -14,6 +14,7 @@ import sys
 import json
 import argparse
 import requests
+import pickle
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Union
 from openai import OpenAI
@@ -108,16 +109,96 @@ def get_wikipedia_info_from_qid(qid: str) -> Optional[Dict[str, str]]:
         return None
 
 
-def load_corpus_in_memory(corpus_jsonl_path: str) -> Dict[str, Dict]:
+def get_index_cache_path(corpus_jsonl_path: str, index_cache_dir: Optional[str] = None) -> Path:
     """
-    Load entire corpus into memory as a dictionary for fast lookups.
+    Get the cache file path for a corpus index.
 
     Args:
         corpus_jsonl_path: Path to corpus JSONL file
+        index_cache_dir: Optional directory for cache files. If None, uses same dir as corpus
+
+    Returns:
+        Path object for the cache file
+    """
+    corpus_path = Path(corpus_jsonl_path)
+    cache_filename = f"{corpus_path.stem}_memory_index.pkl"
+
+    if index_cache_dir:
+        cache_dir = Path(index_cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir / cache_filename
+    else:
+        return corpus_path.parent / cache_filename
+
+
+def save_corpus_index(corpus_dict: Dict[str, Dict], page_index: Dict[str, List[str]], cache_path: Path):
+    """
+    Save corpus_dict and page_index to disk for faster loading next time.
+
+    Args:
+        corpus_dict: Dictionary mapping passage_id to passage dict
+        page_index: Dictionary mapping page_id to list of passage_ids
+        cache_path: Path where to save the index
+    """
+    print(f"Saving corpus index to {cache_path}...")
+    index_data = {
+        'corpus_dict': corpus_dict,
+        'page_index': page_index
+    }
+
+    with open(cache_path, 'wb') as f:
+        pickle.dump(index_data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Get file size for reporting
+    size_mb = cache_path.stat().st_size / (1024 * 1024)
+    print(f"Saved index to {cache_path} ({size_mb:.1f} MB)")
+
+
+def load_corpus_index(cache_path: Path) -> Tuple[Dict[str, Dict], Dict[str, List[str]]]:
+    """
+    Load corpus_dict and page_index from disk cache.
+
+    Args:
+        cache_path: Path to cached index file
+
+    Returns:
+        Tuple of (corpus_dict, page_index)
+    """
+    print(f"Loading corpus index from cache: {cache_path}...")
+
+    with open(cache_path, 'rb') as f:
+        index_data = pickle.load(f)
+
+    corpus_dict = index_data['corpus_dict']
+    page_index = index_data['page_index']
+
+    print(f"Loaded {len(corpus_dict)} passages and {len(page_index)} pages from cache")
+    return corpus_dict, page_index
+
+
+def load_corpus_in_memory(corpus_jsonl_path: str, index_cache_dir: Optional[str] = None) -> Dict[str, Dict]:
+    """
+    Load entire corpus into memory as a dictionary for fast lookups.
+    First checks for cached index, otherwise builds from scratch.
+
+    Args:
+        corpus_jsonl_path: Path to corpus JSONL file
+        index_cache_dir: Optional directory for cache files
 
     Returns:
         Dictionary mapping passage_id to passage dict
     """
+    # Check if cached index exists
+    cache_path = get_index_cache_path(corpus_jsonl_path, index_cache_dir)
+
+    if cache_path.exists():
+        print(f"Found cached index at {cache_path}")
+        try:
+            corpus_dict, _ = load_corpus_index(cache_path)
+            return corpus_dict
+        except Exception as e:
+            print(f"Warning: Failed to load cached index ({e}), rebuilding from scratch...")
+
     print(f"Loading corpus into memory from {corpus_jsonl_path}...")
     corpus_dict = {}
 
@@ -130,16 +211,34 @@ def load_corpus_in_memory(corpus_jsonl_path: str) -> Dict[str, Dict]:
     return corpus_dict
 
 
-def build_page_to_passages_index(corpus_dict: Dict[str, Dict]) -> Dict[str, List[str]]:
+def build_page_to_passages_index(
+    corpus_dict: Dict[str, Dict],
+    corpus_jsonl_path: str,
+    index_cache_dir: Optional[str] = None
+) -> Dict[str, List[str]]:
     """
     Build an index from page ID to list of passage IDs.
+    First checks for cached index, otherwise builds from scratch.
 
     Args:
         corpus_dict: Dictionary mapping passage_id to passage dict
+        corpus_jsonl_path: Path to corpus JSONL (for determining cache path)
+        index_cache_dir: Optional directory for cache files
 
     Returns:
         Dictionary mapping page_id to list of passage_ids
     """
+    # Check if cached index exists
+    cache_path = get_index_cache_path(corpus_jsonl_path, index_cache_dir)
+
+    if cache_path.exists():
+        print(f"Found cached index at {cache_path}")
+        try:
+            _, page_index = load_corpus_index(cache_path)
+            return page_index
+        except Exception as e:
+            print(f"Warning: Failed to load cached index ({e}), rebuilding from scratch...")
+
     print("Building page-to-passages index...")
     # Use defaultdict to avoid repeated 'if key not in dict' checks
     page_index = defaultdict(list)
@@ -251,6 +350,7 @@ def judge_passage_relevance(
                 {"role": "user", "content": input_instance}
             ],
             temperature=temperature,
+            max_tokens=10,  # Only need "YES" or "NO"
         )
 
         response = resp.choices[0].message.content.strip()
@@ -438,13 +538,21 @@ def main(args):
     page2passage_mapping = None
 
     if args.load_corpus_mode == "memory":
-        # Load corpus into memory
-        corpus_dict = load_corpus_in_memory(args.corpus_jsonl)
+        # Check if index cache exists
+        cache_path = get_index_cache_path(args.corpus_jsonl, args.index_cache_dir)
+        index_exists = cache_path.exists()
+
+        # Load corpus into memory (will use cache if available)
+        corpus_dict = load_corpus_in_memory(args.corpus_jsonl, args.index_cache_dir)
 
         # In memory mode, we need to build the page index from corpus_dict
         # The page index maps page_id -> list of passage_ids (not line numbers)
         # This is different from page2passage_mapping which maps page_id -> line numbers
-        page_index = build_page_to_passages_index(corpus_dict)
+        page_index = build_page_to_passages_index(corpus_dict, args.corpus_jsonl, args.index_cache_dir)
+
+        # Save index if it was just built (not loaded from cache)
+        if not index_exists:
+            save_corpus_index(corpus_dict, page_index, cache_path)
 
         print(f"Corpus loading mode: IN-MEMORY")
         print(f"Memory usage: ~{len(corpus_dict)} passages loaded")
@@ -571,7 +679,15 @@ if __name__ == "__main__":
         "--page2passage_mapping",
         type=str,
         default="/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.index.json",
-        help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup"
+        help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup (used in streaming mode)"
+    )
+
+    parser.add_argument(
+        "--index_cache_dir",
+        type=str,
+        default=None,
+        help="Optional: Directory to store/load cached in-memory index. If not specified, cache is stored next to corpus file. "
+             "Cache file will be named '<corpus_stem>_memory_index.pkl'"
     )
 
     parser.add_argument(
@@ -636,16 +752,30 @@ if __name__ == "__main__":
 # ============================================================================
 #
 # 1. STREAMING MODE (Default - Low memory, good for small query batches):
-#    python c2_corpus_annotation/qrel_generation.py --dataset qald10
+#    python c3_qrel_generation/qrel_generation.py --dataset qald10
 #
 #    OR explicitly:
-#    python c2_corpus_annotation/qrel_generation.py --dataset qald10 --load_corpus_mode stream
+#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --load_corpus_mode stream
 #
 # 2. IN-MEMORY MODE (High memory, faster per-query, good for large batches):
-#    python c2_corpus_annotation/qrel_generation.py --dataset qald10 --load_corpus_mode memory
+#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --load_corpus_mode memory
+#
+#    The first time you run in memory mode, it will:
+#    - Load the entire corpus into memory (slow, one-time operation)
+#    - Build the page-to-passage index
+#    - Save both to a cache file (default: next to corpus as <corpus_name>_memory_index.pkl)
+#
+#    Subsequent runs will load from the cache file (much faster!)
+#
+# 3. IN-MEMORY MODE with custom cache directory:
+#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --load_corpus_mode memory \
+#           --index_cache_dir /path/to/cache/dir
 #
 # When to use each mode:
 # - STREAM: Processing <100 queries, limited RAM, or very large corpus
 # - MEMORY: Processing 100s-1000s of queries, have >32GB RAM, corpus fits in memory
+#
+# Note: The in-memory index cache can be very large (multi-GB). Make sure you have
+# sufficient disk space in the cache directory.
 #
 # ============================================================================ 

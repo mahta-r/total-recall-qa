@@ -30,7 +30,7 @@ def download_raw_dump(input_url: str, output_path: str, chunk_size: int = 8192):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with requests.get(input_url, stream=True) as response:
-        response.raise_for_status()  # raise error for bad responses
+        response.raise_for_status()
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
 

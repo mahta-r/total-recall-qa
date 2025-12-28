@@ -545,7 +545,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
         for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
             
-            if line_num == 50:
+            if line_num == 20:
                 break
             
             try:
