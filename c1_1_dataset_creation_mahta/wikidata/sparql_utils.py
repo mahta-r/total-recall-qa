@@ -337,7 +337,12 @@ def get_classes_with_single_quantity(endpoint=WDQS_ENDPOINT):
         label = result.get("classLabel", {}).get("value", "")
         description = result.get("classDescription", {}).get("value", "")
         quantity = result["uniqueQuantity"]["value"]
-        classes.append({"id": qid, "label": label, "description": description ,"quantity": quantity})
+        classes.append({
+            "id": qid, 
+            "label": label, 
+            "description": description ,
+            "quantity": quantity
+        })
     return classes
 
 
@@ -652,4 +657,98 @@ def get_wikimedia_lists_with_p360_qualifiers(endpoint=WDQS_ENDPOINT):
 
     return rows
 
+
+def get_wikimedia_lists_with_sparql(endpoint=WDQS_ENDPOINT):
+    query = """
+    SELECT ?list ?listLabel ?listDescription ?enlist ?category ?categoryLabel ?items ?itemsLabel ?sparql WHERE {
+        {
+            SELECT ?list ?category ?enlist WHERE {
+            ?list wdt:P31 wd:Q13406463 .
+            ?list p:P360 ?stmt .
+            ?list wdt:P1754 ?category .
+            ?enlist schema:about ?list ;
+                    schema:isPartOf <https://en.wikipedia.org/> .
+            ?encategory schema:about ?category ;
+                    schema:isPartOf <https://en.wikipedia.org/> .
+            ?list wdt:P3921 ?sparql .
+            }
+            GROUP BY ?list ?category ?enlist
+            HAVING (
+            COUNT(DISTINCT ?stmt) = 1 &&
+            COUNT(DISTINCT ?sparql) = 1
+            ) 
+        }
+        ?list p:P360 ?stmt .
+        ?stmt ps:P360 ?items .
+        ?list wdt:P3921 ?sparql .
+        
+        SERVICE wikibase:label {
+            bd:serviceParam wikibase:language "en".
+        }
+    }
+    """
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(query)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader("User-Agent", USER_AGENT)
+    results = safe_query(sparql)
+
+    rows = []
+    for r in results["results"]["bindings"]:
+        rows.append({
+            "list_id": r["list"]["value"].split("/")[-1],
+            "list_label": r.get("listLabel", {}).get("value", ""),
+            "list_description": r.get("listDescription", {}).get("value", ""),
+            "enwiki": r["enlist"]["value"],
+            "category_id": r["category"]["value"].split("/")[-1],
+            "category_label": r.get("categoryLabel", {}).get("value", ""),
+            "p360_item_id": r["items"]["value"].split("/")[-1],
+            "p360_item_label": r.get("itemsLabel", {}).get("value", ""),
+            "sparql_query": r["sparql"]["value"],
+        })
+    return rows
+
+
+def build_full_sparql_query(item_pattern: str) -> str:
+    # wrap a Wikidata P3921 SPARQL fragment into a full, executable WDQS query
+    
+    item_pattern = item_pattern.strip()
+    if not item_pattern.endswith("."):
+        item_pattern = item_pattern + " ."
+
+    query = f"""
+    SELECT DISTINCT ?item ?itemLabel ?itemDescription ?wikipedia WHERE {{
+        {item_pattern}
+
+        OPTIONAL {{
+            ?wikipedia schema:about ?item ;
+                    schema:isPartOf <https://en.wikipedia.org/> ;
+                    schema:inLanguage "en" .
+        }}
+
+        SERVICE wikibase:label {{
+            bd:serviceParam wikibase:language "en,mul".
+        }}
+    }}
+    """
+    return query.strip()
+
+
+def execute_custom_sparql_query(sparql_query: str, endpoint=WDQS_ENDPOINT) -> List[Dict]:
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(sparql_query)
+    sparql.setReturnFormat(JSON)
+    sparql.addCustomHttpHeader("User-Agent", USER_AGENT)
+    results = safe_query(sparql)
+
+    rows = []
+    for r in results["results"]["bindings"]:
+        rows.append({
+            "id": r["item"]["value"].split("/")[-1],
+            "label": r.get("itemLabel", {}).get("value", ""),
+            "description": r.get("itemDescription", {}).get("value", ""),
+            "wikipedia": r.get("wikipedia", {}).get("value", None),
+        })
+    return rows
 
