@@ -15,7 +15,6 @@ import requests
 import argparse
 from pathlib import Path
 from typing import Iterator, Tuple, Dict
-from SPARQLWrapper import SPARQLWrapper, JSON
 
 
 def download_raw_dump(input_url: str, output_path: str, chunk_size: int = 8192):
@@ -202,19 +201,23 @@ def get_wikidata_qid(pageid=None, title=None):
 
     return page_info.get("pageprops", {}).get("wikibase_item")
 
+def to_passages(input_root=None, output_jsonl=None, words_per_passage=100, min_words=20, skip_empty_titles=False, progress_every=1000):
+    """
+    Split Wikipedia articles into fixed-size passages and write JSONL.
 
-def to_passages():
-    ap = argparse.ArgumentParser(description="Split Wikipedia articles into fixed-size passages and write JSONL.")
-    ap.add_argument("--input_root", type=str, default="corpus_datasets/enwiki-20251001", help="Path to processed Wikipedia dump root (e.g., enwiki-20251001)")
-    ap.add_argument("--output_jsonl", type=str, default="corpus_datasets/enwiki_20251001.jsonl", help="Output JSONL file path")
-    ap.add_argument("--words-per-passage", type=int, default=100, help="Number of words per passage (default: 100)")
-    ap.add_argument("--min-words", type=int, default=20, help="Skip passages with fewer words than this (default: 20)")
-    ap.add_argument("--skip-empty-titles", action="store_true", help="Skip docs without a title")
-    ap.add_argument("--progress-every", type=int, default=1000, help="Log every N passages (default: 1000)")
-    args = ap.parse_args()
+    Args:
+        input_root: Path to processed Wikipedia dump root (e.g., enwiki-20251001)
+        output_jsonl: Output JSONL file path
+        words_per_passage: Number of words per passage (default: 100)
+        min_words: Skip passages with fewer words than this (default: 20)
+        skip_empty_titles: Skip docs without a title (default: False)
+        progress_every: Log every N passages (default: 1000)
+    """
+    if input_root is None or output_jsonl is None:
+        raise ValueError("input_root and output_jsonl are required arguments")
 
-    input_root = Path(args.input_root)
-    out_path = Path(args.output_jsonl)
+    input_root_path = Path(input_root)
+    out_path = Path(output_jsonl)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create a unique passage id scheme: <doc_id or hash>-<chunk_idx>
@@ -224,10 +227,10 @@ def to_passages():
     total_passages = 0
 
     with open(out_path, "w", encoding="utf-8") as out_f:
-        for fpath in iter_all_chunk_files(input_root):
+        for fpath in iter_all_chunk_files(input_root_path):
             try:
                 for doc_id, title, raw_text in iter_documents_from_file(fpath):
-                    if args.skip_empty_titles and not title:
+                    if skip_empty_titles and not title:
                         continue
                     total_articles += 1
 
@@ -243,9 +246,9 @@ def to_passages():
                     # wikidata_qid = get_wikidata_qid(doc_id, title)
 
                     chunk_idx = 0
-                    for chunk in chunk_by_words(text, args.words_per_passage):
+                    for chunk in chunk_by_words(text, words_per_passage):
                         # enforce min words after splitting
-                        if len(chunk.split()) < args.min_words:
+                        if len(chunk.split()) < min_words:
                             continue
                         pid = f"{base}-{chunk_idx:04d}"
                         rec: Dict[str, str] = {
@@ -258,7 +261,7 @@ def to_passages():
                         total_passages += 1
                         chunk_idx += 1
 
-                        if args.progress_every and (total_passages % args.progress_every == 0):
+                        if progress_every and (total_passages % progress_every == 0):
                             print(f"[info] {total_passages} passages written ...", file=sys.stderr)
             except Exception as e:
                 # Keep going even if a file is malformed
@@ -286,35 +289,75 @@ def read_jsonl_line(filepath: str, index: int) -> str:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Wikipedia dump processing pipeline")
+    parser.add_argument("--step", type=str, required=True,
+                        choices=["download", "extract", "convert"],
+                        help="Which step to execute: download, extract, or convert")
+    parser.add_argument("--dump-date", type=str, default="20251001",
+                        help="Wikipedia dump date (default: 20251001)")
+    parser.add_argument("--output-dir", type=str, default="/projects/0/prjs0834/heydars/INDICES",
+                        help="Output directory for downloaded dump")
     
-    dump_date = "20251001" # (25M pages, 18.5M articles)
+    # For convert step
+    parser.add_argument("--input-root", type=str,
+                        help="Path to processed Wikipedia dump root (default: based on dump-date)")
+    parser.add_argument("--output-jsonl", type=str,
+                        help="Output JSONL file path (default: based on dump-date)")
+    parser.add_argument("--words-per-passage", type=int, default=100,
+                        help="Number of words per passage (default: 100)")
+    parser.add_argument("--min-words", type=int, default=20,
+                        help="Skip passages with fewer words than this (default: 20)")
+    parser.add_argument("--skip-empty-titles", action="store_true",
+                        help="Skip docs without a title")
+    parser.add_argument("--progress-every", type=int, default=10000,
+                        help="Log every N passages (default: 10000)")
     
-    ### --- Step 1: Download the Wikipedia XML dump
-    # raw_dump_path = f"https://dumps.wikimedia.org/enwiki/{dump_date}/enwiki-{dump_date}-pages-articles.xml.bz2"
-    # output_path = f"data/enwiki-{dump_date}-pages-articles.xml.bz2"
-    # download_raw_dump(raw_dump_path, output_path)
-    
-    
-    ### --- Step 2: Extract clean text from a Wikipedia XML dump
-    # conda create -n wiki_env python=3.8  -> The version is important. The wikiextractor has problem with more recent version of python
-    # conda activate wiki_env
-    # pip install wikiextractor SoMaJo
-    
-    # - Without --no-templates: a preprocessed step is added to get templates, it almost takes ~2h
-    # - The main process takes ~2h
-    # python -m wikiextractor.WikiExtractor data/enwiki-20251001-pages-articles.xml.bz2 -o data/enwiki-20251001 --processes 16
-    # python -m wikiextractor.WikiExtractor data/enwiki-20251001-pages-articles.xml.bz2 -o data/enwiki-20251001 --processes 16 --no-templates
-    
-    # conda deactivate
-    
-    ### --- Step 3: Convert wiki dump to jsonl corpus
-    # Src: Dense Passage Retrieval for Open-Domain Question Answering, EMNLP 2020
-    to_passages()
-    
-    # index = 1
-    # line = read_jsonl_line('downloads/enwiki_20251001.jsonl', index)
-    # print(line)
+    args = parser.parse_args()
 
-    
-# python c1_corpus_dataset_preparation/dump2corpus.py
+    dump_date = args.dump_date
+
+
+    if args.step == "download":
+        ### --- Step 1: Download the Wikipedia XML dump
+        raw_dump_path = f"https://dumps.wikimedia.org/enwiki/{dump_date}/enwiki-{dump_date}-pages-articles.xml.bz2"
+        output_path = f"{args.output_dir}/enwiki-{dump_date}-pages-articles.xml.bz2"
+        download_raw_dump(raw_dump_path, output_path)
+        print(f"\n[info] Download completed. Next step: extract")
+        print(f"[info] Run: python c2_corpus_annotation/src/dump2corpus.py --step extract")
+
+    elif args.step == "extract":
+        ### --- Step 2: Extract clean text from a Wikipedia XML dump
+        print("[info] Step 2: Extract clean text from Wikipedia XML dump")
+        print("[info] Requirements:")
+        print("  - conda create -n wiki_env python=3.8")
+        print("  - conda activate wiki_env")
+        print("  - pip install wikiextractor SoMaJo")
+        print("\n[info] Run one of the following commands:")
+        print(f"  python -m wikiextractor.WikiExtractor {args.output_dir}/enwiki-{dump_date}-pages-articles.xml.bz2 -o {args.output_dir}/enwiki-{dump_date} --processes 16")
+        print(f"  python -m wikiextractor.WikiExtractor {args.output_dir}/enwiki-{dump_date}-pages-articles.xml.bz2 -o {args.output_dir}/enwiki-{dump_date} --processes 16 --no-templates")
+        print("\n[info] Note: --no-templates is faster (~2h) but skips template preprocessing")
+        print("[info] After extraction completes, run: python c2_corpus_annotation/src/dump2corpus.py --step convert")
+
+    elif args.step == "convert":
+        ### --- Step 3: Convert wiki dump to jsonl corpus
+        print("[info] Step 3: Convert wiki dump to jsonl corpus")
+        print("[info] This will run the to_passages() function")
+
+        # Set defaults based on dump_date if not provided
+        input_root = args.input_root or f"{args.output_dir}/enwiki-{dump_date}"
+        output_jsonl = args.output_jsonl or f"{args.output_dir}/enwiki_{dump_date}.jsonl"
+
+        to_passages(
+            input_root=input_root,
+            output_jsonl=output_jsonl,
+            words_per_passage=args.words_per_passage,
+            min_words=args.min_words,
+            skip_empty_titles=args.skip_empty_titles,
+            progress_every=args.progress_every
+        )
+
+
+# python c2_corpus_annotation/src/dump2corpus.py --step download
+# python c2_corpus_annotation/src/dump2corpus.py --step extract
+# python c2_corpus_annotation/src/dump2corpus.py --step convert
     
