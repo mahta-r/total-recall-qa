@@ -6,29 +6,8 @@ import mwparserfromhell
 import mwxml
 
 
-API_URL = "https://en.wikipedia.org/w/api.php"
-
-
-def get_category_members(category):
-    params = {
-        "action": "query",
-        "list": "categorymembers",
-        "cmtitle": category,
-        "cmlimit": "max",
-        "format": "json"
-    }
-    while True:
-        result = requests.get(API_URL, params=params).json()
-        for item in result["query"]["categorymembers"]:
-            if item["ns"] == 0:  # 0 = article namespace
-                yield item
-            # Recurse into subcategories
-            if item["ns"] == 14:  # 14 = category namespace
-                subcat = "Category:" + item["title"].split("Category:")[1]
-                yield from get_category_members(subcat)
-        if "continue" not in result:
-            break
-        params.update(result["continue"])
+MW_API = "https://en.wikipedia.org/w/api.php"
+USER_AGENT = "TotalRecallRAG/0.1 (contact: email@example.edu)"
 
 
 def wikicode_from_page_title(title):
@@ -42,8 +21,8 @@ def wikicode_from_page_title(title):
         "format": "json",
         "formatversion": "2",
     }
-    headers = {"User-Agent": "My-Bot-Name/1.0"}
-    req = requests.get(API_URL, headers=headers, params=params)
+    headers = {"User-Agent": USER_AGENT}
+    req = requests.get(MW_API, headers=headers, params=params)
     res = req.json()
     revision = res["query"]["pages"][0]["revisions"][0]
     text = revision["slots"]["main"]["content"]
@@ -54,7 +33,7 @@ def main(args):
     with bz2.open(args.wikipedia_dump_path, "rb") as f:
         dump = mwxml.Dump.from_file(f)
 
-        for idx, page in tqdm.tqdm(enumerate(dump)):
+        for idx, page in tqdm.tqdm(enumerate(dump), total=25000000):
             
             revision = next(iter(page)) # only need latest revision
             text = revision.text
@@ -78,16 +57,19 @@ def main(args):
                             # replace the template string in wikicode tree, this replaces all matching occurrences
                             wikicode.replace(str(template), "\n".join(fields) + "\n")
                         except:
-                            # revert to removing infobox in next processing step                            
+                            # revert to removing infobox in next processing step
                             continue
-                            # debugging log
-                            # with open("parse_error.log", "a") as err_file:
-                            #     print(template, file=err_file)
-                            #     print('---------------------------------------- PARSED ----------------------------------------', file=err_file)
-                            #     print(wikicode, file=err_file)
-                            #     print('---------------------------------------- ORIGINAL ----------------------------------------', file=err_file)
-                            #     print(mwparserfromhell.parse(text), file=err_file)
-                            #     raise
+                
+                if name.startswith("convert"):
+                    params = list(template.params)
+                    assert len(params) >= 2, "Convert template must have at least two parameters"
+
+                    value = params[0].value.strip()
+                    unit = params[1].value.strip()
+
+                    replacement = f"{value} {unit}"
+                    wikicode.replace(template, replacement)
+                    
             
             parsed = wikicode.strip_code(keep_template_params=True)
             # mwparserfromhell is only used for infobox formating as WikiExtractor V2 does not handle infoboxes
