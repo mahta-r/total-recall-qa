@@ -309,7 +309,7 @@ def compact(text, mark_headers=False):
     listLevel = ''  # nesting of lists
     title = ''
     list_open = False  # track plain-text list state
-    first_item = None
+    # first_item = None
 
     for line in text.split('\n'):
 
@@ -318,19 +318,25 @@ def compact(text, mark_headers=False):
                 for c in reversed(listLevel):
                     page.append(listClose[c])
                     listLevel = ''
-            elif list_open:  # plain-text: close list on blank line
-                if first_item:
-                    page.append(first_item)
-                    first_item = None
-                else:
-                    pass
-                    page.append('--- List:End ---')
-                list_open = False
+            # elif list_open:  # plain-text: close list on blank line
+            #     # if first_item:
+            #     #     page.append(first_item)
+            #     #     first_item = None
+            #     # else:
+            #     #     page.append('--- List:End ---')
+            #     page.append('--- List:End ---')
+            #     list_open = False
             continue
 
         # Handle section titles
         m = section.match(line)
         if m:
+
+            if list_open:
+                page.append('--- List:End ---')
+                list_open = False
+
+
             title = m.group(2)
             lev = len(m.group(1))   # level of the header
 
@@ -429,14 +435,15 @@ def compact(text, mark_headers=False):
                 list_item= re.sub("(^ *)(.+)",r"\1- \2",list_item)
                 if not list_open:
                     list_open = True
-                    first_item = list_item
-                else:
-                    if first_item:
-                        page.append("--- List:Start ---")
-                        page.append(first_item)
-                        first_item = None
-                    page.append(list_item)
-                # page.append(list_item)
+                    page.append('--- List:Start ---') # tags single-item lists too
+                #     first_item = list_item
+                # else:
+                #     if first_item:
+                #         page.append("--- List:Start ---") # tags only multi-item lists
+                #         page.append(first_item)
+                #         first_item = None
+                #     page.append(list_item)
+                page.append(list_item)
                 emptySection = False
 
 
@@ -449,12 +456,12 @@ def compact(text, mark_headers=False):
         else:
 
             if list_open:
-                if first_item:
-                    page.append(first_item)
-                    first_item = None
-                else:
-                    pass
-                    page.append('--- List:End ---')
+                # if first_item:
+                #     page.append(first_item)
+                #     first_item = None
+                # else:
+                #     page.append('--- List:End ---')
+                page.append('--- List:End ---')
                 list_open = False
 
 
@@ -483,13 +490,14 @@ def compact(text, mark_headers=False):
                 # elif line[0] == ' ':
                 #     continue
 
+    # close trailing plain-text list if file ends inside it
     if list_open:
-        if first_item:
-            page.append(first_item)
-            first_item = None
-        else:
-            pass
-            page.append('--- List:End ---')
+        # if first_item:
+        #     page.append(first_item)
+        #     first_item = None
+        # else:
+        #     page.append('--- List:End ---')
+        page.append('--- List:End ---')
         list_open = False
 
     return page
