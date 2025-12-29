@@ -224,18 +224,18 @@ def run_quest_pipeline(args):
     # print()
 
     # Step 2: Get Properties
-    print("=" * 70)
-    print("STEP 2: Get Properties")
-    print("=" * 70)
+    # print("=" * 70)
+    # print("STEP 2: Get Properties")
+    # print("=" * 70)
 
-    try:
-        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-        print("\n✓ Step 2 completed successfully")
-    except Exception as e:
-        print(f"\n✗ Step 2 failed: {e}")
-        return 1
+    # try:
+    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+    #     print("\n✓ Step 2 completed successfully")
+    # except Exception as e:
+    #     print(f"\n✗ Step 2 failed: {e}")
+    #     return 1
 
-    print()
+    # print()
 
     # Step 3: Generate Total Recall Queries
     print("=" * 70)
