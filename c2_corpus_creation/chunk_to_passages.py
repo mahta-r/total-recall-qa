@@ -38,31 +38,21 @@ def open_maybe_bz2(path: Path) -> io.TextIOBase:
     return open(path, "r", encoding="utf-8", errors="ignore")
 
 
-def normalize_text(text: str, preserve_structure: bool = False) -> str:
+def normalize_text(text: str) -> str:
     """
     Normalizes Wikipedia text by handling whitespace and section headers.
 
     Args:
         text: Raw Wikipedia text
-        preserve_structure: If True, preserve some text structure (for infoboxes).
-                          If False, collapse to single spaces (default behavior).
 
     Returns:
         Normalized text
     """
-    if preserve_structure:
-        # Keep section headers for infobox information, but normalize them
-        text = SECTION_HEADER_RE.sub(lambda m: m.group(0).strip() + " ", text)
-        # Collapse excessive whitespace but preserve some structure
-        text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
-        text = re.sub(r' +', ' ', text)
-        return text.strip()
-    else:
-        # Remove section headers lines like "== References ==", keep body
-        text = SECTION_HEADER_RE.sub("\n", text)
-        # Collapse whitespace/newlines to single spaces
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
+    # Remove section headers lines like "== References ==", keep body
+    text = SECTION_HEADER_RE.sub("\n", text)
+    # Collapse whitespace/newlines to single spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 
 def chunk_by_words(text: str, words_per_chunk: int) -> Iterator[str]:
@@ -221,8 +211,7 @@ def chunk_docs_by_words(
     words_per_passage=100,
     min_words=20,
     skip_empty_titles=False,
-    progress_every=1000,
-    preserve_structure=False
+    progress_every=1000
 ):
     """
     Split Wikipedia articles into fixed-size word-based passages and write JSONL.
@@ -234,7 +223,6 @@ def chunk_docs_by_words(
         min_words: Skip passages with fewer words than this (default: 20)
         skip_empty_titles: Skip docs without a title (default: False)
         progress_every: Log every N passages (default: 1000)
-        preserve_structure: Preserve text structure for infoboxes (default: False)
 
     Returns:
         Tuple of (total_articles, total_passages)
@@ -257,7 +245,7 @@ def chunk_docs_by_words(
                         continue
                     total_articles += 1
 
-                    text = normalize_text(raw_text, preserve_structure=preserve_structure)
+                    text = normalize_text(raw_text)
                     if not text:
                         continue
 
@@ -292,28 +280,7 @@ def chunk_docs_by_words(
     return total_articles, total_passages
 
 
-def read_jsonl_line(filepath: str, index: int) -> str:
-    """
-    Reads a specific line (by index) from a large JSONL file without loading the entire file.
-
-    Args:
-        filepath: Path to the .jsonl file
-        index: Zero-based index of the line to read
-
-    Returns:
-        The line at the given index (stripped of newline)
-
-    Raises:
-        IndexError: If index is out of range
-    """
-    with open(filepath, 'r', encoding='utf-8') as f:
-        for i, line in enumerate(f):
-            if i == index:
-                return line.strip()
-    raise IndexError(f"Index {index} out of range for file {filepath}")
-
-
-# === V2 ================
+# === V2 Context-Aware Chunking ================
 def parse_sections_with_hierarchy(text: str) -> list:
     """
     Parse text to extract sections with their hierarchical context.
@@ -380,70 +347,6 @@ def parse_sections_with_hierarchy(text: str) -> list:
         sections.append((0, len(text), []))
 
     return sections
-
-
-def chunk_by_words_v2(text: str, words_per_chunk: int) -> Iterator[str]:
-    """
-    Splits text into chunks of approximately equal word count without cutting sentences.
-
-    Each chunk will be close to words_per_chunk but may be slightly more or less
-    to avoid cutting sentences mid-way.
-
-    Args:
-        text: Text to chunk
-        words_per_chunk: Target number of words per chunk (approximate)
-
-    Yields:
-        Text chunks that end at sentence boundaries
-    """
-    if not text:
-        return
-
-    # Split text into sentences using common sentence terminators
-    # This regex splits on . ! ? followed by space/newline or end of string
-    sentence_pattern = r'(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])$'
-    sentences = re.split(sentence_pattern, text)
-
-    # Filter empty sentences
-    sentences = [s.strip() for s in sentences if s.strip()]
-
-    if not sentences:
-        return
-
-    current_chunk = []
-    current_word_count = 0
-
-    for sentence in sentences:
-        sentence_words = sentence.split()
-        sentence_word_count = len(sentence_words)
-
-        # If adding this sentence would significantly exceed target, yield current chunk
-        if current_chunk and (current_word_count + sentence_word_count) > words_per_chunk:
-            # Decide whether to include this sentence or start a new chunk
-            # Include if we're closer to target with it than without it
-            distance_with = abs((current_word_count + sentence_word_count) - words_per_chunk)
-            distance_without = abs(current_word_count - words_per_chunk)
-
-            if distance_without <= distance_with:
-                # Better to yield current chunk and start new one
-                yield " ".join(current_chunk)
-                current_chunk = [sentence]
-                current_word_count = sentence_word_count
-            else:
-                # Better to include this sentence in current chunk
-                current_chunk.append(sentence)
-                current_word_count += sentence_word_count
-                yield " ".join(current_chunk)
-                current_chunk = []
-                current_word_count = 0
-        else:
-            # Add sentence to current chunk
-            current_chunk.append(sentence)
-            current_word_count += sentence_word_count
-
-    # Yield any remaining content
-    if current_chunk:
-        yield " ".join(current_chunk)
 
 
 def parse_and_normalize_section(section_text: str) -> list:
@@ -805,8 +708,7 @@ def chunk_docs_context_aware(
     words_per_passage=100,
     min_words=20,
     skip_empty_titles=False,
-    progress_every=1000,
-    preserve_structure=False
+    progress_every=1000
 ):
     """
     Split Wikipedia articles into context-aware passages.
@@ -823,7 +725,6 @@ def chunk_docs_context_aware(
         min_words: Skip passages with fewer words than this (default: 20)
         skip_empty_titles: Skip docs without a title (default: False)
         progress_every: Log every N passages (default: 1000)
-        preserve_structure: Preserve text structure for infoboxes (default: False)
 
     Returns:
         Tuple of (total_articles, total_passages)
@@ -885,10 +786,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Convert Wikipedia dump to passage-based JSONL corpus"
     )
-    parser.add_argument("--input-root", type=str, 
+    parser.add_argument("--input-root", type=str,
                         default="corpus_datasets/sample_wikiextractorV2",
                         help="Path to processed Wikipedia dump root")
-    parser.add_argument("--output-jsonl", type=str, 
+    parser.add_argument("--output-jsonl", type=str,
                         default="corpus_datasets/output.jsonl",
                         help="Output JSONL file path")
     parser.add_argument("--words-per-passage", type=int, default=100,
@@ -899,30 +800,31 @@ if __name__ == "__main__":
                         help="Skip docs without a title")
     parser.add_argument("--progress-every", type=int, default=10000,
                         help="Log every N passages (default: 10000)")
-    parser.add_argument("--preserve-structure", action="store_true",
-                        help="Preserve text structure (useful for infoboxes)")
+    parser.add_argument("--method", type=str, default="context-aware",
+                        choices=["simple", "context-aware"],
+                        help="Chunking method: 'simple' for word-based, 'context-aware' for semantic (default: context-aware)")
 
     args = parser.parse_args()
 
-    # chunk_docs_by_words(
-    #     input_root=args.input_root,
-    #     output_jsonl=args.output_jsonl,
-    #     words_per_passage=args.words_per_passage,
-    #     min_words=args.min_words,
-    #     skip_empty_titles=args.skip_empty_titles,
-    #     progress_every=args.progress_every,
-    #     preserve_structure=args.preserve_structure
-    # )
+    if args.method == "simple":
+        chunk_docs_by_words(
+            input_root=args.input_root,
+            output_jsonl=args.output_jsonl,
+            words_per_passage=args.words_per_passage,
+            min_words=args.min_words,
+            skip_empty_titles=args.skip_empty_titles,
+            progress_every=args.progress_every
+        )
+    else:
+        chunk_docs_context_aware(
+            input_root=args.input_root,
+            output_jsonl=args.output_jsonl,
+            words_per_passage=args.words_per_passage,
+            min_words=args.min_words,
+            skip_empty_titles=args.skip_empty_titles,
+            progress_every=args.progress_every
+        )
 
-    chunk_docs_context_aware(
-        input_root=args.input_root,
-        output_jsonl=args.output_jsonl,
-        words_per_passage=args.words_per_passage,
-        min_words=args.min_words,
-        skip_empty_titles=args.skip_empty_titles,
-        progress_every=args.progress_every,
-        preserve_structure=args.preserve_structure
-    )
-    
-    
-    # python c2_corpus_creation/chunk_to_passages.py
+    # Usage:
+    # python c2_corpus_creation/chunk_to_passages.py --method simple
+    # python c2_corpus_creation/chunk_to_passages.py --method context-aware
