@@ -8,8 +8,8 @@ import numpy as np
 from tqdm import tqdm
 
 from utils.general_utils import set_seed
-from c3_task_evaluation.models.retrieval_rankers import create_retriever
-from c3_task_evaluation.metrics.retrieval_eval_metrics import evaluate_retrieval_ranking
+from c4_task_evaluation.models.retrieval_rankers import create_retriever
+from c4_task_evaluation.metrics.retrieval_eval_metrics import evaluate_retrieval_ranking
 
 
 def run_retrieval_evaluation(args):

@@ -5,10 +5,8 @@ import torch
 import transformers
 from typing import List, Dict, Tuple
 
-# TODO: Import the actual retriever implementations
-# from c2_model_generation.src.retrievers_local import BM25Retriever, RerankRetriever, DenseRetriever
-from c3_task_evaluation.models.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
-from c3_task_evaluation.models.llm_generator import LLMGenerator_api, LLMGenerator_hf_local
+from c4_task_evaluation.models.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+from c4_task_evaluation.models.llm_generator import LLMGenerator_api, LLMGenerator_hf_local
 
 
 class BaseRetriever:

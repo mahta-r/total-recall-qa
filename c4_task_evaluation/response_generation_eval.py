@@ -8,7 +8,7 @@ import numpy as np
 from tqdm import tqdm
 
 from utils.general_utils import set_seed
-from c3_task_evaluation.models.retrieval_augmented_models import (
+from c4_task_evaluation.models.retrieval_augmented_models import (
     NoRetrieval,
     SingleRetrieval,
     ReSearch_Model,
@@ -18,7 +18,7 @@ from c3_task_evaluation.models.retrieval_augmented_models import (
     SearchO1_Model,
     SelfAsk_Model
 )
-from c3_task_evaluation.metrics.generation_eval_metrics import em_score, f1_qald_score, f1_score
+from c4_task_evaluation.metrics.generation_eval_metrics import em_score, f1_qald_score, f1_score
 
 
 
@@ -60,9 +60,12 @@ def run_evaluation(args):
         with open(args.dataset_file, 'r', encoding='utf-8') as f:
             for line in f:
                 data = json.loads(line)
-                if 'qid' in data:
-                    query_ids.append(data['qid'])
-                    test_dataset[data['qid']] = data
+                # Handle both 'qid' and 'id' fields
+                qid = data.get('qid', data.get('id'))
+                if qid:
+                    data['qid'] = qid  # Normalize to 'qid'
+                    query_ids.append(qid)
+                    test_dataset[qid] = data
     print(f"Test dataset size: {len(test_dataset)}")
 
     # === Read existing results (for resumption) ============
@@ -108,8 +111,8 @@ def run_evaluation(args):
     with open(args.output_file, 'a') as res_f:
         for i, (qid, sample) in enumerate(tqdm(filtered_dataset.items(), desc="Processing queries")):
             
-            # if i == 10:
-            #     break
+            if i == 10:
+                break
             
             # Extract query and ground truth answer
             query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
@@ -118,28 +121,10 @@ def run_evaluation(args):
             # Convert gt_answer to string if needed
             gt_answer = str(gt_answer)
 
-            # === Step 1: Retrieve top-k documents ================
-            # The retrieval is done inside the inference method of each model
-            # The reasoning_path contains the retrieval information
-
-            # === Step 3: Answer generation ========================
+            # === Answer generation with retrieval ========================
             reasoning_path, prediction = generation_model.inference(query)
 
-            # === Step 2: Evaluate retrieved documents =============
-            # Extract all retrieved documents from reasoning path
-            # all_retrieved_docs = []
-            # for step in reasoning_path:
-            #     if 'docs' in step and step['docs']:
-            #         all_retrieved_docs.extend(step['docs'])
-
-            # # Get unique documents
-            # unique_docs = list({doc['id']: doc for doc in all_retrieved_docs}.values())
-
-            # # Evaluate retrieval
-            # gold_entities = sample.get('intermidate_list', [])
-            # retrieval_metrics = evaluate_retrieval(unique_docs, gold_entities)
-
-            # === Step 4: Evaluate final answer ====================
+            # === Evaluate final answer ====================
             if prediction:
                 em_eval = em_score(prediction, gt_answer)
                 f1_qald_eval = f1_qald_score(prediction, gt_answer)
@@ -148,22 +133,15 @@ def run_evaluation(args):
                 em_eval = f1_qald_eval = 0.0
                 f1_eval = {'f1': 0.0, 'precision': 0.0, 'recall': 0.0}
 
-            # === Step 5: Write results to file ===================
+            # === Write results to file ===================
             result_item = {
                 "qid": qid,
                 "query": query,
                 "gt_answer": gt_answer,
                 "prediction": prediction,
-                # Answer evaluation metrics
                 "em": em_eval,
                 "f1_qald": f1_qald_eval,
                 "f1": f1_eval['f1'],
-                # "precision": f1_eval['precision'],
-                # "recall": f1_eval['recall'],
-                # Retrieval metrics
-                # "num_retrieved_docs": retrieval_metrics['num_retrieved'],
-                # "retrieved_doc_ids": retrieval_metrics['retrieved_doc_ids'],
-                # Full reasoning path
                 "reasoning_path": reasoning_path
             }
 
@@ -192,7 +170,6 @@ def run_evaluation(args):
         print(f"EM Score:      {np.mean(em_scores) * 100:.2f}%")
         print(f"F1 QALD Score: {np.mean(f1_qald_scores) * 100:.2f}%")
         print(f"F1 Score:      {np.mean(f1_scores) * 100:.2f}%")
-        # print(f"Average retrieved docs per query: {np.mean([r['num_retrieved_docs'] for r in all_results]):.2f}")
     else:
         print("No new queries were processed.")
 
@@ -260,6 +237,9 @@ if __name__ == "__main__":
         print("CUDA is not available. No GPUs detected.")
 
     # === Set model source and adjust model name if needed ====================
+    # Default model source
+    args.model_source = 'hf_local'
+
     if args.generation_model == 'research':
         args.model_name_or_path = "agentrl/ReSearch-Qwen-7B-Instruct"
         args.model_source = 'hf_local'
@@ -305,4 +285,4 @@ if __name__ == "__main__":
     run_evaluation(args)
 
     # Example usage:
-    # python c3_task_evaluation/response_generation_eval.py
+    # python c4_task_evaluation/response_generation_eval.py
