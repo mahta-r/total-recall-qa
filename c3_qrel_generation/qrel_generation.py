@@ -579,18 +579,26 @@ def process_query(
     """
     query_id = query_obj['qid']
 
-    # Extract entity QIDs and their values from the new nested structure
-    property_info = query_obj['property']
-    entities_values = property_info.get('entities_values', [])
+    # Handle different dataset structures:
+    # QALD10: has nested structure with query_obj['property']['entities_values'] and query_obj['property']['property_info']
+    # Quest: has flat structure with query_obj['entities_values'] and query_obj['property_info']
+    if 'property' in query_obj and isinstance(query_obj['property'], dict):
+        # QALD10 structure
+        property_info = query_obj['property']
+        entities_values = property_info.get('entities_values', [])
+        property_metadata = property_info['property_info']
+    else:
+        # Quest structure
+        entities_values = query_obj.get('entities_values', [])
+        property_metadata = query_obj.get('property_info', {})
 
     # Build list of QIDs and their labels/values
     total_recall_qids = [entity['entity_id'] for entity in entities_values]
 
-    # Extract property metadata from nested property_info structure
-    property_metadata = property_info['property_info']
-    property_label = property_metadata['label']
-    property_description = property_metadata['description']
-    property_id = property_metadata['property_id']
+    # Extract property metadata (works for both structures)
+    property_label = property_metadata.get('label', property_metadata.get('label', 'unknown'))
+    property_description = property_metadata.get('description', '')
+    property_id = property_metadata.get('property_id', property_metadata.get('id', 'unknown'))
 
     stats = {
         'total_qids': len(total_recall_qids),
@@ -718,18 +726,26 @@ async def process_query_async(
     """
     query_id = query_obj['qid']
 
-    # Extract entity QIDs and their values from the new nested structure
-    property_info = query_obj['property']
-    entities_values = property_info.get('entities_values', [])
+    # Handle different dataset structures:
+    # QALD10: has nested structure with query_obj['property']['entities_values'] and query_obj['property']['property_info']
+    # Quest: has flat structure with query_obj['entities_values'] and query_obj['property_info']
+    if 'property' in query_obj and isinstance(query_obj['property'], dict):
+        # QALD10 structure
+        property_info = query_obj['property']
+        entities_values = property_info.get('entities_values', [])
+        property_metadata = property_info['property_info']
+    else:
+        # Quest structure
+        entities_values = query_obj.get('entities_values', [])
+        property_metadata = query_obj.get('property_info', {})
 
     # Build list of QIDs and their labels/values
     total_recall_qids = [entity['entity_id'] for entity in entities_values]
 
-    # Extract property metadata from nested property_info structure
-    property_metadata = property_info['property_info']
-    property_label = property_metadata['label']
-    property_description = property_metadata['description']
-    property_id = property_metadata['property_id']
+    # Extract property metadata (works for both structures)
+    property_label = property_metadata.get('label', property_metadata.get('label', 'unknown'))
+    property_description = property_metadata.get('description', '')
+    property_id = property_metadata.get('property_id', property_metadata.get('id', 'unknown'))
 
     stats = {
         'total_qids': len(total_recall_qids),
@@ -987,8 +1003,8 @@ def main(args):
             async def process_all_queries():
                 stats_list = []
                 for i, query_obj in tqdm(enumerate(queries), desc="Processing queries"):
-                    if i == 5:
-                        break
+                    # if i == 5:
+                    #     break
 
                     stats = await process_query_async(
                         query_obj=query_obj,
@@ -1011,9 +1027,6 @@ def main(args):
         else:
             # Use sequential processing (original behavior)
             for i, query_obj in tqdm(enumerate(queries), desc="Processing queries"):
-                if i == 1:
-                    break
-
                 stats = process_query(
                     query_obj=query_obj,
                     corpus_jsonl_path=args.corpus_jsonl,
@@ -1063,13 +1076,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Construct file paths based on dataset name
-    dataset_name = args.dataset
     # Map dataset name to directory name (quest -> test_quest)
-    dir_name = "test_quest" if dataset_name == "quest" else dataset_name
+    dataset_name = "test_quest" if args.dataset == "quest" else args.dataset
     # Use the generations file which contains full metadata including entity values
-    args.query_file = f"corpus_datasets/dataset_creation_heydar/{dir_name}/{dataset_name}_generations.jsonl"
-    args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{dir_name}/qrels_{dataset_name}.txt"
+    args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{dataset_name}_generations.jsonl"
+    args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/qrels_{dataset_name}.txt"
 
     # Create log file path based on dataset name with timestamp
     log_dir = Path(args.log_dir)
@@ -1106,7 +1117,7 @@ if __name__ == "__main__":
 #    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel
 #
 #    With custom concurrency (higher = faster, but more API load):
-#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --max_concurrent 20
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --use_parallel --max_concurrent 20
 #
 #    With memory mode for even faster passage retrieval:
 #    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --load_corpus_mode memory

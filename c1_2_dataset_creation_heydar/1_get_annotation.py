@@ -50,7 +50,7 @@ except ImportError:
         print("Warning: Could not import 2_get_properties module.")
 
 try:
-    from c3_task_evaluation.prompts.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
+    from c4_task_evaluation.prompts.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 except ImportError:
     SYSTEM_PROMPT_SPARQL_LIST = ""  # Will be loaded if needed
 
@@ -689,31 +689,15 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process dataset to generate annotations with QIDs and properties')
-    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'],
-                        help='Dataset type to process (qald10 or quest)')
-    parser.add_argument('--model', type=str, default='openai/gpt-4o',
-                        help='Model to use for LLM steps (QALD10 only, default: openai/gpt-4o)')
-
-    # QALD10-specific arguments
-    parser.add_argument('--qald10_input', type=str,
-                        default='corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl',
-                        help='Input file for QALD10 dataset')
-    parser.add_argument('--qald10_output', type=str,
-                        default='corpus_datasets/dataset_creation_heydar/unified/qald10_annotations.jsonl',
-                        help='Output file for QALD10 annotations')
-    parser.add_argument('--qald10_entity_types', type=str,
-                        default='corpus_datasets/dataset_creation_heydar/unified/qald10_entity_types.json',
-                        help='Entity type mapping file for QALD10')
-
-    # Quest-specific arguments
-    parser.add_argument('--quest_input', type=str,
-                        help='Input file for Quest dataset (e.g., train.jsonl)')
-    parser.add_argument('--quest_output', type=str,
-                        help='Output file for Quest annotations (auto-generated if not specified)')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Limit number of entries to process (Quest only, for testing)')
-    parser.add_argument('--subsample', type=float, default=200,
-                        help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'], help='Dataset type to process (qald10 or quest)')
+    parser.add_argument('--model', type=str, default='openai/gpt-4o', help='Model to use for LLM steps (QALD10 only, default: openai/gpt-4o)')
+    parser.add_argument('--qald10_input', type=str, default='corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl', help='Input file for QALD10 dataset')
+    parser.add_argument('--qald10_output', type=str, default='corpus_datasets/dataset_creation_heydar/unified/qald10_annotations.jsonl', help='Output file for QALD10 annotations')
+    parser.add_argument('--qald10_entity_types', type=str, default='corpus_datasets/dataset_creation_heydar/unified/qald10_entity_types.json', help='Entity type mapping file for QALD10')
+    parser.add_argument('--quest_input', type=str, help='Input file for Quest dataset (e.g., train.jsonl)')
+    parser.add_argument('--quest_output', type=str, help='Output file for Quest annotations (auto-generated if not specified)')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of entries to process (Quest only, for testing)')
+    parser.add_argument('--subsample', type=float, default=200, help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
 
     args = parser.parse_args()
 

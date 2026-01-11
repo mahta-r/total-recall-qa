@@ -109,3 +109,67 @@ def f1_qald_score(prediction: str, gt_answer: str):
     return f1_qald
 
 
+def normalize_number(value, decimals=2):
+    """Rounds numeric value to fixed decimals for comparison."""
+    import math
+    if value is None or math.isnan(value):
+        return None
+    return round(float(value), decimals)
+
+
+def safe_float_convert(value):
+    """Safely convert a value to float, return None if not possible."""
+    if value is None or value == '':
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def soft_exact_match(prediction, gold, decimals=3, tolerance_pct=None):
+    """
+    Compute soft exact match with optional tolerance.
+
+    Args:
+        prediction: Predicted value (str, float, or None)
+        gold: Gold answer value (str, float, or None)
+        decimals: Number of decimals for rounding (default: 3)
+        tolerance_pct: Tolerance percentage (e.g., 5.0 for 5% tolerance).
+                      If None, uses exact match only.
+
+    Returns:
+        dict: Contains 'exact_match' (bool) and if tolerance_pct provided, 'soft_match' (bool)
+    """
+    # Convert to float
+    pred_float = safe_float_convert(prediction)
+    gold_float = safe_float_convert(gold)
+
+    # If either is None, no match
+    if pred_float is None or gold_float is None:
+        result = {'exact_match': False}
+        if tolerance_pct is not None:
+            result['soft_match'] = False
+        return result
+
+    # Normalize numbers
+    npred = normalize_number(pred_float, decimals)
+    ngold = normalize_number(gold_float, decimals)
+
+    if npred is None or ngold is None:
+        result = {'exact_match': False}
+        if tolerance_pct is not None:
+            result['soft_match'] = False
+        return result
+
+    # Exact match
+    exact = (npred == ngold)
+    result = {'exact_match': exact}
+
+    # Soft match with tolerance
+    if tolerance_pct is not None:
+        abs_err = abs(npred - ngold)
+        soft = abs_err <= (tolerance_pct / 100.0) * abs(ngold)
+        result['soft_match'] = soft
+
+    return result

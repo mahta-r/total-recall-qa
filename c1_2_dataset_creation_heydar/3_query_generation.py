@@ -25,6 +25,36 @@ from collections import Counter
 import math
 
 
+def clean_number(value):
+    """
+    Clean up numeric values for display:
+    - Remove .0 suffix for whole numbers (1989.0 -> 1989)
+    - Round to 2 decimal places for floats (1926.3125 -> 1926.31)
+
+    Args:
+        value: Numeric value (int, float, or string representation)
+
+    Returns:
+        Cleaned numeric value
+    """
+    if value is None:
+        return None
+
+    # Convert to float first
+    try:
+        num = float(value)
+
+        # Check if it's a whole number
+        if num == int(num):
+            return int(num)
+        else:
+            # Round to 2 decimal places
+            return round(num, 2)
+    except (ValueError, TypeError):
+        # If conversion fails, return original value
+        return value
+
+
 class PropertySelector:
     """
     Intelligent property selection and operation balancing based on Mahta's method.
@@ -171,16 +201,16 @@ def parse_value_for_aggregation(value_data, datatype):
             val = value_data.get('value', '')
             if isinstance(val, str) and 'T' in val:
                 dt = datetime.fromisoformat(val.replace('Z', '+00:00'))
-                return dt.year
+                return clean_number(dt.year)
         elif datatype == 'Quantity':
             # Extract numeric values
             val = value_data.get('value', '')
             if isinstance(val, (int, float)):
-                return float(val)
+                return clean_number(val)
             elif isinstance(val, str):
                 # Try to extract number from string (remove + prefix if present)
                 num_str = val.lstrip('+').split()[0]
-                return float(num_str)
+                return clean_number(float(num_str))
         elif datatype == 'WikibaseItem':
             # Handle entity values (return as-is for counting)
             # Check both 'type': 'entity' and direct entity structure
@@ -253,11 +283,11 @@ def calculate_answer(property_values, aggregation_function, datatype, target_ent
 
             # Count how many times the target entity appears
             count = entity_counts.get(target_entity, 0)
-            return count, target_entity
+            return clean_number(count), target_entity
         else:
             # For numeric types, use the existing apply_operation
             result = apply_operation(aggregation_function, all_values)
-            return result, None
+            return clean_number(result), None
     except Exception as e:
         print(f"      Error calculating answer: {e}")
         return None, None
@@ -539,15 +569,12 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
     # Open output files
     file_mode = 'a' if (resume and last_processed_qid) else 'w'
-
     with open(dataset_file, 'r', encoding='utf-8') as f_in, \
          open(log_file, file_mode, encoding='utf-8') as log:
 
         for line_num, line in tqdm.tqdm(enumerate(f_in, 1), desc="Processing queries"):
-            
-            if line_num == 20:
-                break
-            
+            # if line_num == 10:
+            #     break
             try:
                 sample = json.loads(line)
                 current_qid = sample.get('qid')
@@ -757,21 +784,22 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                     generation = {
                         "qid": f"{current_qid}_{property_id.lower()}",
                         "original_query": sample.get('query', ''),
-                        "subclass_id": entity_class_id,
-                        "subclass_label": entity_class_label,
-                        "subclass_description": entity_class_description,
-                        "property_id": property_id,
-                        "property": {
-                            "property_info": {
-                                "label": property_label,
-                                "property_id": property_id,
-                                "description": property_description,
-                                "datatype": datatype
-                            },
-                            "entities_values": entity_values_list
-                        },
-                        "operation": operation,
                         "ground_truth": ground_truth,
+                        "entities_values": entity_values_list,
+                        "operation": operation,
+                        
+                        "entity_subclass": {
+                            "id": entity_class_id,
+                            "label": entity_class_label,
+                            "description": entity_class_description
+                        },
+                        "property_info": {
+                            "id": property_id,
+                            "label": property_label,
+                            "description": property_description,
+                            "datatype": datatype
+                        },
+                        
                         "ground_truth_calculated": ground_truth_calc,
                         "ground_truth_llm": llm_answer,
                         "validation_note": validation_note,
@@ -786,10 +814,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                     query = {
                         "id": f"{current_qid}_{property_id.lower()}",
                         "question": query_text,
-                        "answer": {
-                            "type": datatype,
-                            "value": ground_truth,
-                        }
+                        "answer": ground_truth
                     }
 
                     generations.append(generation)
@@ -846,80 +871,18 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate Total Recall queries from valid item-property pairs")
-    parser.add_argument(
-        "--dataset_file",
-        type=str,
-        required=True,
-        help="Path to the input dataset file with properties"
-    )
-    parser.add_argument(
-        "--output_file",
-        type=str,
-        required=True,
-        help="Path to the output file for full generation records"
-    )
-    parser.add_argument(
-        "--queries_file",
-        type=str,
-        required=True,
-        help="Path to the output file for parsed queries"
-    )
-    parser.add_argument(
-        "--log_file",
-        type=str,
-        required=True,
-        help="Path to the log file"
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="gpt-4o-mini",
-        help="Model name to use for query generation (e.g., gpt-4o-mini, gpt-4o)"
-    )
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        default=0.7,
-        help="Temperature for generation"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for generation"
-    )
-    parser.add_argument(
-        "--property_num",
-        type=str,
-        default="all",
-        choices=["all", "log"],
-        help="Strategy for number of properties to select per query: 'all' (use all properties) or 'log' (logarithmic selection)"
-    )
-    parser.add_argument(
-        "--selection_strategy",
-        type=str,
-        default="random",
-        choices=["random", "least"],
-        help="Property selection strategy: 'random' (random selection) or 'least' (prioritize least-used properties)"
-    )
-    parser.add_argument(
-        "--max_props",
-        type=int,
-        default=None,
-        help="Maximum number of properties to select per query (None = unlimited)"
-    )
-    parser.add_argument(
-        "--resume",
-        action="store_true",
-        default=True,
-        help="Resume from last processed QID (default: True)"
-    )
-    parser.add_argument(
-        "--no-resume",
-        dest="resume",
-        action="store_false",
-        help="Start fresh, overwrite output file"
-    )
+    parser.add_argument("--dataset_file", type=str, required=True, help="Path to the input dataset file with properties")
+    parser.add_argument("--output_file", type=str, required=True, help="Path to the output file for full generation records")
+    parser.add_argument("--queries_file", type=str, required=True, help="Path to the output file for parsed queries")
+    parser.add_argument("--log_file", type=str, required=True, help="Path to the log file")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="Model name to use for query generation (e.g., gpt-4o-mini, gpt-4o)")
+    parser.add_argument("--temperature", type=float, default=0.7, help="Temperature for generation")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for generation")
+    parser.add_argument("--property_num", type=str, default="all", choices=["all", "log"], help="Strategy for number of properties to select per query: 'all' (use all properties) or 'log' (logarithmic selection)")
+    parser.add_argument("--selection_strategy", type=str, default="random", choices=["random", "least"], help="Property selection strategy: 'random' (random selection) or 'least' (prioritize least-used properties)")
+    parser.add_argument("--max_props", type=int, default=None, help="Maximum number of properties to select per query (None = unlimited)")
+    parser.add_argument("--resume", action="store_true", default=True, help="Resume from last processed QID (default: True)")
+    parser.add_argument("--no-resume", dest="resume", action="store_false", help="Start fresh, overwrite output file")
 
     args = parser.parse_args()
 

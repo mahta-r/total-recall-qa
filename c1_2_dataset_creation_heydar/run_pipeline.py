@@ -13,15 +13,15 @@ Usage:
     python c1_2_dataset_creation_heydar/run_pipeline.py --dataset qald10 --model openai/gpt-4o
 
     # For QALD10 with intelligent property selection (logarithmic + prioritize rare properties)
-    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset qald10 --model openai/gpt-4o \
-        --property_num log --selection_strategy least --max_props 3
+    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset qald10 --model openai/gpt-5.2 \
+        --property_num log --selection_strategy least --max_props 3    
 
     # For Quest (default)
     python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o
 
     # For Quest with limited properties per query
-    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-4o \
-        --property_num log --selection_strategy least --max_props 5
+    python c1_2_dataset_creation_heydar/run_pipeline.py --dataset quest --quest_input test.jsonl --model openai/gpt-5.2 \
+        --property_num log --selection_strategy least --max_props 3
 
 Property Selection Options:
     --property_num {all,log}         # "all" = use all valid properties, "log" = logarithmic selection
@@ -204,38 +204,38 @@ def run_quest_pipeline(args):
         print(f"Error: Could not import pipeline components: {e}")
         return 1
 
-    # # Step 1: Get Annotations
-    # print("=" * 70)
-    # print("STEP 1: Get Annotations")
-    # print("=" * 70)
+    # Step 1: Get Annotations
+    print("=" * 70)
+    print("STEP 1: Get Annotations")
+    print("=" * 70)
 
-    # result = step1.process_quest_annotations(
-    #     input_file=str(input_file),
-    #     output_file=str(step1_output),
-    #     subsample=args.subsample,
-    #     limit=args.limit
-    # )
+    result = step1.process_quest_annotations(
+        input_file=str(input_file),
+        output_file=str(step1_output),
+        subsample=args.subsample,
+        limit=args.limit
+    )
 
-    # if result != 0:
-    #     print("\n✗ Step 1 failed")
-    #     return 1
+    if result != 0:
+        print("\n✗ Step 1 failed")
+        return 1
 
-    # print("\n✓ Step 1 completed successfully")
-    # print()
+    print("\n✓ Step 1 completed successfully")
+    print()
 
     # Step 2: Get Properties
-    # print("=" * 70)
-    # print("STEP 2: Get Properties")
-    # print("=" * 70)
+    print("=" * 70)
+    print("STEP 2: Get Properties")
+    print("=" * 70)
 
-    # try:
-    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-    #     print("\n✓ Step 2 completed successfully")
-    # except Exception as e:
-    #     print(f"\n✗ Step 2 failed: {e}")
-    #     return 1
+    try:
+        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+        print("\n✓ Step 2 completed successfully")
+    except Exception as e:
+        print(f"\n✗ Step 2 failed: {e}")
+        return 1
 
-    # print()
+    print()
 
     # Step 3: Generate Total Recall Queries
     print("=" * 70)
@@ -279,36 +279,18 @@ def run_quest_pipeline(args):
 
 def main():
     parser = argparse.ArgumentParser(description='Run the unified dataset processing pipeline')
-
-    # Common arguments
-    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'],
-                        help='Dataset type to process (qald10 or quest)')
-    parser.add_argument('--model', type=str, default='gpt-4o-mini',
-                        help='Model to use for LLM steps (default: gpt-4o-mini)')
-    parser.add_argument('--temperature', type=float, default=0.7,
-                        help='Temperature for generation (default: 0.7)')
-    parser.add_argument('--seed', type=int, default=42,
-                        help='Random seed for generation (default: 42)')
-
-    # Quest-specific arguments
-    parser.add_argument('--quest_input', type=str,
-                        help='Input file name for Quest dataset (e.g., train.jsonl, test.jsonl)')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Limit number of entries to process (Quest only, for testing)')
-    parser.add_argument('--subsample', type=float, default=50,
-                        help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
-    parser.add_argument('--resume', action='store_true', default=True,
-                        help='Resume query generation from last processed entry (default: True)')
-    parser.add_argument('--no-resume', dest='resume', action='store_false',
-                        help='Start query generation fresh, overwrite output file')
-
-    # Property selection arguments (Step 3)
-    parser.add_argument('--property_num', type=str, default='all', choices=['all', 'log'],
-                        help='Strategy for number of properties to select per query: "all" or "log" (default: all)')
-    parser.add_argument('--selection_strategy', type=str, default='random', choices=['random', 'least'],
-                        help='Property selection strategy: "random" or "least" (prioritize least-used) (default: random)')
-    parser.add_argument('--max_props', type=int, default=None,
-                        help='Maximum number of properties to select per query (None = unlimited, default: None)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'], help='Dataset type to process (qald10 or quest)')
+    parser.add_argument('--model', type=str, default='gpt-4o-mini', help='Model to use for LLM steps (default: gpt-4o-mini)')
+    parser.add_argument('--temperature', type=float, default=0.7, help='Temperature for generation (default: 0.7)')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for generation (default: 42)')
+    parser.add_argument('--quest_input', type=str, help='Input file name for Quest dataset (e.g., train.jsonl, test.jsonl)')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of entries to process (Quest only, for testing)')
+    parser.add_argument('--subsample', type=float, default=100, help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
+    parser.add_argument('--resume', action='store_true', default=True, help='Resume query generation from last processed entry (default: True)')
+    parser.add_argument('--no-resume', dest='resume', action='store_false', help='Start query generation fresh, overwrite output file')
+    parser.add_argument('--property_num', type=str, default='all', choices=['all', 'log'], help='Strategy for number of properties to select per query: "all" or "log" (default: all)')
+    parser.add_argument('--selection_strategy', type=str, default='random', choices=['random', 'least'], help='Property selection strategy: "random" or "least" (prioritize least-used) (default: random)')
+    parser.add_argument('--max_props', type=int, default=None, help='Maximum number of properties to select per query (None = unlimited, default: None)')
 
 
     args = parser.parse_args()

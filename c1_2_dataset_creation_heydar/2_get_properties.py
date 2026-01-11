@@ -267,7 +267,6 @@ def get_property_values_for_items(item_qids, property_id):
         print(f"  Error querying property values: {e}")
         return None
 
-
 def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100):
     """
     Query Wikidata to get aggregatable properties used by specific items.
@@ -469,18 +468,8 @@ def process_dataset_with_aggregatable_properties(dataset_file, output_file):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract aggregatable properties from Wikidata for dataset queries")
-    parser.add_argument(
-        "--dataset_file",
-        type=str,
-        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist.jsonl",
-        help="Path to the dataset file"
-    )
-    parser.add_argument(
-        "--output_file",
-        type=str,
-        default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl",
-        help="Path to the output JSON file"
-    )
+    parser.add_argument("--dataset_file", type=str, default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist.jsonl", help="Path to the dataset file")
+    parser.add_argument("--output_file", type=str, default="corpus_datasets/dataset_creation_heydar/qald10/wikidata_totallist_with_properties.jsonl", help="Path to the output JSON file")
 
     args = parser.parse_args()
 
