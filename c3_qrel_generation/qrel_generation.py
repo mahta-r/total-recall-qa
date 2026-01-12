@@ -33,6 +33,8 @@ from c1_1_dataset_creation_mahta.query_generation.prompts.LLM_as_relevance_judge
     PROPERTY_PROMPT,
     PROPERTY_INPUT_TEMPLATE
 )
+# Import analysis functions from qrel_analysis
+from c3_qrel_generation.qrel_analysis import calculate_coverage
 
 try:
     from datasets import Dataset
@@ -901,13 +903,185 @@ def print_summary_stats(
         print(line)
 
 
+def get_all_query_ids_in_qrel(qrel_file_path):
+    """
+    Extract all query IDs from qrel file in order of appearance.
+
+    Args:
+        qrel_file_path: Path to qrel file
+
+    Returns:
+        List of query IDs in order of appearance (with duplicates removed, preserving first occurrence)
+    """
+    query_ids_in_order = []
+    seen = set()
+
+    if Path(qrel_file_path).exists():
+        with open(qrel_file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) >= 4:
+                    qid = parts[0]
+                    if qid not in seen:
+                        seen.add(qid)
+                        query_ids_in_order.append(qid)
+
+    return query_ids_in_order
+
+
+def count_passages_for_query(qrel_file_path, query_id):
+    """
+    Count number of passages (qrel entries) for a specific query.
+
+    Args:
+        qrel_file_path: Path to qrel file
+        query_id: Query ID to count passages for
+
+    Returns:
+        Number of passages for the query
+    """
+    count = 0
+    with open(qrel_file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) >= 4 and parts[0] == query_id:
+                count += 1
+    return count
+
+
+def remove_query_from_qrel(qrel_file_path, query_id_to_remove):
+    """
+    Remove all entries for a specific query from qrel file.
+
+    Args:
+        qrel_file_path: Path to qrel file
+        query_id_to_remove: Query ID whose entries should be removed
+
+    Returns:
+        Number of entries removed
+    """
+    temp_file = Path(qrel_file_path).with_suffix('.tmp')
+
+    removed_count = 0
+    with open(qrel_file_path, 'r', encoding='utf-8') as infile, \
+         open(temp_file, 'w', encoding='utf-8') as outfile:
+        for line in infile:
+            parts = line.strip().split()
+            if len(parts) >= 4 and parts[0] == query_id_to_remove:
+                removed_count += 1
+                continue  # Skip this line
+            outfile.write(line)
+
+    # Replace original with cleaned version
+    temp_file.replace(qrel_file_path)
+    return removed_count
+
+
+def prepare_resume(args, queries):
+    """
+    Prepare for resume mode: determine which queries to process.
+
+    Args:
+        args: Command line arguments
+        queries: List of all query objects
+
+    Returns:
+        Tuple of (queries_to_process, needs_file_append)
+        - queries_to_process: List of query objects to process
+        - needs_file_append: Boolean, True if we should append to existing file
+    """
+    if not args.resume:
+        return queries, False
+
+    if not Path(args.output_qrel).exists():
+        print("Resume mode enabled but no existing qrel file found. Starting fresh.")
+        return queries, False
+
+    # Get all query IDs that appear in the qrel file
+    all_in_file = get_all_query_ids_in_qrel(args.output_qrel)
+
+    if not all_in_file:
+        print("Resume mode enabled but qrel file is empty. Starting fresh.")
+        return queries, False
+
+    # Determine which queries are completed
+    completed_query_ids = set()
+    query_to_reprocess = None
+    last_query_id = all_in_file[-1]
+
+    # Check if we should re-process the last query
+    if args.reprocess_last:
+        # Always re-process last query
+        print(f"⚠️  --reprocess-last flag enabled")
+        print(f"   Last query in file: '{last_query_id}'")
+        query_to_reprocess = last_query_id
+        completed_query_ids = set(all_in_file[:-1])
+    elif args.trust_last:
+        # Trust that last query is complete
+        print(f"✅ --trust-last flag enabled")
+        print(f"   Trusting all queries in file (including last: '{last_query_id}')")
+        completed_query_ids = set(all_in_file)
+    else:
+        # Use heuristic: check passage count for last query
+        last_query_passage_count = count_passages_for_query(args.output_qrel, last_query_id)
+
+        if last_query_passage_count < args.min_passages_threshold:
+            print(f"⚠️  Last query '{last_query_id}' has only {last_query_passage_count} passages")
+            print(f"   (threshold: {args.min_passages_threshold})")
+            print(f"   Likely incomplete, will re-process this query")
+            query_to_reprocess = last_query_id
+            completed_query_ids = set(all_in_file[:-1])
+        else:
+            print(f"✅ Last query '{last_query_id}' has {last_query_passage_count} passages")
+            print(f"   (threshold: {args.min_passages_threshold})")
+            print(f"   Appears complete, skipping")
+            completed_query_ids = set(all_in_file)
+
+    # Clean up qrel file if re-processing a query
+    if query_to_reprocess:
+        print(f"   Removing existing entries for '{query_to_reprocess}'...")
+        removed_count = remove_query_from_qrel(args.output_qrel, query_to_reprocess)
+        print(f"   Removed {removed_count} entries")
+
+    # Filter queries to process
+    original_count = len(queries)
+    queries_to_process = [q for q in queries if q['qid'] not in completed_query_ids]
+
+    # Print summary
+    print(f"\n{'='*80}")
+    print(f"RESUME MODE SUMMARY")
+    print(f"{'='*80}")
+    print(f"Total queries in dataset: {original_count}")
+    print(f"Already completed (skipping): {len(completed_query_ids)}")
+    print(f"Remaining to process: {len(queries_to_process)}")
+    if query_to_reprocess:
+        print(f"Re-processing (was incomplete): {query_to_reprocess}")
+    print(f"{'='*80}\n")
+
+    # We need to append to existing file since we're resuming
+    return queries_to_process, True
+
+
 def main(args):
     """Main function to generate qrels."""
 
     # Load queries
     print(f"Loading queries from {args.query_file}...")
-    queries = read_jsonl_from_file(args.query_file)
-    print(f"Loaded {len(queries)} queries")
+    all_queries = read_jsonl_from_file(args.query_file)
+    print(f"Loaded {len(all_queries)} queries")
+
+    # Handle resume mode
+    queries, should_append = prepare_resume(args, all_queries)
+
+    # Check if there are any queries to process
+    if len(queries) == 0:
+        print("\n" + "="*80)
+        print("No queries to process! All queries already completed.")
+        print("="*80)
+        return
 
     # Initialize corpus loading based on mode
     corpus_dict = None
@@ -980,20 +1154,33 @@ def main(args):
     # Cache for QID to Wikipedia mappings
     qid2wikipedia_cache = {}
 
-    # Open output files
-    with open(args.output_qrel, 'w', encoding='utf-8') as qrel_file, \
-         open(args.log_file, 'w', encoding='utf-8') as log_file:
+    # Determine file opening mode based on resume
+    file_mode = 'a' if should_append else 'w'
 
-        log_file.write(f"QRel Generation Log\n")
-        log_file.write(f"Query file: {args.query_file}\n")
-        log_file.write(f"Corpus: {args.corpus_jsonl}\n")
-        log_file.write(f"Corpus loading mode: {args.load_corpus_mode}\n")
-        log_file.write(f"Parallel processing: {args.use_parallel}\n")
-        if args.use_parallel:
-            log_file.write(f"Max concurrent LLM calls: {args.max_concurrent}\n")
-        log_file.write(f"Model: {args.model}\n")
-        log_file.write(f"Temperature: {args.temperature}\n")
-        log_file.write(f"\n{'='*80}\n")
+    # Open output files
+    with open(args.output_qrel, file_mode, encoding='utf-8') as qrel_file, \
+         open(args.log_file, file_mode, encoding='utf-8') as log_file:
+
+        # Write header (only if not appending)
+        if not should_append:
+            log_file.write(f"QRel Generation Log\n")
+            log_file.write(f"Query file: {args.query_file}\n")
+            log_file.write(f"Corpus: {args.corpus_jsonl}\n")
+            log_file.write(f"Corpus loading mode: {args.load_corpus_mode}\n")
+            log_file.write(f"Parallel processing: {args.use_parallel}\n")
+            if args.use_parallel:
+                log_file.write(f"Max concurrent LLM calls: {args.max_concurrent}\n")
+            log_file.write(f"Model: {args.model}\n")
+            log_file.write(f"Temperature: {args.temperature}\n")
+            log_file.write(f"\n{'='*80}\n")
+        else:
+            # Add separator for resumed session
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            log_file.write(f"\n\n{'='*80}\n")
+            log_file.write(f"RESUMED SESSION - {timestamp}\n")
+            log_file.write(f"{'='*80}\n")
+            log_file.write(f"Resuming with {len(queries)} remaining queries\n")
+            log_file.write(f"{'='*80}\n\n")
 
         # Process queries
         all_stats = []
@@ -1074,7 +1261,17 @@ if __name__ == "__main__":
     parser.add_argument("--use_parallel", action="store_true", help="Enable parallel LLM API calls for faster processing. This can provide 5-10x speedup depending on max_concurrent setting.")
     parser.add_argument("--max_concurrent", type=int, default=10, help="Maximum number of concurrent LLM API calls when --use_parallel is enabled. Higher values = faster but more API load. Recommended: 10-20. (default: 10)")
 
+    # Resume functionality arguments
+    parser.add_argument("--resume", action="store_true", help="Resume from existing qrel file by skipping already-completed queries. This allows you to continue generation after interruptions.")
+    parser.add_argument("--reprocess-last", action="store_true", help="When resuming, always re-process the last query in the file (safest option, ensures completeness but may waste some LLM calls).")
+    parser.add_argument("--trust-last", action="store_true", help="When resuming, trust that the last query in the file is complete (fastest option, but risky if interrupted mid-query).")
+    parser.add_argument("--min-passages-threshold", type=int, default=5, help="Minimum number of passages to consider a query complete when resuming. If the last query has fewer passages than this threshold, it will be re-processed. (default: 5)")
+
     args = parser.parse_args()
+
+    # Validate conflicting arguments
+    if args.reprocess_last and args.trust_last:
+        parser.error("--reprocess-last and --trust-last are mutually exclusive. Choose one or neither (to use heuristic).")
 
     # Map dataset name to directory name (quest -> test_quest)
     dataset_name = "test_quest" if args.dataset == "quest" else args.dataset
@@ -1103,10 +1300,28 @@ if __name__ == "__main__":
         print(f"Max concurrent LLM calls: {args.max_concurrent}")
     print(f"Model: {args.model}")
     print(f"Temperature: {args.temperature}")
+    print(f"Resume mode: {'ENABLED' if args.resume else 'DISABLED'}")
+    if args.resume:
+        if args.reprocess_last:
+            print(f"  Strategy: Always re-process last query (safest)")
+        elif args.trust_last:
+            print(f"  Strategy: Trust last query is complete (fastest)")
+        else:
+            print(f"  Strategy: Heuristic (threshold: {args.min_passages_threshold} passages)")
     print("="*80)
     print()
 
-    main(args)
+    # main(args)
+
+    # Calculate and display entity coverage after qrel generation completes
+    print("\n" + "="*80)
+    print("Calculating entity coverage...")
+    print("="*80 + "\n")
+
+    coverage_results = calculate_coverage(
+        dataset=args.dataset,
+        qrel_file_path=args.output_qrel
+    )
 
 
 # ============================================================================
@@ -1118,6 +1333,7 @@ if __name__ == "__main__":
 #
 #    With custom concurrency (higher = faster, but more API load):
 #    python c3_qrel_generation/qrel_generation.py --dataset quest --use_parallel --max_concurrent 20
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --use_parallel --max_concurrent 20 --resume --reprocess-last
 #
 #    With memory mode for even faster passage retrieval:
 #    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --load_corpus_mode memory
@@ -1142,6 +1358,21 @@ if __name__ == "__main__":
 #    python c3_qrel_generation/qrel_generation.py --dataset qald10 --load_corpus_mode memory \
 #           --index_cache_dir /path/to/cache/dir
 #
+# 5. RESUME MODE (Continue from interruption):
+#    If your qrel generation was interrupted, you can resume from where you left off:
+#
+#    Default resume (uses heuristic to detect incomplete last query):
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --resume --use_parallel
+#
+#    Safe resume (always re-processes last query):
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --resume --reprocess-last --use_parallel
+#
+#    Fast resume (trusts last query is complete):
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --resume --trust-last --use_parallel
+#
+#    Custom threshold (re-process if last query has < N passages):
+#    python c3_qrel_generation/qrel_generation.py --dataset quest --resume --min-passages-threshold 10 --use_parallel
+#
 # Performance Comparison:
 # ----------------------
 # For 700 passages (typical query):
@@ -1154,6 +1385,13 @@ if __name__ == "__main__":
 # - PARALLEL + STREAM: Good performance, lower memory usage
 # - SEQUENTIAL + STREAM: Lowest resource usage, slowest (default)
 # - SEQUENTIAL + MEMORY: Faster passage retrieval, but still slow LLM calls
+#
+# Resume Mode Strategies:
+# ----------------------
+# - Default (heuristic): Re-processes last query if it has < 5 passages (balanced)
+# - --reprocess-last: Always re-processes last query (safest, may waste some LLM calls)
+# - --trust-last: Never re-processes last query (fastest, risky if interrupted mid-query)
+# - --min-passages-threshold N: Custom threshold for heuristic (flexible)
 #
 # Note: The in-memory index cache can be very large (multi-GB). Make sure you have
 # sufficient disk space in the cache directory.

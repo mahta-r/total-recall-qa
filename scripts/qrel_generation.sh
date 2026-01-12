@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=25
 #SBATCH --partition=staging
-#SBATCH --time=10:00:00
-#SBATCH --mem=128GB
+#SBATCH --time=6:00:00
+#SBATCH --mem=180GB
 #SBATCH --output=script_logging/slurm_%A.out
 
 # QRel Generation Script - Parallel Processing (OPTIMIZED)
@@ -58,7 +58,9 @@ mkdir -p qrel_logging
 python c3_qrel_generation/qrel_generation.py \
     --dataset quest \
     --use_parallel \
-    --max_concurrent 20
+    --max_concurrent 20 \
+    --resume \
+    --reprocess-last
 
 # Print completion message
 echo ""
