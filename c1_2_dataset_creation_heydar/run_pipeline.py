@@ -224,44 +224,44 @@ def run_quest_pipeline(args):
     print()
 
     # Step 2: Get Properties
-    print("=" * 70)
-    print("STEP 2: Get Properties")
-    print("=" * 70)
+    # print("=" * 70)
+    # print("STEP 2: Get Properties")
+    # print("=" * 70)
 
-    try:
-        step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
-        print("\n✓ Step 2 completed successfully")
-    except Exception as e:
-        print(f"\n✗ Step 2 failed: {e}")
-        return 1
+    # try:
+    #     step2.process_dataset_with_aggregatable_properties(str(step1_output), str(step2_output))
+    #     print("\n✓ Step 2 completed successfully")
+    # except Exception as e:
+    #     print(f"\n✗ Step 2 failed: {e}")
+    #     return 1
 
-    print()
+    # print()
 
-    # Step 3: Generate Total Recall Queries
-    print("=" * 70)
-    print("STEP 3: Generate Queries")
-    print("=" * 70)
+    # # Step 3: Generate Total Recall Queries
+    # print("=" * 70)
+    # print("STEP 3: Generate Queries")
+    # print("=" * 70)
 
-    try:
-        step3.process_dataset_for_valid_pairs(
-            dataset_file=str(step2_output),
-            output_file=str(step3_generations),
-            queries_file=str(step3_queries),
-            log_file=str(step3_log),
-            model_name=args.model,
-            temperature=args.temperature,
-            seed=args.seed,
-            property_num=args.property_num,
-            selection_strategy=args.selection_strategy,
-            max_props=args.max_props,
-            resume=args.resume
-        )
-        print("\n✓ Step 3 completed successfully")
-    except Exception as e:
-        print(f"\n✗ Step 3 failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
+    # try:
+    #     step3.process_dataset_for_valid_pairs(
+    #         dataset_file=str(step2_output),
+    #         output_file=str(step3_generations),
+    #         queries_file=str(step3_queries),
+    #         log_file=str(step3_log),
+    #         model_name=args.model,
+    #         temperature=args.temperature,
+    #         seed=args.seed,
+    #         property_num=args.property_num,
+    #         selection_strategy=args.selection_strategy,
+    #         max_props=args.max_props,
+    #         resume=args.resume
+    #     )
+    #     print("\n✓ Step 3 completed successfully")
+    # except Exception as e:
+    #     print(f"\n✗ Step 3 failed: {e}")
+    #     import traceback
+    #     traceback.print_exc()
+    #     return 1
 
     # Pipeline completed
     print()

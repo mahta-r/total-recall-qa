@@ -343,6 +343,71 @@ def is_valid_entity_list_property(property_values, datatype):
     return True, None
 
 
+def is_valid_entity_list_property_v2(property_values, datatype):
+    """
+    Check if an entity-list property is valid for query generation (Version 2).
+
+    This version aims to avoid generating queries with only 2-3 results by applying
+    stricter filtering based on the number of items in the list.
+
+    Validation rules:
+    1. Skip all lists with only 2 entities (too trivial)
+    2. For lists with exactly 3 entities:
+       - Accept ONLY if property values are shared by ALL entities (all same value)
+       - This ensures meaningful COUNT queries for small lists
+    3. For lists with 4+ entities:
+       - Accept ONLY if property values are shared by more than 3 entities
+       - This ensures COUNT results will have at least 4 items
+
+    Args:
+        property_values: Dictionary mapping item_qid -> list of values
+        datatype: Property datatype
+
+    Returns:
+        Tuple of (is_valid, reason) where reason explains why it's invalid
+    """
+    # Non-WikibaseItem types are always valid (no special filtering needed)
+    if datatype != 'WikibaseItem':
+        return True, None
+
+    # Extract all entity values from the property
+    all_entity_values = []
+    for qid_values in property_values.values():
+        for val in qid_values:
+            parsed_val = parse_value_for_aggregation(val, datatype)
+            if parsed_val is not None:
+                all_entity_values.append(parsed_val)
+
+    # Get counts of how many times each entity value appears
+    entity_counts = Counter(all_entity_values)
+    total_items = len(property_values)
+
+    # Rule 1: Skip all 2-entity lists (too trivial)
+    if total_items == 2:
+        return False, "2-entity lists are too trivial for meaningful COUNT queries"
+
+    # Rule 2: For 3-entity lists, accept ONLY if all entities share the same value
+    if total_items == 3:
+        # Check if there's a value shared by all 3 entities
+        has_value_in_all_three = any(count >= 3 for count in entity_counts.values())
+        if has_value_in_all_three:
+            return True, None
+        else:
+            return False, "3-entity lists must have property values shared by all 3 entities"
+
+    # Rule 3: For 4+ entity lists, accept ONLY if at least one value appears in more than 3 entities
+    if total_items >= 4:
+        has_value_in_more_than_three = any(count > 3 for count in entity_counts.values())
+        if has_value_in_more_than_three:
+            return True, None
+        else:
+            max_count = max(entity_counts.values()) if entity_counts else 0
+            return False, f"4+ entity lists must have property values shared by more than 3 entities (max found: {max_count})"
+
+    # Should not reach here, but return False as safe default
+    return False, "Unexpected validation state"
+
+
 def get_entity_labels(item_qids):
     """
     Query Wikidata to get labels for a list of entity QIDs.
@@ -622,7 +687,7 @@ def process_dataset_for_valid_pairs(dataset_file, output_file, queries_file, log
                         continue
 
                     # Check validity for entity-list properties
-                    is_valid, reason = is_valid_entity_list_property(property_values, datatype)
+                    is_valid, reason = is_valid_entity_list_property_v2(property_values, datatype)
                     if is_valid:
                         valid_properties.append(prop)
 

@@ -59,22 +59,21 @@ except ImportError:
 # Common utility functions (shared by both datasets)
 # ========================================================================
 
-def get_qid_from_wikipedia_title(title: str, lang: str = "en") -> Optional[str]:
+def get_wikipedia_id_from_title(title: str, lang: str = "en") -> Optional[str]:
     """
-    Convert a Wikipedia title to a Wikidata QID.
+    Convert a Wikipedia title to a Wikipedia page ID.
 
     Args:
         title: Wikipedia article title
         lang: Wikipedia language code (default: en)
 
     Returns:
-        Wikidata QID (e.g., "Q42") or None if not found
+        Wikipedia page ID (e.g., "12345") or None if not found
     """
-    url = "https://en.wikipedia.org/w/api.php"
+    url = f"https://{lang}.wikipedia.org/w/api.php"
     params = {
         "action": "query",
         "titles": title,
-        "prop": "pageprops",
         "format": "json",
     }
     headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
@@ -87,20 +86,80 @@ def get_qid_from_wikipedia_title(title: str, lang: str = "en") -> Optional[str]:
         pages = data.get("query", {}).get("pages", {})
         for page_id, page_data in pages.items():
             if page_id != "-1":  # -1 means page not found
-                pageprops = page_data.get("pageprops", {})
-                qid = pageprops.get("wikibase_item")
-                if qid:
-                    return qid
+                return page_id
 
         return None
     except Exception as e:
-        print(f"Error fetching QID for '{title}': {e}")
+        print(f"Error fetching Wikipedia ID for '{title}': {e}")
         return None
+
+
+def get_qid_from_wikipedia_id(wikipedia_id: str, lang: str = "en") -> Optional[str]:
+    """
+    Convert a Wikipedia page ID to a Wikidata QID.
+
+    Args:
+        wikipedia_id: Wikipedia page ID (e.g., "12345")
+        lang: Wikipedia language code (default: en)
+
+    Returns:
+        Wikidata QID (e.g., "Q42") or None if not found
+    """
+    url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "pageids": wikipedia_id,
+        "prop": "pageprops",
+        "format": "json",
+    }
+    headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
+
+    try:
+        response = requests.get(url, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        pages = data.get("query", {}).get("pages", {})
+        for page_id, page_data in pages.items():
+            pageprops = page_data.get("pageprops", {})
+            qid = pageprops.get("wikibase_item")
+            if qid:
+                return qid
+
+        return None
+    except Exception as e:
+        print(f"Error fetching QID for Wikipedia ID '{wikipedia_id}': {e}")
+        return None
+
+
+def get_qid_from_wikipedia_title(title: str, lang: str = "en") -> Optional[str]:
+    """
+    Convert a Wikipedia title to a Wikidata QID using a two-step process:
+    1. Wikipedia title -> Wikipedia page ID
+    2. Wikipedia page ID -> Wikidata QID
+
+    Args:
+        title: Wikipedia article title
+        lang: Wikipedia language code (default: en)
+
+    Returns:
+        Wikidata QID (e.g., "Q42") or None if not found
+    """
+    # Step 1: Get Wikipedia page ID from title
+    wikipedia_id = get_wikipedia_id_from_title(title, lang)
+    if wikipedia_id is None:
+        return None
+
+    # Step 2: Get Wikidata QID from Wikipedia page ID
+    qid = get_qid_from_wikipedia_id(wikipedia_id, lang)
+    return qid
 
 
 def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) -> Dict[str, Optional[str]]:
     """
-    Convert multiple Wikipedia titles to Wikidata QIDs in batches.
+    Convert multiple Wikipedia titles to Wikidata QIDs in batches using a two-step process:
+    1. Wikipedia titles -> Wikipedia page IDs (batch)
+    2. Wikipedia page IDs -> Wikidata QIDs (batch)
 
     Args:
         titles: List of Wikipedia article titles
@@ -116,11 +175,11 @@ def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) ->
         batch = titles[i:i + batch_size]
         titles_str = "|".join(batch)
 
-        url = "https://en.wikipedia.org/w/api.php"
+        # Step 1: Get Wikipedia page IDs from titles
+        url = f"https://{lang}.wikipedia.org/w/api.php"
         params = {
             "action": "query",
             "titles": titles_str,
-            "prop": "pageprops",
             "format": "json",
         }
         headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
@@ -130,13 +189,44 @@ def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) ->
             response.raise_for_status()
             data = response.json()
 
+            # Map titles to Wikipedia page IDs
+            title_to_page_id = {}
             pages = data.get("query", {}).get("pages", {})
             for page_id, page_data in pages.items():
                 title = page_data.get("title")
-                if title:
+                if title and page_id != "-1":
+                    title_to_page_id[title] = page_id
+
+            # Step 2: Get Wikidata QIDs from Wikipedia page IDs
+            if title_to_page_id:
+                page_ids_str = "|".join(title_to_page_id.values())
+                params2 = {
+                    "action": "query",
+                    "pageids": page_ids_str,
+                    "prop": "pageprops",
+                    "format": "json",
+                }
+
+                response2 = requests.get(url, params=params2, headers=headers, timeout=10)
+                response2.raise_for_status()
+                data2 = response2.json()
+
+                # Map page IDs to QIDs
+                page_id_to_qid = {}
+                pages2 = data2.get("query", {}).get("pages", {})
+                for page_id, page_data in pages2.items():
                     pageprops = page_data.get("pageprops", {})
                     qid = pageprops.get("wikibase_item")
-                    results[title] = qid
+                    page_id_to_qid[page_id] = qid
+
+                # Combine: title -> page_id -> QID
+                for title, page_id in title_to_page_id.items():
+                    results[title] = page_id_to_qid.get(page_id)
+
+            # Mark titles that weren't found as None
+            for title in batch:
+                if title not in results:
+                    results[title] = None
 
             time.sleep(0.1)  # Rate limiting
 
