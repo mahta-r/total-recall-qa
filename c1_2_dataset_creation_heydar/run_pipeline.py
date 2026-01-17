@@ -89,7 +89,8 @@ def run_qald10_pipeline(args):
     #         input_file=str(input_file),
     #         output_file=str(step1_output),
     #         entity_type_output_file=str(step1_entity_types),
-    #         model_name=args.model
+    #         model_name=args.model,
+    #         max_intermediate_qids=args.max_intermediate_qids
     #     )
     #     if result != 0:
     #         print("✗ Step 1 failed")
@@ -213,7 +214,8 @@ def run_quest_pipeline(args):
         input_file=str(input_file),
         output_file=str(step1_output),
         subsample=args.subsample,
-        limit=args.limit
+        limit=args.limit,
+        max_intermediate_qids=args.max_intermediate_qids
     )
 
     if result != 0:
@@ -291,7 +293,7 @@ def main():
     parser.add_argument('--property_num', type=str, default='all', choices=['all', 'log'], help='Strategy for number of properties to select per query: "all" or "log" (default: all)')
     parser.add_argument('--selection_strategy', type=str, default='random', choices=['random', 'least'], help='Property selection strategy: "random" or "least" (prioritize least-used) (default: random)')
     parser.add_argument('--max_props', type=int, default=None, help='Maximum number of properties to select per query (None = unlimited, default: None)')
-
+    parser.add_argument('--max_intermediate_qids', type=int, default=50, help='Maximum allowed length of intermediate_qids. Samples exceeding this will be discarded.')
 
     args = parser.parse_args()
 

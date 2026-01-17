@@ -10,7 +10,7 @@ This script runs evaluation on QA datasets using different method types:
 Usage:
     # No retrieval (LLM only)
     python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-5.2 --method_type no_retrieval
-    python c4_task_evaluation/run_evalution.py --dataset quest --model openai/gpt-5.2 --method_type no_retrieval
+    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type no_retrieval
 
     # Test with limited samples (e.g., first 10)
     python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type no_retrieval --limit 10
@@ -291,7 +291,7 @@ def main():
     parser.add_argument('--max_iter', type=int, default=10, help='Maximum iterations for multi-step models (default: 10)')
     parser.add_argument('--device', type=int, default=0, help='CUDA device ID (default: 0)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed (default: 42)')
-    parser.add_argument('--run', type=str, default='run_1', help='Run identifier (default: run_1)')
+    parser.add_argument('--run', type=str, default='run_3', help='Run identifier (default: run_1)')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory (default: auto-generated)')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of samples to process (for testing, default: None = process all)')
 

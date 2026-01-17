@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=25
 #SBATCH --partition=staging
-#SBATCH --time=6:00:00
+#SBATCH --time=20:00:00
 #SBATCH --mem=180GB
 #SBATCH --output=script_logging/slurm_%A.out
 
@@ -56,11 +56,10 @@ mkdir -p qrel_logging
 # To use sequential mode instead (NOT recommended):
 #   Remove --use_parallel and --max_concurrent flags
 python c3_qrel_generation/qrel_generation.py \
-    --dataset quest \
+    --dataset qald10 \
     --use_parallel \
     --max_concurrent 20 \
-    --resume \
-    --reprocess-last
+    --load_corpus_mode memory
 
 # Print completion message
 echo ""

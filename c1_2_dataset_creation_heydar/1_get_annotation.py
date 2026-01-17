@@ -393,7 +393,7 @@ def get_instances_of(qids: List[str], batch_size: int = 50) -> Optional[Dict]:
 
 def process_qald10_annotations(input_file: str, output_file: str, entity_type_output_file: str = None,
                                 model_name: str = "openai/gpt-4o", retries: int = 2,
-                                timeout_seconds: int = 30) -> int:
+                                timeout_seconds: int = 30, max_intermediate_qids: int = None) -> int:
     """
     Process QALD10 dataset to generate annotations.
 
@@ -404,6 +404,7 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
         model_name: Model name for LLM calls
         retries: Number of retries for SPARQL queries
         timeout_seconds: Timeout for SPARQL queries
+        max_intermediate_qids: Maximum allowed length of intermediate_qids (None = no limit)
 
     Returns:
         0 on success, 1 on error
@@ -415,6 +416,8 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
     print("=" * 70)
     print(f"Input: {input_file}")
     print(f"Output: {output_file}")
+    if max_intermediate_qids is not None:
+        print(f"Max intermediate QIDs: {max_intermediate_qids}")
     print()
 
     # Check if input file exists
@@ -502,6 +505,7 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
 
     # Main loop
     instances_of_index = {}
+    filtered_count = 0
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     with open(input_path, "r", encoding="utf-8") as in_f, \
@@ -577,6 +581,11 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
                 print(f"file_id: {file_id} | qid: {qid}")
                 print("ERROR:", e)
 
+            # Filter: skip if intermediate_qids exceeds max_intermediate_qids
+            if max_intermediate_qids is not None and len(intermidate_list) > max_intermediate_qids:
+                filtered_count += 1
+                continue
+
             # Get the instance of intermediate answers
             intermidate_list_instances_of = get_instances_of(intermidate_list)
 
@@ -616,6 +625,8 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
     print("\n" + "=" * 70)
     print("QALD10 ANNOTATION PROCESSING COMPLETED")
     print("=" * 70)
+    if max_intermediate_qids is not None:
+        print(f"Filtered (intermediate_qids > {max_intermediate_qids}): {filtered_count} entries")
     print(f"Output: {output_file}")
 
     return 0
@@ -677,7 +688,7 @@ def process_quest_entry(entry: Dict, entry_idx: int) -> Optional[Dict]:
 
 
 def process_quest_annotations(input_file: str, output_file: str, subsample: float = 200,
-                               limit: int = None) -> int:
+                               limit: int = None, max_intermediate_qids: int = None) -> int:
     """
     Process the Quest dataset and generate annotations.
 
@@ -686,6 +697,7 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
         output_file: Path to output JSONL file
         subsample: Number of samples to process (-1 for all, 0-1 for percentage, >1 for absolute number)
         limit: Optional limit to override subsample
+        max_intermediate_qids: Maximum allowed length of intermediate_qids (None = no limit)
 
     Returns:
         0 on success, 1 on error
@@ -695,6 +707,8 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     print("=" * 70)
     print(f"Input: {input_file}")
     print(f"Output: {output_file}")
+    if max_intermediate_qids is not None:
+        print(f"Max intermediate QIDs: {max_intermediate_qids}")
     print()
 
     # Check if input file exists
@@ -748,6 +762,7 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
 
     processed_count = 0
     skipped_count = 0
+    filtered_count = 0
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -758,6 +773,11 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
             result = process_quest_entry(entry, idx)
 
             if result:
+                # Filter: skip if intermediate_qids exceeds max_intermediate_qids
+                if max_intermediate_qids is not None and len(result.get("intermediate_qids", [])) > max_intermediate_qids:
+                    filtered_count += 1
+                    continue
+
                 out_f.write(json.dumps(result, ensure_ascii=False) + "\n")
                 processed_count += 1
             else:
@@ -772,6 +792,8 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     print(f"Attempted to process: {num_samples} entries")
     print(f"Successfully processed: {processed_count} entries")
     print(f"Skipped: {skipped_count} entries")
+    if max_intermediate_qids is not None:
+        print(f"Filtered (intermediate_qids > {max_intermediate_qids}): {filtered_count} entries")
     print(f"Output: {output_file}")
 
     return 0
@@ -788,6 +810,7 @@ if __name__ == "__main__":
     parser.add_argument('--quest_output', type=str, help='Output file for Quest annotations (auto-generated if not specified)')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of entries to process (Quest only, for testing)')
     parser.add_argument('--subsample', type=float, default=200, help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
+    parser.add_argument('--max_intermediate_qids', type=int, default=50, help='Maximum allowed length of intermediate_qids. Samples exceeding this will be discarded.')
 
     args = parser.parse_args()
 
@@ -797,7 +820,8 @@ if __name__ == "__main__":
             input_file=args.qald10_input,
             output_file=args.qald10_output,
             entity_type_output_file=args.qald10_entity_types,
-            model_name=args.model
+            model_name=args.model,
+            max_intermediate_qids=args.max_intermediate_qids
         ))
     elif args.dataset == 'quest':
         # Setup Quest paths
@@ -819,5 +843,6 @@ if __name__ == "__main__":
             input_file=str(input_file),
             output_file=str(output_file),
             subsample=args.subsample,
-            limit=args.limit
+            limit=args.limit,
+            max_intermediate_qids=args.max_intermediate_qids
         ))

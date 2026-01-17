@@ -1073,6 +1073,11 @@ def main(args):
     all_queries = read_jsonl_from_file(args.query_file)
     print(f"Loaded {len(all_queries)} queries")
 
+    # Apply limit if specified
+    if args.limit is not None and args.limit > 0:
+        all_queries = all_queries[:args.limit]
+        print(f"Limited to first {len(all_queries)} queries")
+
     # Handle resume mode
     queries, should_append = prepare_resume(args, all_queries)
 
@@ -1251,15 +1256,18 @@ if __name__ == "__main__":
     parser.add_argument("--dataset", type=str, default="quest", choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'custom'). Used to construct file paths.")
     parser.add_argument("--corpus_jsonl", type=str, default="corpus_datasets/corpus/enwiki_20251001_infoboxconv.jsonl", help="Path to corpus JSONL file with passages")
     parser.add_argument("--log_dir", type=str, default="qrel_logging", help="Directory to write log file (log filename will be auto-generated based on dataset)")
-    parser.add_argument("--page2passage_mapping", type=str, default="/projects/0/prjs0834/heydars/INDICES/enwiki_20251001_infoboxconv.index.json", help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup (used in streaming mode)")
-    parser.add_argument("--index_cache_dir", type=str, default="/projects/0/prjs0834/heydars/INDICES", help="Optional: Directory to store/load cached in-memory index. If not specified, cache is stored next to corpus file. Cache file will be named '<corpus_stem>_memory_index.pkl'")
-    parser.add_argument("--model", type=str, default="gpt-4o", help="OpenAI model to use for relevance judgment (default: gpt-4o)")
+    parser.add_argument("--page2passage_mapping", type=str, default="corpus_datasets/corpus/enwiki_20251001_infoboxconv.index.json", help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup (used in streaming mode)")
+    parser.add_argument("--index_cache_dir", type=str, default="corpus_datasets/corpus", help="Optional: Directory to store/load cached in-memory index. If not specified, cache is stored next to corpus file. Cache file will be named '<corpus_stem>_memory_index.pkl'")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="OpenAI model to use for relevance judgment (default: gpt-4o)")
     parser.add_argument("--temperature", type=float, default=0.0, help="Temperature for LLM generation (default: 0.0 for consistency)")
     parser.add_argument("--load_corpus_mode", type=str, default="stream", choices=["stream", "memory"], help="How to load corpus: 'stream' (low memory, slower per-query) or 'memory' (high memory, faster per-query). Default: 'stream'. Use 'memory' when processing many queries (100s+) and have sufficient RAM.")
 
     # Parallel processing arguments
     parser.add_argument("--use_parallel", action="store_true", help="Enable parallel LLM API calls for faster processing. This can provide 5-10x speedup depending on max_concurrent setting.")
     parser.add_argument("--max_concurrent", type=int, default=10, help="Maximum number of concurrent LLM API calls when --use_parallel is enabled. Higher values = faster but more API load. Recommended: 10-20. (default: 10)")
+
+    # Limit number of queries
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of queries to process. Useful for testing or debugging. (default: None = process all)")
 
     # Resume functionality arguments
     parser.add_argument("--resume", action="store_true", help="Resume from existing qrel file by skipping already-completed queries. This allows you to continue generation after interruptions.")
@@ -1300,6 +1308,7 @@ if __name__ == "__main__":
         print(f"Max concurrent LLM calls: {args.max_concurrent}")
     print(f"Model: {args.model}")
     print(f"Temperature: {args.temperature}")
+    print(f"Query limit: {args.limit if args.limit else 'None (all queries)'}")
     print(f"Resume mode: {'ENABLED' if args.resume else 'DISABLED'}")
     if args.resume:
         if args.reprocess_last:
@@ -1311,7 +1320,7 @@ if __name__ == "__main__":
     print("="*80)
     print()
 
-    # main(args)
+    main(args)
 
     # Calculate and display entity coverage after qrel generation completes
     print("\n" + "="*80)
@@ -1328,8 +1337,11 @@ if __name__ == "__main__":
 # Usage Examples
 # ============================================================================
 #
+# python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
+
+
 # 1. PARALLEL PROCESSING MODE (RECOMMENDED - 5-10x faster!):
-#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel
+#    python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --max_concurrent 20
 #
 #    With custom concurrency (higher = faster, but more API load):
 #    python c3_qrel_generation/qrel_generation.py --dataset quest --use_parallel --max_concurrent 20

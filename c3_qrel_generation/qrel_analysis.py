@@ -219,7 +219,37 @@ def calculate_coverage(
         if pageid in relevant_page_ids:
             covered_entities.add(qid)
 
-    # Calculate coverage
+    # Calculate query-level coverage: how many queries have all entities covered
+    queries_with_full_coverage = 0
+    total_queries = len(queries)
+
+    for query_obj in queries:
+        # Extract entities for this query
+        if 'property' in query_obj and isinstance(query_obj['property'], dict):
+            entities_values = query_obj['property'].get('entities_values', [])
+        else:
+            entities_values = query_obj.get('entities_values', [])
+
+        # Check if all entities in this query are covered
+        all_covered = True
+        for entity in entities_values:
+            entity_id = entity.get('entity_id')
+            if entity_id:
+                # Entity is covered if it has a Wikipedia page AND that page has relevant passages
+                if entity_id not in entity_to_pageid:
+                    all_covered = False
+                    break
+                pageid = entity_to_pageid[entity_id]
+                if pageid not in relevant_page_ids:
+                    all_covered = False
+                    break
+
+        if all_covered:
+            queries_with_full_coverage += 1
+
+    query_coverage_percentage = (queries_with_full_coverage / total_queries * 100) if total_queries > 0 else 0.0
+
+    # Calculate entity-level coverage
     total_entities = len(entity_list)
     entities_with_passages = len(covered_entities)
     coverage_percentage = (entities_with_passages / total_entities * 100) if total_entities > 0 else 0.0
@@ -229,7 +259,10 @@ def calculate_coverage(
         'entities_with_passages': entities_with_passages,
         'coverage_percentage': coverage_percentage,
         'covered_entities': covered_entities,
-        'entities_without_wikipedia': entities_without_wikipedia
+        'entities_without_wikipedia': entities_without_wikipedia,
+        'total_queries': total_queries,
+        'queries_with_full_coverage': queries_with_full_coverage,
+        'query_coverage_percentage': query_coverage_percentage
     }
 
     # Print results
@@ -242,7 +275,107 @@ def calculate_coverage(
     print(f"Entities without Wikipedia pages: {len(entities_without_wikipedia)}")
     print(f"Entities with at least one relevant passage: {entities_with_passages}")
     print(f"Entity coverage: {coverage_percentage:.2f}%")
+    print("-"*80)
+    print(f"Total queries: {total_queries}")
+    print(f"Queries with full entity coverage: {queries_with_full_coverage}")
+    print(f"Query coverage (all entities covered): {query_coverage_percentage:.2f}%")
     print("="*80 + "\n")
+
+    return results
+
+
+def analyze_entity_list_distribution(
+    dataset: str,
+    properties_file_path: Optional[str] = None
+) -> Dict:
+    """
+    Analyze the distribution of entity list lengths from the properties file.
+
+    Reads the intermediate_qids field from *_properties.jsonl files and computes
+    statistics about the distribution of entity list lengths across queries.
+
+    Args:
+        dataset: Dataset name (e.g., 'quest', 'qald10')
+        properties_file_path: Optional path to the properties file. If not provided,
+                             uses default path based on dataset name
+
+    Returns:
+        Dictionary containing:
+            - total_queries: Total number of queries
+            - length_distribution: Dict mapping length to count
+            - min_length: Minimum entity list length
+            - max_length: Maximum entity list length
+            - mean_length: Mean entity list length
+            - median_length: Median entity list length
+    """
+    # Map dataset name to directory name (quest -> test_quest)
+    dataset_name = "test_quest" if dataset == "quest" else dataset
+
+    # Construct file path
+    if properties_file_path is None:
+        properties_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{dataset_name}_with_properties.jsonl"
+
+    print(f"Loading properties from {properties_file_path}...")
+
+    if not Path(properties_file_path).exists():
+        print(f"Error: Properties file does not exist: {properties_file_path}")
+        return {}
+
+    queries = read_jsonl_from_file(properties_file_path)
+    print(f"Loaded {len(queries)} queries")
+
+    # Collect entity list lengths
+    lengths = []
+    for query_obj in queries:
+        intermediate_qids = query_obj.get('intermediate_qids', [])
+        lengths.append(len(intermediate_qids))
+
+    if not lengths:
+        print("No queries found with intermediate_qids")
+        return {}
+
+    # Compute distribution
+    length_distribution = {}
+    for length in lengths:
+        length_distribution[length] = length_distribution.get(length, 0) + 1
+
+    # Compute statistics
+    min_length = min(lengths)
+    max_length = max(lengths)
+    mean_length = sum(lengths) / len(lengths)
+    sorted_lengths = sorted(lengths)
+    n = len(sorted_lengths)
+    if n % 2 == 0:
+        median_length = (sorted_lengths[n // 2 - 1] + sorted_lengths[n // 2]) / 2
+    else:
+        median_length = sorted_lengths[n // 2]
+
+    results = {
+        'total_queries': len(queries),
+        'length_distribution': length_distribution,
+        'min_length': min_length,
+        'max_length': max_length,
+        'mean_length': mean_length,
+        'median_length': median_length
+    }
+
+    # Print results
+    print("\n" + "=" * 80)
+    print("ENTITY LIST LENGTH DISTRIBUTION")
+    print("=" * 80)
+    print(f"Dataset: {dataset}")
+    print(f"Total queries: {len(queries)}")
+    print(f"Min entity list length: {min_length}")
+    print(f"Max entity list length: {max_length}")
+    print(f"Mean entity list length: {mean_length:.2f}")
+    print(f"Median entity list length: {median_length:.1f}")
+    print("\nLength Distribution:")
+    for length in sorted(length_distribution.keys()):
+        count = length_distribution[length]
+        percentage = count / len(queries) * 100
+        bar = "#" * int(percentage / 2)
+        print(f"  {length:4d}: {count:5d} ({percentage:5.1f}%) {bar}")
+    print("=" * 80 + "\n")
 
     return results
 
@@ -406,21 +539,20 @@ def analyze_entities_without_passages(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze qrel files for entity coverage and missing passages")
-
-    parser.add_argument("--dataset", type=str, required=True, choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'qald10')")
+    parser.add_argument("--dataset", type=str, default="qald10", choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'qald10')")
     parser.add_argument("--qrel_file", type=str, default=None, help="Optional: Path to qrel file. If not provided, uses default path based on dataset")
-    parser.add_argument("--analysis", type=str, default="coverage", choices=["coverage", "missing", "both"], help="Type of analysis to run: 'coverage' (entity coverage), 'missing' (entities without passages), 'both' (default: coverage)")
+    parser.add_argument("--analysis", type=str, default="coverage", choices=["coverage", "missing", "entity_distribution", "both", "all"], help="Type of analysis to run: 'coverage' (entity coverage), 'missing' (entities without passages), 'entity_distribution' (entity list length distribution), 'both' (coverage + missing), 'all' (all analyses) (default: coverage)")
     parser.add_argument("--output_file", type=str, default=None, help="Optional: Path for output file (only used for 'missing' analysis). If not provided, uses default path")
 
     args = parser.parse_args()
 
-    if args.analysis in ["coverage", "both"]:
+    if args.analysis in ["coverage", "both", "all"]:
         print("\n" + "="*80)
         print("Running COVERAGE analysis...")
         print("="*80 + "\n")
         calculate_coverage(dataset=args.dataset, qrel_file_path=args.qrel_file)
 
-    if args.analysis in ["missing", "both"]:
+    if args.analysis in ["missing", "both", "all"]:
         print("\n" + "="*80)
         print("Running MISSING ENTITIES analysis...")
         print("="*80 + "\n")
@@ -429,6 +561,12 @@ if __name__ == "__main__":
             qrel_file_path=args.qrel_file,
             output_file_path=args.output_file
         )
+
+    if args.analysis in ["entity_distribution", "all"]:
+        print("\n" + "="*80)
+        print("Running ENTITY LIST DISTRIBUTION analysis...")
+        print("="*80 + "\n")
+        analyze_entity_list_distribution(dataset=args.dataset)
 
 
 # ============================================================================
@@ -441,14 +579,20 @@ if __name__ == "__main__":
 # 2. Find entities without relevant passages:
 #    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis missing
 #
-# 3. Run both analyses:
+# 3. Analyze entity list length distribution:
+#    python c3_qrel_generation/qrel_analysis.py --dataset qald10 --analysis entity_distribution
+#
+# 4. Run coverage and missing analyses:
 #    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis both
 #
-# 4. With custom qrel file path:
+# 5. Run all analyses:
+#    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis all
+#
+# 6. With custom qrel file path:
 #    python c3_qrel_generation/qrel_analysis.py --dataset qald10 --analysis both \
 #           --qrel_file path/to/custom_qrels.txt
 #
-# 5. With custom output file for missing entities analysis:
+# 7. With custom output file for missing entities analysis:
 #    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis missing \
 #           --output_file path/to/custom_output.jsonl
 #
