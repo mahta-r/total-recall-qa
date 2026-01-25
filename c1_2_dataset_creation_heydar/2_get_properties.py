@@ -1,7 +1,32 @@
 import json
 import argparse
+import random
 from SPARQLWrapper import SPARQLWrapper, JSON
+from SPARQLWrapper.SPARQLExceptions import QueryBadFormed, EndPointNotFound
 import time
+from requests.exceptions import ReadTimeout, ConnectionError
+
+# Timeout and retry configuration
+SPARQL_TIMEOUT = 120  # seconds (increased from 30)
+MAX_RETRIES = 5
+
+def safe_query(sparql, max_retries=MAX_RETRIES):
+    """Execute a SPARQL query with retry logic for timeouts and server errors."""
+    for attempt in range(max_retries):
+        try:
+            return sparql.query().convert()
+        except (ReadTimeout, ConnectionError) as e:
+            wait = (2 ** attempt) + random.uniform(0, 1)
+            print(f"\n  Timeout/connection error (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+            time.sleep(wait)
+        except Exception as e:
+            if "429" in str(e) or "Too Many Requests" in str(e):
+                wait = (2 ** attempt) + random.uniform(0, 1)
+                print(f"\n  Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                time.sleep(wait)
+            else:
+                raise
+    raise Exception(f"Max retries ({max_retries}) exceeded")
 
 # Quality filter lists to exclude non-aggregatable and internal properties
 NO_AGGREGATION_PROPS = [
@@ -21,7 +46,7 @@ def get_structural_properties(type_qid):
     """
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     query = f"""
     SELECT ?prop WHERE {{
@@ -33,7 +58,7 @@ def get_structural_properties(type_qid):
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
         return set(result["prop"]["value"].split("/")[-1] for result in results["results"]["bindings"])
     except Exception as e:
         print(f"Warning: Could not fetch structural properties for {type_qid}: {e}")
@@ -59,7 +84,7 @@ def get_all_aggregatable_properties():
     """
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(60)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     # Get all properties with aggregatable datatypes
     query = """
@@ -83,7 +108,7 @@ def get_all_aggregatable_properties():
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
 
         properties = []
         for result in results["results"]["bindings"]:
@@ -115,7 +140,7 @@ def get_property_description(property_id):
 
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     query = f"""
     SELECT ?description
@@ -130,7 +155,7 @@ def get_property_description(property_id):
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
         bindings = results["results"]["bindings"]
 
         if bindings:
@@ -155,7 +180,7 @@ def get_entity_labels(item_qids):
 
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     # Create VALUES clause for items
     items_values = " ".join([f"wd:{qid}" for qid in item_qids])
@@ -172,7 +197,7 @@ def get_entity_labels(item_qids):
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
 
         entity_labels = {}
         for result in results["results"]["bindings"]:
@@ -202,7 +227,7 @@ def get_property_values_for_items(item_qids, property_id):
 
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     # Create VALUES clause for items
     items_values = " ".join([f"wd:{qid}" for qid in item_qids])
@@ -223,7 +248,7 @@ def get_property_values_for_items(item_qids, property_id):
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
 
         # Organize results by item
         property_values = {}
@@ -289,7 +314,7 @@ def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100)
 
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
     sparql.addCustomHttpHeader("User-Agent", "PropertyExtractor/1.0 (Research Project)")
-    sparql.setTimeout(30)
+    sparql.setTimeout(SPARQL_TIMEOUT)
 
     # Create VALUES clause for specific items
     values_clause = " ".join([f"wd:{qid}" for qid in item_qids])
@@ -325,7 +350,7 @@ def get_properties_for_specific_items(item_qids, all_properties_dict, limit=100)
     sparql.setReturnFormat(JSON)
 
     try:
-        results = sparql.query().convert()
+        results = safe_query(sparql)
 
         used_properties = []
         for result in results["results"]["bindings"]:

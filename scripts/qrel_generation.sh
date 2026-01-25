@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=25
 #SBATCH --partition=staging
-#SBATCH --time=20:00:00
+#SBATCH --time=30:00:00
 #SBATCH --mem=180GB
 #SBATCH --output=script_logging/slurm_%A.out
 
@@ -29,7 +29,7 @@ echo "======================================"
 echo ""
 
 # Set OpenAI API key
-export OPENAI_API_KEY='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'
+export OPENAI_API_KEY='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'
 
 # Navigate to project directory
 cd /gpfs/home6/hsoudani/total-recall-rag
@@ -56,7 +56,9 @@ mkdir -p qrel_logging
 # To use sequential mode instead (NOT recommended):
 #   Remove --use_parallel and --max_concurrent flags
 python c3_qrel_generation/qrel_generation.py \
-    --dataset qald10 \
+    --model gpt-4o-mini \
+    --dataset quest \
+    --subset test \
     --use_parallel \
     --max_concurrent 20 \
     --load_corpus_mode memory

@@ -19,6 +19,7 @@ import sys
 import json
 import argparse
 import requests
+from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 import time
 import random
 import re
@@ -27,6 +28,59 @@ from tqdm import tqdm
 from typing import List, Dict, Optional, Any
 from collections import Counter
 from openai import OpenAI
+
+# Timeout and retry configuration
+REQUEST_TIMEOUT = 120  # seconds (increased from 30)
+MAX_RETRIES = 5
+
+
+def safe_request(method: str, url: str, max_retries: int = MAX_RETRIES, **kwargs) -> requests.Response:
+    """
+    Make an HTTP request with retry logic for timeouts and server errors.
+
+    Args:
+        method: HTTP method ('get' or 'post')
+        url: URL to request
+        max_retries: Maximum number of retry attempts
+        **kwargs: Additional arguments to pass to requests
+
+    Returns:
+        Response object
+
+    Raises:
+        Exception if all retries fail
+    """
+    # Set default timeout if not provided
+    if 'timeout' not in kwargs:
+        kwargs['timeout'] = REQUEST_TIMEOUT
+
+    request_func = requests.get if method.lower() == 'get' else requests.post
+
+    for attempt in range(max_retries):
+        try:
+            response = request_func(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except (ReadTimeout, ConnectionError) as e:
+            wait = (2 ** attempt) + random.uniform(0, 1)
+            print(f"\n  Timeout/connection error (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+            time.sleep(wait)
+        except RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 429:  # Too Many Requests
+                    wait = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"\n  Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                    time.sleep(wait)
+                elif e.response.status_code >= 500:  # Server error
+                    wait = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"\n  Server error {e.response.status_code} (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                    time.sleep(wait)
+                else:
+                    raise
+            else:
+                raise
+
+    raise Exception(f"Max retries ({max_retries}) exceeded for {url}")
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -79,8 +133,7 @@ def get_wikipedia_id_from_title(title: str, lang: str = "en") -> Optional[str]:
     headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
 
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
         data = response.json()
 
         pages = data.get("query", {}).get("pages", {})
@@ -115,8 +168,7 @@ def get_qid_from_wikipedia_id(wikipedia_id: str, lang: str = "en") -> Optional[s
     headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
 
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
         data = response.json()
 
         pages = data.get("query", {}).get("pages", {})
@@ -185,8 +237,7 @@ def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) ->
         headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
 
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            response.raise_for_status()
+            response = safe_request('get', url, params=params, headers=headers, timeout=30)
             data = response.json()
 
             # Map titles to Wikipedia page IDs
@@ -207,8 +258,7 @@ def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) ->
                     "format": "json",
                 }
 
-                response2 = requests.get(url, params=params2, headers=headers, timeout=10)
-                response2.raise_for_status()
+                response2 = safe_request('get', url, params=params2, headers=headers, timeout=30)
                 data2 = response2.json()
 
                 # Map page IDs to QIDs
@@ -261,8 +311,7 @@ def get_wikipedia_title_from_qid(qid: str, lang: str = "en") -> Optional[str]:
     headers = {"User-Agent": "HeydarSoudani-ResearchBot/1.0 (https://example.com; heydar.soudani@ru.nl)"}
 
     try:
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
         data = response.json()
 
         entity = data.get("entities", {}).get(qid, {})
@@ -364,28 +413,31 @@ def get_instances_of(qids: List[str], batch_size: int = 50) -> Optional[Dict]:
         }}
         """
 
-        response = requests.post(
-            WIKIDATA_SPARQL_URL,
-            data={"query": query},
-            headers=headers,
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = safe_request(
+                'post',
+                WIKIDATA_SPARQL_URL,
+                data={"query": query},
+                headers=headers,
+            )
+            data = response.json()
 
-        # Collect results for this batch
-        for row in data["results"]["bindings"]:
-            item_uri = row["item"]["value"]          # e.g. "http://www.wikidata.org/entity/Q42"
-            instance_uri = row["instance"]["value"]  # e.g. "http://www.wikidata.org/entity/Q5"
-            item_qid = item_uri.rsplit("/", 1)[-1]
-            instance_qid = instance_uri.rsplit("/", 1)[-1]
+            # Collect results for this batch
+            for row in data["results"]["bindings"]:
+                item_uri = row["item"]["value"]          # e.g. "http://www.wikidata.org/entity/Q42"
+                instance_uri = row["instance"]["value"]  # e.g. "http://www.wikidata.org/entity/Q5"
+                item_qid = item_uri.rsplit("/", 1)[-1]
+                instance_qid = instance_uri.rsplit("/", 1)[-1]
 
-            instance_label = row.get("instanceLabel", {}).get("value", "")
+                instance_label = row.get("instanceLabel", {}).get("value", "")
 
-            if item_qid in all_results_by_item:
-                entry = {"id": instance_qid, "label": instance_label}
-                if entry not in all_results_by_item[item_qid]:
-                    all_results_by_item[item_qid].append(entry)
+                if item_qid in all_results_by_item:
+                    entry = {"id": instance_qid, "label": instance_label}
+                    if entry not in all_results_by_item[item_qid]:
+                        all_results_by_item[item_qid].append(entry)
+        except Exception as e:
+            print(f"  Error querying instances for batch: {e}")
+            continue
 
     most_frequent_instance = get_most_frequent_instance_of(all_results_by_item)
     return most_frequent_instance

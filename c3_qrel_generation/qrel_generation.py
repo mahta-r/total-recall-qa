@@ -1252,8 +1252,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate TREC-format qrels for Total Recall RAG queries")
-
-    parser.add_argument("--dataset", type=str, default="quest", choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'custom'). Used to construct file paths.")
+    parser.add_argument("--dataset", type=str, default="quest", choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'qald10'). Used to construct file paths.")
+    parser.add_argument("--subset", type=str, default=None, help="Subset name (e.g., 'test_quest', 'train_quest'). If not provided, defaults to 'test_quest' for quest dataset.")
     parser.add_argument("--corpus_jsonl", type=str, default="corpus_datasets/corpus/enwiki_20251001_infoboxconv.jsonl", help="Path to corpus JSONL file with passages")
     parser.add_argument("--log_dir", type=str, default="qrel_logging", help="Directory to write log file (log filename will be auto-generated based on dataset)")
     parser.add_argument("--page2passage_mapping", type=str, default="corpus_datasets/corpus/enwiki_20251001_infoboxconv.index.json", help="Optional: Path to JSON file mapping page IDs to passage indices for faster lookup (used in streaming mode)")
@@ -1281,23 +1281,48 @@ if __name__ == "__main__":
     if args.reprocess_last and args.trust_last:
         parser.error("--reprocess-last and --trust-last are mutually exclusive. Choose one or neither (to use heuristic).")
 
-    # Map dataset name to directory name (quest -> test_quest)
-    dataset_name = "test_quest" if args.dataset == "quest" else args.dataset
-    # Use the generations file which contains full metadata including entity values
-    args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{dataset_name}_generations.jsonl"
-    args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/qrels_{dataset_name}.txt"
+    # Determine subset and subdirectory
+    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
+    # For quest dataset: test -> test/, train -> train/, val -> val/
+    # For other datasets (e.g., qald10): no subdirectory
+    if args.subset:
+        # If subset contains underscore, assume it's full form (e.g., "test_quest")
+        if "_" in args.subset:
+            subset_name = args.subset
+            subdir = args.subset.split("_")[0]  # Extract prefix as subdir
+        else:
+            # Short form (e.g., "test") - construct full name
+            subdir = args.subset
+            subset_name = f"{args.subset}_{args.dataset}"  # e.g., "test_quest"
+    else:
+        # Default mapping: quest -> test_quest, qald10 -> qald10
+        if args.dataset == "quest":
+            subset_name = "test_quest"
+            subdir = "test"
+        else:
+            subset_name = args.dataset
+            subdir = ""
 
-    # Create log file path based on dataset name with timestamp
+    # Use the generations file which contains full metadata including entity values
+    if subdir:
+        args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/{subset_name}_generations.jsonl"
+        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/qrels_{subset_name}.txt"
+    else:
+        args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subset_name}_generations.jsonl"
+        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/qrels_{subset_name}.txt"
+
+    # Create log file path based on subset name with timestamp
     log_dir = Path(args.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    args.log_file = str(log_dir / f"qrel_generation_{dataset_name}_{timestamp}.log")
+    args.log_file = str(log_dir / f"qrel_generation_{subset_name}_{timestamp}.log")
 
     # Print configuration
     print("="*80)
     print("QRel Generation Configuration")
     print("="*80)
-    print(f"Dataset: {dataset_name}")
+    print(f"Dataset: {args.dataset}")
+    print(f"Subset: {subset_name}")
     print(f"Query file: {args.query_file}")
     print(f"Output qrel: {args.output_qrel}")
     print(f"Log file: {args.log_file}")
@@ -1329,7 +1354,8 @@ if __name__ == "__main__":
 
     coverage_results = calculate_coverage(
         dataset=args.dataset,
-        qrel_file_path=args.output_qrel
+        qrel_file_path=args.output_qrel,
+        subset=args.subset
     )
 
 
@@ -1337,7 +1363,7 @@ if __name__ == "__main__":
 # Usage Examples
 # ============================================================================
 #
-# python c3_qrel_generation/qrel_generation.py --dataset qald10 --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
+# python c3_qrel_generation/qrel_generation.py --dataset quest --subset test --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
 
 
 # 1. PARALLEL PROCESSING MODE (RECOMMENDED - 5-10x faster!):

@@ -113,6 +113,7 @@ def run_evaluation(args):
     print("EVALUATION PIPELINE")
     print("=" * 70)
     print(f"Dataset:     {args.dataset_name}")
+    print(f"Subset:      {args.subset_name}")
     print(f"Model:       {args.model_name_or_path}")
     print(f"Method Type: {args.method_type}")
     print(f"Method:      {args.method}")
@@ -271,6 +272,7 @@ def main():
 
     # Dataset arguments
     parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'], help='Dataset to evaluate on')
+    parser.add_argument('--subset', type=str, default="val", help='Subset name (e.g., "test_quest", "train_quest"). If not provided, defaults to "test_quest" for quest dataset')
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
 
     # Model arguments
@@ -300,12 +302,34 @@ def main():
     # Set dataset_name for compatibility
     args.dataset_name = args.dataset
 
+    # Determine subset and subdirectory
+    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
+    # For quest dataset: test -> test/, train -> train/, val -> val/
+    # For other datasets (e.g., qald10): no subdirectory
+    if args.subset:
+        # If subset contains underscore, assume it's full form (e.g., "test_quest")
+        if "_" in args.subset:
+            args.subset_name = args.subset
+            subdir = args.subset.split("_")[0]  # Extract prefix as subdir
+        else:
+            # Short form (e.g., "test") - construct full name
+            subdir = args.subset
+            args.subset_name = f"{args.subset}_{args.dataset}"  # e.g., "test_quest"
+    else:
+        # Default mapping: quest -> test_quest, qald10 -> qald10
+        if args.dataset == "quest":
+            args.subset_name = "test_quest"
+            subdir = "test"
+        else:
+            args.subset_name = args.dataset
+            subdir = ""
+
     # Set dataset file path if not provided
     if args.dataset_file is None:
-        if args.dataset_name == 'qald10':
-            args.dataset_file = "corpus_datasets/dataset_creation_heydar/qald10/qald10_queries.jsonl"
-        elif args.dataset_name == 'quest':
-            args.dataset_file = "corpus_datasets/dataset_creation_heydar/quest/test_quest_queries.jsonl"
+        if subdir:
+            args.dataset_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/{args.subset_name}_queries.jsonl"
+        else:
+            args.dataset_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{args.subset_name}_queries.jsonl"
 
     # Set model_name_or_path for compatibility
     args.model_name_or_path = args.model
@@ -331,9 +355,9 @@ def main():
     if args.output_dir is None:
         model_short = args.model_name_or_path.split('/')[-1]
         if args.method_type == 'no_retrieval':
-            args.output_dir = f"run_output/{args.run}/{model_short}/{args.dataset_name}/{args.method}"
+            args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}"
         else:
-            args.output_dir = f"run_output/{args.run}/{model_short}/{args.dataset_name}/{args.method}_{args.retriever_name}"
+            args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}_{args.retriever_name}"
 
     os.makedirs(args.output_dir, exist_ok=True)
     args.output_file = f"{args.output_dir}/evaluation_results.jsonl"

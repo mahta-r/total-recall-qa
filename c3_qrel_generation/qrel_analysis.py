@@ -109,7 +109,8 @@ def get_wikipedia_info_from_qid(qid: str) -> Optional[Dict[str, str]]:
 
 def calculate_coverage(
     dataset: str,
-    qrel_file_path: Optional[str] = None
+    qrel_file_path: Optional[str] = None,
+    subset: Optional[str] = None
 ) -> Dict:
     """
     Calculate entity coverage given a dataset name and qrel file.
@@ -121,6 +122,8 @@ def calculate_coverage(
         dataset: Dataset name (e.g., 'quest', 'qald10')
         qrel_file_path: Optional path to the qrel file. If not provided, uses default path
                        based on dataset name
+        subset: Optional subset name (e.g., 'test_quest', 'train_quest'). If not provided,
+               defaults to 'test_quest' for quest dataset
 
     Returns:
         Dictionary containing:
@@ -130,13 +133,39 @@ def calculate_coverage(
             - covered_entities: Set of entity IDs that have coverage
             - entities_without_wikipedia: Set of entity IDs that don't have Wikipedia pages
     """
-    # Map dataset name to directory name (quest -> test_quest)
-    dataset_name = "test_quest" if dataset == "quest" else dataset
+    # Determine subset and subdirectory
+    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
+    # For quest dataset: test -> test/, train -> train/, val -> val/
+    # For other datasets (e.g., qald10): no subdirectory
+    if subset:
+        # If subset contains underscore, assume it's full form (e.g., "test_quest")
+        if "_" in subset:
+            subset_name = subset
+            subdir = subset.split("_")[0]  # Extract prefix as subdir
+        else:
+            # Short form (e.g., "test") - construct full name
+            subdir = subset
+            subset_name = f"{subset}_{dataset}"  # e.g., "test_quest"
+    else:
+        # Default mapping: quest -> test_quest, qald10 -> qald10
+        if dataset == "quest":
+            subset_name = "test_quest"
+            subdir = "test"
+        else:
+            subset_name = dataset
+            subdir = ""
 
     # Construct file paths
-    generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{dataset_name}_generations.jsonl"
+    if subdir:
+        generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/{subset_name}_generations.jsonl"
+    else:
+        generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subset_name}_generations.jsonl"
+
     if qrel_file_path is None:
-        qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/qrels_{dataset_name}.txt"
+        if subdir:
+            qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/qrels_{subset_name}.txt"
+        else:
+            qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/qrels_{subset_name}.txt"
 
     print(f"Loading queries from {generations_file}...")
     queries = read_jsonl_from_file(generations_file)
@@ -286,7 +315,8 @@ def calculate_coverage(
 
 def analyze_entity_list_distribution(
     dataset: str,
-    properties_file_path: Optional[str] = None
+    properties_file_path: Optional[str] = None,
+    subset: Optional[str] = None
 ) -> Dict:
     """
     Analyze the distribution of entity list lengths from the properties file.
@@ -298,6 +328,8 @@ def analyze_entity_list_distribution(
         dataset: Dataset name (e.g., 'quest', 'qald10')
         properties_file_path: Optional path to the properties file. If not provided,
                              uses default path based on dataset name
+        subset: Optional subset name (e.g., 'test_quest', 'train_quest'). If not provided,
+               defaults to 'test_quest' for quest dataset
 
     Returns:
         Dictionary containing:
@@ -308,12 +340,34 @@ def analyze_entity_list_distribution(
             - mean_length: Mean entity list length
             - median_length: Median entity list length
     """
-    # Map dataset name to directory name (quest -> test_quest)
-    dataset_name = "test_quest" if dataset == "quest" else dataset
+    # Determine subset and subdirectory
+    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
+    # For quest dataset: test -> test/, train -> train/, val -> val/
+    # For other datasets (e.g., qald10): no subdirectory
+    if subset:
+        # If subset contains underscore, assume it's full form (e.g., "test_quest")
+        if "_" in subset:
+            subset_name = subset
+            subdir = subset.split("_")[0]  # Extract prefix as subdir
+        else:
+            # Short form (e.g., "test") - construct full name
+            subdir = subset
+            subset_name = f"{subset}_{dataset}"  # e.g., "test_quest"
+    else:
+        # Default mapping: quest -> test_quest, qald10 -> qald10
+        if dataset == "quest":
+            subset_name = "test_quest"
+            subdir = "test"
+        else:
+            subset_name = dataset
+            subdir = ""
 
     # Construct file path
     if properties_file_path is None:
-        properties_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{dataset_name}_with_properties.jsonl"
+        if subdir:
+            properties_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/{subset_name}_with_properties.jsonl"
+        else:
+            properties_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subset_name}_with_properties.jsonl"
 
     print(f"Loading properties from {properties_file_path}...")
 
@@ -383,7 +437,8 @@ def analyze_entity_list_distribution(
 def analyze_entities_without_passages(
     dataset: str,
     qrel_file_path: Optional[str] = None,
-    output_file_path: Optional[str] = None
+    output_file_path: Optional[str] = None,
+    subset: Optional[str] = None
 ) -> None:
     """
     Analyze queries to find entities without relevant passages.
@@ -395,16 +450,48 @@ def analyze_entities_without_passages(
         dataset: Dataset name (e.g., 'quest', 'qald10')
         qrel_file_path: Optional path to the qrel file. If not provided, uses default path
         output_file_path: Optional path for output JSONL. If not provided, uses default path
+        subset: Optional subset name (e.g., 'test_quest', 'train_quest'). If not provided,
+               defaults to 'test_quest' for quest dataset
     """
-    # Map dataset name to directory name (quest -> test_quest)
-    dataset_name = "test_quest" if dataset == "quest" else dataset
+    # Determine subset and subdirectory
+    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
+    # For quest dataset: test -> test/, train -> train/, val -> val/
+    # For other datasets (e.g., qald10): no subdirectory
+    if subset:
+        # If subset contains underscore, assume it's full form (e.g., "test_quest")
+        if "_" in subset:
+            subset_name = subset
+            subdir = subset.split("_")[0]  # Extract prefix as subdir
+        else:
+            # Short form (e.g., "test") - construct full name
+            subdir = subset
+            subset_name = f"{subset}_{dataset}"  # e.g., "test_quest"
+    else:
+        # Default mapping: quest -> test_quest, qald10 -> qald10
+        if dataset == "quest":
+            subset_name = "test_quest"
+            subdir = "test"
+        else:
+            subset_name = dataset
+            subdir = ""
 
     # Construct file paths
-    generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{dataset_name}_generations.jsonl"
+    if subdir:
+        generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/{subset_name}_generations.jsonl"
+    else:
+        generations_file = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subset_name}_generations.jsonl"
+
     if qrel_file_path is None:
-        qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/qrels_{dataset_name}.txt"
+        if subdir:
+            qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/qrels_{subset_name}.txt"
+        else:
+            qrel_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/qrels_{subset_name}.txt"
+
     if output_file_path is None:
-        output_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/entities_without_passages_{dataset_name}.jsonl"
+        if subdir:
+            output_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/{subdir}/entities_without_passages_{subset_name}.jsonl"
+        else:
+            output_file_path = f"corpus_datasets/dataset_creation_heydar/{dataset}/entities_without_passages_{subset_name}.jsonl"
 
     print(f"Loading queries from {generations_file}...")
     queries = read_jsonl_from_file(generations_file)
@@ -540,7 +627,8 @@ def analyze_entities_without_passages(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze qrel files for entity coverage and missing passages")
     parser.add_argument("--dataset", type=str, default="qald10", choices=["quest", "qald10"], help="Dataset name (e.g., 'quest', 'qald10')")
-    parser.add_argument("--qrel_file", type=str, default=None, help="Optional: Path to qrel file. If not provided, uses default path based on dataset")
+    parser.add_argument("--subset", type=str, default=None, help="Subset name (e.g., 'test_quest', 'train_quest'). If not provided, defaults to 'test_quest' for quest dataset")
+    parser.add_argument("--qrel_file", type=str, default=None, help="Optional: Path to qrel file. If not provided, uses default path based on dataset/subset")
     parser.add_argument("--analysis", type=str, default="coverage", choices=["coverage", "missing", "entity_distribution", "both", "all"], help="Type of analysis to run: 'coverage' (entity coverage), 'missing' (entities without passages), 'entity_distribution' (entity list length distribution), 'both' (coverage + missing), 'all' (all analyses) (default: coverage)")
     parser.add_argument("--output_file", type=str, default=None, help="Optional: Path for output file (only used for 'missing' analysis). If not provided, uses default path")
 
@@ -550,7 +638,7 @@ if __name__ == "__main__":
         print("\n" + "="*80)
         print("Running COVERAGE analysis...")
         print("="*80 + "\n")
-        calculate_coverage(dataset=args.dataset, qrel_file_path=args.qrel_file)
+        calculate_coverage(dataset=args.dataset, qrel_file_path=args.qrel_file, subset=args.subset)
 
     if args.analysis in ["missing", "both", "all"]:
         print("\n" + "="*80)
@@ -559,14 +647,15 @@ if __name__ == "__main__":
         analyze_entities_without_passages(
             dataset=args.dataset,
             qrel_file_path=args.qrel_file,
-            output_file_path=args.output_file
+            output_file_path=args.output_file,
+            subset=args.subset
         )
 
     if args.analysis in ["entity_distribution", "all"]:
         print("\n" + "="*80)
         print("Running ENTITY LIST DISTRIBUTION analysis...")
         print("="*80 + "\n")
-        analyze_entity_list_distribution(dataset=args.dataset)
+        analyze_entity_list_distribution(dataset=args.dataset, subset=args.subset)
 
 
 # ============================================================================
@@ -574,10 +663,10 @@ if __name__ == "__main__":
 # ============================================================================
 #
 # 1. Calculate entity coverage:
-#    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis coverage
+#    python c3_qrel_generation/qrel_analysis.py --dataset qald10 --analysis coverage
 #
 # 2. Find entities without relevant passages:
-#    python c3_qrel_generation/qrel_analysis.py --dataset quest --analysis missing
+#    python c3_qrel_generation/qrel_analysis.py --dataset quest --subset val_quest --analysis coverage
 #
 # 3. Analyze entity list length distribution:
 #    python c3_qrel_generation/qrel_analysis.py --dataset qald10 --analysis entity_distribution
