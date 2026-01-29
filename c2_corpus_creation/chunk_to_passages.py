@@ -787,10 +787,10 @@ if __name__ == "__main__":
         description="Convert Wikipedia dump to passage-based JSONL corpus"
     )
     parser.add_argument("--input-root", type=str,
-                        default="corpus_datasets/sample_wikiextractorV2",
+                        default="corpus_datasets/corpus/enwiki-20251001-infoboxconv",
                         help="Path to processed Wikipedia dump root")
     parser.add_argument("--output-jsonl", type=str,
-                        default="corpus_datasets/output.jsonl",
+                        default="corpus_datasets/corpus/enwiki_20251001_infoboxconv.jsonl",
                         help="Output JSONL file path")
     parser.add_argument("--words-per-passage", type=int, default=100,
                         help="Number of words per passage (default: 100)")
@@ -798,8 +798,8 @@ if __name__ == "__main__":
                         help="Skip passages with fewer words (default: 20)")
     parser.add_argument("--skip-empty-titles", action="store_true",
                         help="Skip docs without a title")
-    parser.add_argument("--progress-every", type=int, default=10000,
-                        help="Log every N passages (default: 10000)")
+    parser.add_argument("--progress-every", type=int, default=100000,
+                        help="Log every N passages (default: 100000)")
     parser.add_argument("--method", type=str, default="context-aware",
                         choices=["simple", "context-aware"],
                         help="Chunking method: 'simple' for word-based, 'context-aware' for semantic (default: context-aware)")

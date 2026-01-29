@@ -58,7 +58,20 @@ Do not explicitly name the entities unless absolutely necessary;
 For example, you can say all nba teams, but don't state them one by one like LA Lakers, Boston Celtics, etc.
 Never use any wikidata id (e.g. Q123456) in the query text.
 
-The ANSWER must be an AGGREGATED VALUE (a number, year, or statistic), NOT an entity name or identifier.
+## CRITICAL: Answer Must Be a Number
+
+The ANSWER must ALWAYS be a NUMBER (count, sum, average, min, max), NOT an entity name.
+DO NOT ask "which", "what entity", or "from which country" - these expect entity names, not numbers.
+
+INCORRECT (DO NOT generate):
+❌ "From which country came the 2nd most winners of the Emmy Award?"
+❌ "Which university has the most Nobel Prize winners?"
+
+CORRECT (generate like these):
+✓ "How many winners of the Emmy Award came from the 2nd most represented country?"
+✓ "What is the count of Nobel Prize winners from the most represented university?"
+
+Use: "How many...", "What is the total/average/maximum/minimum..."
 
 Your output should be in a strictly specific format. Here is the format:
 [Query] <Your generated query here>

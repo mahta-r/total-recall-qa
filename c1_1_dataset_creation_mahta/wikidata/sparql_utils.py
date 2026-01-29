@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from collections import defaultdict
 from urllib.parse import unquote
 from urllib.error import HTTPError
+from requests.exceptions import ReadTimeout, ConnectionError
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
@@ -22,19 +23,22 @@ HARD_SKIP_CATEGORIES = {
 
 
 def safe_query(sparql, max_retries=5):
+    """Execute a SPARQL query with retry logic for timeouts and server errors."""
     for attempt in range(max_retries):
         try:
             return sparql.query().convert()
-        # except HTTPError as e:
-        except Exception as e:
-            print(f"SPARQL query error on attempt {attempt+1}/{max_retries}: {e}")
+        except (HTTPError, ReadTimeout, ConnectionError) as e:
             wait = (2 ** attempt) + random.uniform(0, 1)
-            print(f"retrying (waiting {wait:.2f} seconds)")
+            print(f"  Query error (attempt {attempt + 1}/{max_retries}): {type(e).__name__}, retrying in {wait:.1f}s...")
             time.sleep(wait)
-    
-    print(sparql.queryString)
-    raise Exception("Max retries exceeded")
-    
+        except Exception as e:
+            if "429" in str(e) or "Too Many Requests" in str(e):
+                wait = (2 ** attempt) + random.uniform(0, 1)
+                print(f"  Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                time.sleep(wait)
+            else:
+                raise
+    raise Exception(f"Max retries ({max_retries}) exceeded")
 
 
 

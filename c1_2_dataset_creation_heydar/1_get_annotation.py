@@ -19,6 +19,7 @@ import sys
 import json
 import argparse
 import requests
+from requests.exceptions import ReadTimeout, ConnectionError, RequestException
 import time
 import random
 import re
@@ -27,6 +28,59 @@ from tqdm import tqdm
 from typing import List, Dict, Optional, Any
 from collections import Counter
 from openai import OpenAI
+
+# Timeout and retry configuration
+REQUEST_TIMEOUT = 120  # seconds (increased from 30)
+MAX_RETRIES = 5
+
+
+def safe_request(method: str, url: str, max_retries: int = MAX_RETRIES, **kwargs) -> requests.Response:
+    """
+    Make an HTTP request with retry logic for timeouts and server errors.
+
+    Args:
+        method: HTTP method ('get' or 'post')
+        url: URL to request
+        max_retries: Maximum number of retry attempts
+        **kwargs: Additional arguments to pass to requests
+
+    Returns:
+        Response object
+
+    Raises:
+        Exception if all retries fail
+    """
+    # Set default timeout if not provided
+    if 'timeout' not in kwargs:
+        kwargs['timeout'] = REQUEST_TIMEOUT
+
+    request_func = requests.get if method.lower() == 'get' else requests.post
+
+    for attempt in range(max_retries):
+        try:
+            response = request_func(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except (ReadTimeout, ConnectionError) as e:
+            wait = (2 ** attempt) + random.uniform(0, 1)
+            print(f"\n  Timeout/connection error (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+            time.sleep(wait)
+        except RequestException as e:
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 429:  # Too Many Requests
+                    wait = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"\n  Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                    time.sleep(wait)
+                elif e.response.status_code >= 500:  # Server error
+                    wait = (2 ** attempt) + random.uniform(0, 1)
+                    print(f"\n  Server error {e.response.status_code} (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s...")
+                    time.sleep(wait)
+                else:
+                    raise
+            else:
+                raise
+
+    raise Exception(f"Max retries ({max_retries}) exceeded for {url}")
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -50,7 +104,7 @@ except ImportError:
         print("Warning: Could not import 2_get_properties module.")
 
 try:
-    from c3_task_evaluation.prompts.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
+    from c4_task_evaluation.prompts.prompt_templetes import SYSTEM_PROMPT_SPARQL_LIST
 except ImportError:
     SYSTEM_PROMPT_SPARQL_LIST = ""  # Will be loaded if needed
 
@@ -59,9 +113,82 @@ except ImportError:
 # Common utility functions (shared by both datasets)
 # ========================================================================
 
+def get_wikipedia_id_from_title(title: str, lang: str = "en") -> Optional[str]:
+    """
+    Convert a Wikipedia title to a Wikipedia page ID.
+
+    Args:
+        title: Wikipedia article title
+        lang: Wikipedia language code (default: en)
+
+    Returns:
+        Wikipedia page ID (e.g., "12345") or None if not found
+    """
+    url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "titles": title,
+        "format": "json",
+    }
+    headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
+
+    try:
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
+        data = response.json()
+
+        pages = data.get("query", {}).get("pages", {})
+        for page_id, page_data in pages.items():
+            if page_id != "-1":  # -1 means page not found
+                return page_id
+
+        return None
+    except Exception as e:
+        print(f"Error fetching Wikipedia ID for '{title}': {e}")
+        return None
+
+
+def get_qid_from_wikipedia_id(wikipedia_id: str, lang: str = "en") -> Optional[str]:
+    """
+    Convert a Wikipedia page ID to a Wikidata QID.
+
+    Args:
+        wikipedia_id: Wikipedia page ID (e.g., "12345")
+        lang: Wikipedia language code (default: en)
+
+    Returns:
+        Wikidata QID (e.g., "Q42") or None if not found
+    """
+    url = f"https://{lang}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "pageids": wikipedia_id,
+        "prop": "pageprops",
+        "format": "json",
+    }
+    headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
+
+    try:
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
+        data = response.json()
+
+        pages = data.get("query", {}).get("pages", {})
+        for page_id, page_data in pages.items():
+            pageprops = page_data.get("pageprops", {})
+            qid = pageprops.get("wikibase_item")
+            if qid:
+                return qid
+
+        return None
+    except Exception as e:
+        print(f"Error fetching QID for Wikipedia ID '{wikipedia_id}': {e}")
+        return None
+
+
 def get_qid_from_wikipedia_title(title: str, lang: str = "en") -> Optional[str]:
     """
-    Convert a Wikipedia title to a Wikidata QID.
+    Convert a Wikipedia title to a Wikidata QID using a two-step process:
+    1. Wikipedia title -> Wikipedia page ID
+    2. Wikipedia page ID -> Wikidata QID
 
     Args:
         title: Wikipedia article title
@@ -70,37 +197,21 @@ def get_qid_from_wikipedia_title(title: str, lang: str = "en") -> Optional[str]:
     Returns:
         Wikidata QID (e.g., "Q42") or None if not found
     """
-    url = "https://en.wikipedia.org/w/api.php"
-    params = {
-        "action": "query",
-        "titles": title,
-        "prop": "pageprops",
-        "format": "json",
-    }
-    headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
-
-    try:
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-
-        pages = data.get("query", {}).get("pages", {})
-        for page_id, page_data in pages.items():
-            if page_id != "-1":  # -1 means page not found
-                pageprops = page_data.get("pageprops", {})
-                qid = pageprops.get("wikibase_item")
-                if qid:
-                    return qid
-
+    # Step 1: Get Wikipedia page ID from title
+    wikipedia_id = get_wikipedia_id_from_title(title, lang)
+    if wikipedia_id is None:
         return None
-    except Exception as e:
-        print(f"Error fetching QID for '{title}': {e}")
-        return None
+
+    # Step 2: Get Wikidata QID from Wikipedia page ID
+    qid = get_qid_from_wikipedia_id(wikipedia_id, lang)
+    return qid
 
 
 def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) -> Dict[str, Optional[str]]:
     """
-    Convert multiple Wikipedia titles to Wikidata QIDs in batches.
+    Convert multiple Wikipedia titles to Wikidata QIDs in batches using a two-step process:
+    1. Wikipedia titles -> Wikipedia page IDs (batch)
+    2. Wikipedia page IDs -> Wikidata QIDs (batch)
 
     Args:
         titles: List of Wikipedia article titles
@@ -116,27 +227,56 @@ def get_qids_batch(titles: List[str], lang: str = "en", batch_size: int = 50) ->
         batch = titles[i:i + batch_size]
         titles_str = "|".join(batch)
 
-        url = "https://en.wikipedia.org/w/api.php"
+        # Step 1: Get Wikipedia page IDs from titles
+        url = f"https://{lang}.wikipedia.org/w/api.php"
         params = {
             "action": "query",
             "titles": titles_str,
-            "prop": "pageprops",
             "format": "json",
         }
         headers = {"User-Agent": "Quest-Pipeline/1.0 (research; heydar.soudani@ru.nl)"}
 
         try:
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            response.raise_for_status()
+            response = safe_request('get', url, params=params, headers=headers, timeout=30)
             data = response.json()
 
+            # Map titles to Wikipedia page IDs
+            title_to_page_id = {}
             pages = data.get("query", {}).get("pages", {})
             for page_id, page_data in pages.items():
                 title = page_data.get("title")
-                if title:
+                if title and page_id != "-1":
+                    title_to_page_id[title] = page_id
+
+            # Step 2: Get Wikidata QIDs from Wikipedia page IDs
+            if title_to_page_id:
+                page_ids_str = "|".join(title_to_page_id.values())
+                params2 = {
+                    "action": "query",
+                    "pageids": page_ids_str,
+                    "prop": "pageprops",
+                    "format": "json",
+                }
+
+                response2 = safe_request('get', url, params=params2, headers=headers, timeout=30)
+                data2 = response2.json()
+
+                # Map page IDs to QIDs
+                page_id_to_qid = {}
+                pages2 = data2.get("query", {}).get("pages", {})
+                for page_id, page_data in pages2.items():
                     pageprops = page_data.get("pageprops", {})
                     qid = pageprops.get("wikibase_item")
-                    results[title] = qid
+                    page_id_to_qid[page_id] = qid
+
+                # Combine: title -> page_id -> QID
+                for title, page_id in title_to_page_id.items():
+                    results[title] = page_id_to_qid.get(page_id)
+
+            # Mark titles that weren't found as None
+            for title in batch:
+                if title not in results:
+                    results[title] = None
 
             time.sleep(0.1)  # Rate limiting
 
@@ -171,8 +311,7 @@ def get_wikipedia_title_from_qid(qid: str, lang: str = "en") -> Optional[str]:
     headers = {"User-Agent": "HeydarSoudani-ResearchBot/1.0 (https://example.com; heydar.soudani@ru.nl)"}
 
     try:
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
+        response = safe_request('get', url, params=params, headers=headers, timeout=30)
         data = response.json()
 
         entity = data.get("entities", {}).get(qid, {})
@@ -274,28 +413,31 @@ def get_instances_of(qids: List[str], batch_size: int = 50) -> Optional[Dict]:
         }}
         """
 
-        response = requests.post(
-            WIKIDATA_SPARQL_URL,
-            data={"query": query},
-            headers=headers,
-            timeout=30,
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            response = safe_request(
+                'post',
+                WIKIDATA_SPARQL_URL,
+                data={"query": query},
+                headers=headers,
+            )
+            data = response.json()
 
-        # Collect results for this batch
-        for row in data["results"]["bindings"]:
-            item_uri = row["item"]["value"]          # e.g. "http://www.wikidata.org/entity/Q42"
-            instance_uri = row["instance"]["value"]  # e.g. "http://www.wikidata.org/entity/Q5"
-            item_qid = item_uri.rsplit("/", 1)[-1]
-            instance_qid = instance_uri.rsplit("/", 1)[-1]
+            # Collect results for this batch
+            for row in data["results"]["bindings"]:
+                item_uri = row["item"]["value"]          # e.g. "http://www.wikidata.org/entity/Q42"
+                instance_uri = row["instance"]["value"]  # e.g. "http://www.wikidata.org/entity/Q5"
+                item_qid = item_uri.rsplit("/", 1)[-1]
+                instance_qid = instance_uri.rsplit("/", 1)[-1]
 
-            instance_label = row.get("instanceLabel", {}).get("value", "")
+                instance_label = row.get("instanceLabel", {}).get("value", "")
 
-            if item_qid in all_results_by_item:
-                entry = {"id": instance_qid, "label": instance_label}
-                if entry not in all_results_by_item[item_qid]:
-                    all_results_by_item[item_qid].append(entry)
+                if item_qid in all_results_by_item:
+                    entry = {"id": instance_qid, "label": instance_label}
+                    if entry not in all_results_by_item[item_qid]:
+                        all_results_by_item[item_qid].append(entry)
+        except Exception as e:
+            print(f"  Error querying instances for batch: {e}")
+            continue
 
     most_frequent_instance = get_most_frequent_instance_of(all_results_by_item)
     return most_frequent_instance
@@ -303,7 +445,7 @@ def get_instances_of(qids: List[str], batch_size: int = 50) -> Optional[Dict]:
 
 def process_qald10_annotations(input_file: str, output_file: str, entity_type_output_file: str = None,
                                 model_name: str = "openai/gpt-4o", retries: int = 2,
-                                timeout_seconds: int = 30) -> int:
+                                timeout_seconds: int = 30, max_intermediate_qids: int = None) -> int:
     """
     Process QALD10 dataset to generate annotations.
 
@@ -314,6 +456,7 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
         model_name: Model name for LLM calls
         retries: Number of retries for SPARQL queries
         timeout_seconds: Timeout for SPARQL queries
+        max_intermediate_qids: Maximum allowed length of intermediate_qids (None = no limit)
 
     Returns:
         0 on success, 1 on error
@@ -325,6 +468,8 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
     print("=" * 70)
     print(f"Input: {input_file}")
     print(f"Output: {output_file}")
+    if max_intermediate_qids is not None:
+        print(f"Max intermediate QIDs: {max_intermediate_qids}")
     print()
 
     # Check if input file exists
@@ -412,6 +557,7 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
 
     # Main loop
     instances_of_index = {}
+    filtered_count = 0
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
     with open(input_path, "r", encoding="utf-8") as in_f, \
@@ -487,6 +633,11 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
                 print(f"file_id: {file_id} | qid: {qid}")
                 print("ERROR:", e)
 
+            # Filter: skip if intermediate_qids exceeds max_intermediate_qids
+            if max_intermediate_qids is not None and len(intermidate_list) > max_intermediate_qids:
+                filtered_count += 1
+                continue
+
             # Get the instance of intermediate answers
             intermidate_list_instances_of = get_instances_of(intermidate_list)
 
@@ -526,6 +677,8 @@ def process_qald10_annotations(input_file: str, output_file: str, entity_type_ou
     print("\n" + "=" * 70)
     print("QALD10 ANNOTATION PROCESSING COMPLETED")
     print("=" * 70)
+    if max_intermediate_qids is not None:
+        print(f"Filtered (intermediate_qids > {max_intermediate_qids}): {filtered_count} entries")
     print(f"Output: {output_file}")
 
     return 0
@@ -587,7 +740,7 @@ def process_quest_entry(entry: Dict, entry_idx: int) -> Optional[Dict]:
 
 
 def process_quest_annotations(input_file: str, output_file: str, subsample: float = 200,
-                               limit: int = None) -> int:
+                               limit: int = None, max_intermediate_qids: int = None) -> int:
     """
     Process the Quest dataset and generate annotations.
 
@@ -596,6 +749,7 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
         output_file: Path to output JSONL file
         subsample: Number of samples to process (-1 for all, 0-1 for percentage, >1 for absolute number)
         limit: Optional limit to override subsample
+        max_intermediate_qids: Maximum allowed length of intermediate_qids (None = no limit)
 
     Returns:
         0 on success, 1 on error
@@ -605,6 +759,8 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     print("=" * 70)
     print(f"Input: {input_file}")
     print(f"Output: {output_file}")
+    if max_intermediate_qids is not None:
+        print(f"Max intermediate QIDs: {max_intermediate_qids}")
     print()
 
     # Check if input file exists
@@ -658,6 +814,7 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
 
     processed_count = 0
     skipped_count = 0
+    filtered_count = 0
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
@@ -668,6 +825,11 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
             result = process_quest_entry(entry, idx)
 
             if result:
+                # Filter: skip if intermediate_qids exceeds max_intermediate_qids
+                if max_intermediate_qids is not None and len(result.get("intermediate_qids", [])) > max_intermediate_qids:
+                    filtered_count += 1
+                    continue
+
                 out_f.write(json.dumps(result, ensure_ascii=False) + "\n")
                 processed_count += 1
             else:
@@ -682,6 +844,8 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
     print(f"Attempted to process: {num_samples} entries")
     print(f"Successfully processed: {processed_count} entries")
     print(f"Skipped: {skipped_count} entries")
+    if max_intermediate_qids is not None:
+        print(f"Filtered (intermediate_qids > {max_intermediate_qids}): {filtered_count} entries")
     print(f"Output: {output_file}")
 
     return 0
@@ -689,31 +853,16 @@ def process_quest_annotations(input_file: str, output_file: str, subsample: floa
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process dataset to generate annotations with QIDs and properties')
-    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'],
-                        help='Dataset type to process (qald10 or quest)')
-    parser.add_argument('--model', type=str, default='openai/gpt-4o',
-                        help='Model to use for LLM steps (QALD10 only, default: openai/gpt-4o)')
-
-    # QALD10-specific arguments
-    parser.add_argument('--qald10_input', type=str,
-                        default='corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl',
-                        help='Input file for QALD10 dataset')
-    parser.add_argument('--qald10_output', type=str,
-                        default='corpus_datasets/dataset_creation_heydar/unified/qald10_annotations.jsonl',
-                        help='Output file for QALD10 annotations')
-    parser.add_argument('--qald10_entity_types', type=str,
-                        default='corpus_datasets/dataset_creation_heydar/unified/qald10_entity_types.json',
-                        help='Entity type mapping file for QALD10')
-
-    # Quest-specific arguments
-    parser.add_argument('--quest_input', type=str,
-                        help='Input file for Quest dataset (e.g., train.jsonl)')
-    parser.add_argument('--quest_output', type=str,
-                        help='Output file for Quest annotations (auto-generated if not specified)')
-    parser.add_argument('--limit', type=int, default=None,
-                        help='Limit number of entries to process (Quest only, for testing)')
-    parser.add_argument('--subsample', type=float, default=200,
-                        help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'], help='Dataset type to process (qald10 or quest)')
+    parser.add_argument('--model', type=str, default='openai/gpt-4o', help='Model to use for LLM steps (QALD10 only, default: openai/gpt-4o)')
+    parser.add_argument('--qald10_input', type=str, default='corpus_datasets/qald_aggregation_samples/wikidata_aggregation.jsonl', help='Input file for QALD10 dataset')
+    parser.add_argument('--qald10_output', type=str, default='corpus_datasets/dataset_creation_heydar/unified/qald10_annotations.jsonl', help='Output file for QALD10 annotations')
+    parser.add_argument('--qald10_entity_types', type=str, default='corpus_datasets/dataset_creation_heydar/unified/qald10_entity_types.json', help='Entity type mapping file for QALD10')
+    parser.add_argument('--quest_input', type=str, help='Input file for Quest dataset (e.g., train.jsonl)')
+    parser.add_argument('--quest_output', type=str, help='Output file for Quest annotations (auto-generated if not specified)')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of entries to process (Quest only, for testing)')
+    parser.add_argument('--subsample', type=float, default=200, help='Number of samples to process (Quest only): -1 for all, 0-1 for percentage, >1 for absolute number (default: 200)')
+    parser.add_argument('--max_intermediate_qids', type=int, default=50, help='Maximum allowed length of intermediate_qids. Samples exceeding this will be discarded.')
 
     args = parser.parse_args()
 
@@ -723,7 +872,8 @@ if __name__ == "__main__":
             input_file=args.qald10_input,
             output_file=args.qald10_output,
             entity_type_output_file=args.qald10_entity_types,
-            model_name=args.model
+            model_name=args.model,
+            max_intermediate_qids=args.max_intermediate_qids
         ))
     elif args.dataset == 'quest':
         # Setup Quest paths
@@ -745,5 +895,6 @@ if __name__ == "__main__":
             input_file=str(input_file),
             output_file=str(output_file),
             subsample=args.subsample,
-            limit=args.limit
+            limit=args.limit,
+            max_intermediate_qids=args.max_intermediate_qids
         ))

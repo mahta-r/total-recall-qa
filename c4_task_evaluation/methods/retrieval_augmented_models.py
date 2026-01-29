@@ -8,9 +8,9 @@ import transformers
 from bs4 import BeautifulSoup
 
 from utils.general_utils import passages2string
-from c3_task_evaluation.models.llm_generator import LLMGenerator_api, LLMGenerator_hf_local, StopOnSequence
-from c3_task_evaluation.models.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
-from c3_task_evaluation.prompts.prompt_templetes import (
+from c4_task_evaluation.src.llm_generator import LLMGenerator_api, LLMGenerator_hf_local, StopOnSequence
+from c4_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+from c4_task_evaluation.prompts.prompt_templetes import (
     SYSTEM_PROMPT_NO_RETRIEVAL,
     SYSTEM_PROMPT_SINGLE_RETRIEVAL,
     SYSTEM_PROMPT_RESEARCH_INST,

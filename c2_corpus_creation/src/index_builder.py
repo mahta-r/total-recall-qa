@@ -444,10 +444,9 @@ def main():
 
 
 if __name__ == "__main__":
-    
-    print_by_id('307-0000')
+    # print_by_id('307-0000')
     # subsample_corpus()
-    # main()
+    main()
     
     
 # python c2_corpus_annotation/src/index_builder.py
