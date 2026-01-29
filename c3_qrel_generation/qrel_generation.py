@@ -33,6 +33,10 @@ from c1_1_dataset_creation_mahta.query_generation.prompts.LLM_as_relevance_judge
     PROPERTY_PROMPT,
     PROPERTY_INPUT_TEMPLATE
 )
+from c1_1_dataset_creation_mahta.query_generation.prompts.LLM_as_relevance_judge.prompt_value_check import (
+    VALUE_PROMPT,
+    VALUE_INPUT_TEMPLATE
+)
 # Import analysis functions from qrel_analysis
 from c3_qrel_generation.qrel_analysis import calculate_coverage
 
@@ -980,6 +984,233 @@ def remove_query_from_qrel(qrel_file_path, query_id_to_remove):
     return removed_count
 
 
+def judge_passage_value(
+    passage_content: str,
+    entity_label: str,
+    property_label: str,
+    property_description: str,
+    property_value: str,
+    property_value_unit: Optional[str],
+    property_value_time: Optional[str],
+    client: OpenAI,
+    model: str = "gpt-4o",
+    temperature: float = 0.0
+) -> str:
+    """
+    Use LLM to judge if passage contains the correct value for the property.
+
+    Args:
+        passage_content: The text content of the passage
+        entity_label: Name of the entity (e.g., film title)
+        property_label: Property name (e.g., "publication date")
+        property_description: Description of the property
+        property_value: The expected value of the property
+        property_value_unit: Optional unit of the property value
+        property_value_time: Optional time of validity for the property value
+        client: OpenAI client
+        model: Model to use for judgment
+        temperature: Temperature for generation
+
+    Returns:
+        "YES" or "NO"
+    """
+    # Build the statement with value, unit, and time
+    statement_parts = [f"the [{property_label}] of [{entity_label}] is {property_value}"]
+    
+    if property_value_unit:
+        statement_parts[0] += f" in terms of {property_value_unit}"
+    
+    statement = statement_parts[0]
+    
+    if property_value_time:
+        statement += f"\nthis statement is valid as of {property_value_time}"
+    
+    input_instance = VALUE_INPUT_TEMPLATE.format(
+        entity_name=entity_label,
+        property_name=property_label,
+        property_description=property_description,
+        property_value=property_value,
+        passage=passage_content
+    )
+    
+    # Replace the STATEMENT placeholder with our custom statement
+    input_instance = input_instance.replace(
+        f"the [{property_label}] of [{entity_label}] is {property_value}",
+        statement
+    )
+
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": VALUE_PROMPT},
+                {"role": "user", "content": input_instance}
+            ],
+            temperature=temperature,
+            max_tokens=10,  # Only need "YES" or "NO"
+        )
+
+        response = resp.choices[0].message.content.strip()
+        if response not in ["YES", "NO"]:
+            print(f"Warning: Unexpected response '{response}', defaulting to NO", file=sys.stderr)
+            return "NO"
+        return response
+
+    except Exception as e:
+        print(f"Error in LLM value judgment: {e}", file=sys.stderr)
+        return "NO"
+
+
+async def judge_passage_value_async(
+    passage_content: str,
+    entity_label: str,
+    property_label: str,
+    property_description: str,
+    property_value: str,
+    property_value_unit: Optional[str],
+    property_value_time: Optional[str],
+    client: AsyncOpenAI,
+    model: str = "gpt-4o",
+    temperature: float = 0.0,
+    semaphore: Optional[asyncio.Semaphore] = None
+) -> str:
+    """
+    Async version: Use LLM to judge if passage contains the correct value for the property.
+
+    Args:
+        passage_content: The text content of the passage
+        entity_label: Name of the entity
+        property_label: Property name
+        property_description: Description of the property
+        property_value: The expected value of the property
+        property_value_unit: Optional unit of the property value
+        property_value_time: Optional time of validity for the property value
+        client: AsyncOpenAI client
+        model: Model to use for judgment
+        temperature: Temperature for generation
+        semaphore: Optional semaphore for rate limiting
+
+    Returns:
+        "YES" or "NO"
+    """
+    # Build the statement with value, unit, and time
+    statement_parts = [f"the [{property_label}] of [{entity_label}] is {property_value}"]
+    
+    if property_value_unit:
+        statement_parts[0] += f" in terms of {property_value_unit}"
+    
+    statement = statement_parts[0]
+    
+    if property_value_time:
+        statement += f"\nthis statement is valid as of {property_value_time}"
+    
+    input_instance = VALUE_INPUT_TEMPLATE.format(
+        entity_name=entity_label,
+        property_name=property_label,
+        property_description=property_description,
+        property_value=property_value,
+        passage=passage_content
+    )
+    
+    # Replace the STATEMENT placeholder with our custom statement
+    input_instance = input_instance.replace(
+        f"the [{property_label}] of [{entity_label}] is {property_value}",
+        statement
+    )
+
+    async def _make_request():
+        try:
+            resp = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": VALUE_PROMPT},
+                    {"role": "user", "content": input_instance}
+                ],
+                temperature=temperature,
+                max_tokens=10,  # Only need "YES" or "NO"
+            )
+
+            response = resp.choices[0].message.content.strip()
+            if response not in ["YES", "NO"]:
+                print(f"Warning: Unexpected response '{response}', defaulting to NO", file=sys.stderr)
+                return "NO"
+            return response
+
+        except Exception as e:
+            print(f"Error in LLM value judgment: {e}", file=sys.stderr)
+            return "NO"
+
+    if semaphore:
+        async with semaphore:
+            return await _make_request()
+    else:
+        return await _make_request()
+
+
+async def judge_values_batch(
+    passages: List[Dict],
+    entity_label: str,
+    property_label: str,
+    property_description: str,
+    property_value: str,
+    property_value_unit: Optional[str],
+    property_value_time: Optional[str],
+    client: AsyncOpenAI,
+    model: str = "gpt-4o",
+    temperature: float = 0.0,
+    max_concurrent: int = 10
+) -> List[Tuple[str, str]]:
+    """
+    Judge multiple passages for value matching in parallel with rate limiting.
+
+    Args:
+        passages: List of passage dictionaries with 'id' and 'contents'
+        entity_label: Name of the entity
+        property_label: Property name
+        property_description: Description of the property
+        property_value: The expected value of the property
+        property_value_unit: Optional unit of the property value
+        property_value_time: Optional time of validity for the property value
+        client: AsyncOpenAI client
+        model: Model to use for judgment
+        temperature: Temperature for generation
+        max_concurrent: Maximum number of concurrent API calls
+
+    Returns:
+        List of tuples (passage_id, judgment) where judgment is "YES" or "NO"
+    """
+    # Create semaphore to limit concurrent requests
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    # Create tasks for all passages
+    tasks = []
+    passage_ids = []
+    for passage in passages:
+        task = judge_passage_value_async(
+            passage_content=passage['contents'],
+            entity_label=entity_label,
+            property_label=property_label,
+            property_description=property_description,
+            property_value=property_value,
+            property_value_unit=property_value_unit,
+            property_value_time=property_value_time,
+            client=client,
+            model=model,
+            temperature=temperature,
+            semaphore=semaphore
+        )
+        tasks.append(task)
+        passage_ids.append(passage['id'])
+
+    # Execute ALL tasks concurrently using asyncio.gather
+    judgments = await asyncio.gather(*tasks)
+
+    # Combine passage IDs with their judgments
+    results = list(zip(passage_ids, judgments))
+
+    return results
+
+
 def prepare_resume(args, queries):
     """
     Prepare for resume mode: determine which queries to process.
@@ -1065,8 +1296,489 @@ def prepare_resume(args, queries):
     return queries_to_process, True
 
 
-def main(args):
-    """Main function to generate qrels."""
+def check_value(args):
+    """
+    Perform value check on passages that passed property check.
+    Reads the property check qrel file and validates that passages contain the correct values.
+    """
+    print("\n" + "="*80)
+    print("STARTING VALUE CHECK")
+    print("="*80)
+    
+    # Construct input qrel path from property check
+    property_qrel_path = args.output_qrel
+    
+    # Construct output paths for value check
+    if "/qrels_" in property_qrel_path:
+        value_qrel_path = property_qrel_path.replace("/qrels_", "/qrels_value_")
+    else:
+        value_qrel_path = property_qrel_path.replace("qrels_", "qrels_value_")
+    
+    # Construct log file path for value check
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Extract subset name from query file for log naming
+    query_file_path = Path(args.query_file)
+    subset_name = query_file_path.stem.replace("_generations", "")
+    value_log_file_path = str(log_dir / f"value_check_{subset_name}_{timestamp}.log")
+    
+    print(f"Input property qrel: {property_qrel_path}")
+    print(f"Output value qrel: {value_qrel_path}")
+    print(f"Value check log: {value_log_file_path}")
+    
+    # Load queries to get entity values and property info
+    print(f"\nLoading queries from {args.query_file}...")
+    all_queries = read_jsonl_from_file(args.query_file)
+    print(f"Loaded {len(all_queries)} queries")
+    
+    # Create a dict mapping query_id to query object for quick lookup
+    query_dict = {q['qid']: q for q in all_queries}
+    
+    # Load property qrel file to get relevant passages
+    print(f"\nLoading property qrel from {property_qrel_path}...")
+    property_qrels = {}  # query_id -> list of passage_ids
+    
+    if not Path(property_qrel_path).exists():
+        print(f"ERROR: Property qrel file not found: {property_qrel_path}")
+        return
+    
+    with open(property_qrel_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) >= 4:
+                query_id, _, passage_id, relevance = parts[0], parts[1], parts[2], parts[3]
+                if int(relevance) == 1:  # Only keep relevant passages
+                    if query_id not in property_qrels:
+                        property_qrels[query_id] = []
+                    property_qrels[query_id].append(passage_id)
+    
+    print(f"Loaded qrels for {len(property_qrels)} queries")
+    
+    # Apply limit if specified (to match property check behavior)
+    if args.limit is not None and args.limit > 0:
+        # Get first N query IDs and filter property_qrels
+        limited_query_ids = list(property_qrels.keys())[:args.limit]
+        property_qrels = {qid: property_qrels[qid] for qid in limited_query_ids}
+        print(f"Limited to first {len(property_qrels)} queries (--limit {args.limit})")
+    
+    total_passages_to_check = sum(len(pids) for pids in property_qrels.values())
+    print(f"Total passages to check for value: {total_passages_to_check}")
+    
+    # Initialize corpus loading (same as property_check_main)
+    corpus_dict = None
+    page_index = None
+    
+    if args.load_corpus_mode == "memory":
+        cache_path = get_index_cache_path(args.corpus_jsonl, args.index_cache_dir)
+        index_exists = cache_path.exists()
+        
+        corpus_dict = load_corpus_in_memory(args.corpus_jsonl, args.index_cache_dir)
+        page_index = build_page_to_passages_index(corpus_dict, args.corpus_jsonl, args.index_cache_dir)
+        
+        if not index_exists:
+            save_corpus_index(corpus_dict, page_index, cache_path)
+        
+        print(f"Corpus loading mode: IN-MEMORY")
+        print(f"Memory usage: ~{len(corpus_dict)} passages loaded")
+    else:
+        print(f"Corpus loading mode: STREAMING (loading from {args.corpus_jsonl})")
+        # Build corpus_dict by loading the entire corpus
+        corpus_dict = load_corpus_in_memory(args.corpus_jsonl, args.index_cache_dir)
+    
+    # Initialize OpenAI client
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable not set")
+    
+    if args.use_parallel:
+        client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+        print(f"Using PARALLEL processing mode with max_concurrent={args.max_concurrent}")
+    else:
+        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+        print(f"Using SEQUENTIAL processing mode")
+    
+    # Open output files
+    with open(value_qrel_path, 'w', encoding='utf-8') as qrel_file, \
+         open(value_log_file_path, 'w', encoding='utf-8') as log_file:
+        
+        # Write header
+        log_file.write(f"Value Check Log\n")
+        log_file.write(f"Query file: {args.query_file}\n")
+        log_file.write(f"Property qrel: {property_qrel_path}\n")
+        log_file.write(f"Corpus: {args.corpus_jsonl}\n")
+        log_file.write(f"Model: {args.model}\n")
+        log_file.write(f"Temperature: {args.temperature}\n")
+        log_file.write(f"\n{'='*80}\n")
+        log_file.flush()  # Flush header immediately
+        
+        # Process each query
+        all_stats = []
+        
+        if args.use_parallel:
+            # Async processing
+            async def process_all_value_checks():
+                stats_list = []
+                for query_id in tqdm(property_qrels.keys(), desc="Processing value checks"):
+                    if query_id not in query_dict:
+                        print(f"Warning: Query {query_id} not found in query file")
+                        continue
+                    
+                    query_obj = query_dict[query_id]
+                    passage_ids = property_qrels[query_id]
+                    
+                    stats = await process_value_check_async(
+                        query_obj=query_obj,
+                        passage_ids=passage_ids,
+                        corpus_dict=corpus_dict,
+                        client=client,
+                        qrel_output_file=qrel_file,
+                        log_file=log_file,
+                        model=args.model,
+                        temperature=args.temperature,
+                        max_concurrent=args.max_concurrent
+                    )
+                    stats_list.append(stats)
+                return stats_list
+            
+            all_stats = asyncio.run(process_all_value_checks())
+        else:
+            # Sequential processing
+            for query_id in tqdm(property_qrels.keys(), desc="Processing value checks"):
+                if query_id not in query_dict:
+                    print(f"Warning: Query {query_id} not found in query file")
+                    continue
+                
+                query_obj = query_dict[query_id]
+                passage_ids = property_qrels[query_id]
+                
+                stats = process_value_check(
+                    query_obj=query_obj,
+                    passage_ids=passage_ids,
+                    corpus_dict=corpus_dict,
+                    client=client,
+                    qrel_output_file=qrel_file,
+                    log_file=log_file,
+                    model=args.model,
+                    temperature=args.temperature
+                )
+                all_stats.append(stats)
+        
+        # Write summary
+        log_file.write(f"\n\n{'='*80}\n")
+        log_file.write("VALUE CHECK SUMMARY\n")
+        log_file.write(f"{'='*80}\n")
+        
+        total_passages_checked = sum(s['total_passages_checked'] for s in all_stats)
+        total_value_matched = sum(s['value_matched_passages'] for s in all_stats)
+        
+        summary_lines = [
+            f"Total queries processed: {len(all_stats)}",
+            f"Total passages checked: {total_passages_checked}",
+            f"Passages with matching values: {total_value_matched}",
+            f"Value match rate: {total_value_matched/total_passages_checked*100:.2f}%" if total_passages_checked > 0 else "Value match rate: N/A"
+        ]
+        
+        for line in summary_lines:
+            log_file.write(line + "\n")
+            print(line)
+        
+        print(f"\nValue check qrels written to: {value_qrel_path}")
+        print(f"Value check log written to: {value_log_file_path}")
+
+
+def process_value_check(
+    query_obj: Dict,
+    passage_ids: List[str],
+    corpus_dict: Dict[str, Dict],
+    client: OpenAI,
+    qrel_output_file: TextIO,
+    log_file: TextIO,
+    model: str = "gpt-4o",
+    temperature: float = 0.0
+) -> Dict:
+    """
+    Process value check for a single query.
+    
+    Args:
+        query_obj: Query object from JSONL
+        passage_ids: List of passage IDs that passed property check
+        corpus_dict: In-memory corpus dictionary
+        client: OpenAI client
+        qrel_output_file: Open file handle for qrel output
+        log_file: Open file handle for logging
+        model: LLM model to use
+        temperature: Temperature for LLM
+    
+    Returns:
+        Statistics dict
+    """
+    query_id = query_obj['qid']
+    
+    # Handle different dataset structures
+    if 'property' in query_obj and isinstance(query_obj['property'], dict):
+        # QALD10 structure
+        property_info = query_obj['property']
+        entities_values = property_info.get('entities_values', [])
+        property_metadata = property_info['property_info']
+    else:
+        # Quest structure
+        entities_values = query_obj.get('entities_values', [])
+        property_metadata = query_obj.get('property_info', {})
+    
+    property_label = property_metadata.get('label', 'unknown')
+    property_description = property_metadata.get('description', '')
+    property_id = property_metadata.get('property_id', property_metadata.get('id', 'unknown'))
+    
+    stats = {
+        'total_passages_checked': 0,
+        'value_matched_passages': 0
+    }
+    
+    log_file.write(f"\n{'='*80}\n")
+    log_file.write(f"Query ID: {query_id}\n")
+    log_file.write(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
+    log_file.write(f"Property: {property_label} ({property_id}) - {property_description}\n")
+    log_file.write(f"Passages to check: {len(passage_ids)}\n")
+    log_file.write(f"{'='*80}\n\n")
+    log_file.flush()  # Flush query header immediately
+    
+    # Create a mapping from entity QID to entity info
+    entity_value_map = {}
+    for entity_info in entities_values:
+        qid = entity_info['entity_id']
+        entity_value_map[qid] = {
+            'label': entity_info.get('entity_label', ''),
+            'value': entity_info.get('value', ''),
+            'unit': entity_info.get('value_unit', None),
+            'time': entity_info.get('value_time', None)
+        }
+    
+    # Get passages from corpus and check values
+    for passage_id in passage_ids:
+        stats['total_passages_checked'] += 1
+        
+        # Get passage from corpus
+        if passage_id not in corpus_dict:
+            log_file.write(f"Warning: Passage {passage_id} not found in corpus\n")
+            continue
+        
+        passage = corpus_dict[passage_id]
+        passage_content = passage['contents']
+        
+        # Extract page_id from passage_id to map back to entity
+        page_id = extract_page_id_from_passage_id(passage_id)
+        
+        # Try to find which entity this passage belongs to
+        # We need to map page_id back to QID
+        # For now, we'll check all entities and use the first match
+        matched_entity = None
+        for qid, entity_data in entity_value_map.items():
+            # We need to get Wikipedia info for this QID
+            wiki_info = get_wikipedia_info_from_qid(qid)
+            if wiki_info and wiki_info['pageid'] == page_id:
+                matched_entity = entity_data
+                matched_entity['qid'] = qid
+                matched_entity['wiki_title'] = wiki_info['title']
+                break
+        
+        if not matched_entity:
+            log_file.write(f"Warning: Could not map passage {passage_id} to entity\n")
+            continue
+        
+        entity_label = matched_entity.get('wiki_title', matched_entity['label'])
+        property_value = matched_entity['value']
+        property_value_unit = matched_entity.get('unit')
+        property_value_time = matched_entity.get('time')
+        
+        # Judge value match
+        judgment = judge_passage_value(
+            passage_content=passage_content,
+            entity_label=entity_label,
+            property_label=property_label,
+            property_description=property_description,
+            property_value=str(property_value),
+            property_value_unit=property_value_unit,
+            property_value_time=property_value_time,
+            client=client,
+            model=model,
+            temperature=temperature
+        )
+        
+        log_file.write(f"\nPassage ID: {passage_id}\n")
+        log_file.write(f"Entity: {entity_label}\n")
+        log_file.write(f"Expected value: {property_value}\n")
+        if property_value_unit:
+            log_file.write(f"Unit: {property_value_unit}\n")
+        if property_value_time:
+            log_file.write(f"Time: {property_value_time}\n")
+        log_file.write(f"Content: {passage_content[:1000]}...\n")
+        log_file.write(f"Value Match Judgment: {judgment}\n")
+        log_file.flush()  # Flush log immediately
+        
+        # Only write to qrel file if judgment is YES
+        if judgment == "YES":
+            write_trec_qrel(qrel_output_file, query_id, passage_id, 1)
+            qrel_output_file.flush()
+            stats['value_matched_passages'] += 1
+    
+    return stats
+
+
+async def process_value_check_async(
+    query_obj: Dict,
+    passage_ids: List[str],
+    corpus_dict: Dict[str, Dict],
+    client: AsyncOpenAI,
+    qrel_output_file: TextIO,
+    log_file: TextIO,
+    model: str = "gpt-4o",
+    temperature: float = 0.0,
+    max_concurrent: int = 10
+) -> Dict:
+    """
+    Async version: Process value check for a single query with parallel LLM calls.
+    
+    Args:
+        query_obj: Query object from JSONL
+        passage_ids: List of passage IDs that passed property check
+        corpus_dict: In-memory corpus dictionary
+        client: AsyncOpenAI client
+        qrel_output_file: Open file handle for qrel output
+        log_file: Open file handle for logging
+        model: LLM model to use
+        temperature: Temperature for LLM
+        max_concurrent: Maximum concurrent LLM API calls
+    
+    Returns:
+        Statistics dict
+    """
+    query_id = query_obj['qid']
+    
+    # Handle different dataset structures
+    if 'property' in query_obj and isinstance(query_obj['property'], dict):
+        # QALD10 structure
+        property_info = query_obj['property']
+        entities_values = property_info.get('entities_values', [])
+        property_metadata = property_info['property_info']
+    else:
+        # Quest structure
+        entities_values = query_obj.get('entities_values', [])
+        property_metadata = query_obj.get('property_info', {})
+    
+    property_label = property_metadata.get('label', 'unknown')
+    property_description = property_metadata.get('description', '')
+    property_id = property_metadata.get('property_id', property_metadata.get('id', 'unknown'))
+    
+    stats = {
+        'total_passages_checked': 0,
+        'value_matched_passages': 0
+    }
+    
+    log_file.write(f"\n{'='*80}\n")
+    log_file.write(f"Query ID: {query_id}\n")
+    log_file.write(f"Query: {query_obj.get('question', query_obj.get('original_query', 'N/A'))}\n")
+    log_file.write(f"Property: {property_label} ({property_id}) - {property_description}\n")
+    log_file.write(f"Passages to check: {len(passage_ids)}\n")
+    log_file.write(f"{'='*80}\n\n")
+    log_file.flush()  # Flush query header immediately
+    
+    # Create a mapping from entity QID to entity info
+    entity_value_map = {}
+    for entity_info in entities_values:
+        qid = entity_info['entity_id']
+        entity_value_map[qid] = {
+            'label': entity_info.get('entity_label', ''),
+            'value': entity_info.get('value', ''),
+            'unit': entity_info.get('value_unit', None),
+            'time': entity_info.get('value_time', None)
+        }
+    
+    # Prepare passage data for parallel processing
+    passage_data_list = []
+    for passage_id in passage_ids:
+        stats['total_passages_checked'] += 1
+        
+        if passage_id not in corpus_dict:
+            log_file.write(f"Warning: Passage {passage_id} not found in corpus\n")
+            continue
+        
+        passage = corpus_dict[passage_id]
+        page_id = extract_page_id_from_passage_id(passage_id)
+        
+        # Find matching entity
+        matched_entity = None
+        for qid, entity_data in entity_value_map.items():
+            wiki_info = get_wikipedia_info_from_qid(qid)
+            if wiki_info and wiki_info['pageid'] == page_id:
+                matched_entity = entity_data
+                matched_entity['qid'] = qid
+                matched_entity['wiki_title'] = wiki_info['title']
+                break
+        
+        if not matched_entity:
+            log_file.write(f"Warning: Could not map passage {passage_id} to entity\n")
+            continue
+        
+        passage_data_list.append({
+            'id': passage_id,
+            'contents': passage['contents'],
+            'entity_label': matched_entity.get('wiki_title', matched_entity['label']),
+            'property_value': str(matched_entity['value']),
+            'property_value_unit': matched_entity.get('unit'),
+            'property_value_time': matched_entity.get('time')
+        })
+    
+    if not passage_data_list:
+        return stats
+    
+    # Create parallel tasks for value checking
+    semaphore = asyncio.Semaphore(max_concurrent)
+    tasks = []
+    
+    for pdata in passage_data_list:
+        task = judge_passage_value_async(
+            passage_content=pdata['contents'],
+            entity_label=pdata['entity_label'],
+            property_label=property_label,
+            property_description=property_description,
+            property_value=pdata['property_value'],
+            property_value_unit=pdata['property_value_unit'],
+            property_value_time=pdata['property_value_time'],
+            client=client,
+            model=model,
+            temperature=temperature,
+            semaphore=semaphore
+        )
+        tasks.append(task)
+    
+    # Execute all tasks in parallel
+    judgments = await asyncio.gather(*tasks)
+    
+    # Process results
+    for pdata, judgment in zip(passage_data_list, judgments):
+        log_file.write(f"\nPassage ID: {pdata['id']}\n")
+        log_file.write(f"Entity: {pdata['entity_label']}\n")
+        log_file.write(f"Expected value: {pdata['property_value']}\n")
+        if pdata['property_value_unit']:
+            log_file.write(f"Unit: {pdata['property_value_unit']}\n")
+        if pdata['property_value_time']:
+            log_file.write(f"Time: {pdata['property_value_time']}\n")
+        log_file.write(f"Content: {pdata['contents'][:200]}...\n")
+        log_file.write(f"Value Match Judgment: {judgment}\n")
+        log_file.flush()  # Flush log immediately
+        
+        if judgment == "YES":
+            write_trec_qrel(qrel_output_file, query_id, pdata['id'], 1)
+            qrel_output_file.flush()
+            stats['value_matched_passages'] += 1
+    
+    return stats
+
+
+def property_check_main(args):
+    """Main function to generate qrels using property check."""
 
     # Load queries
     print(f"Loading queries from {args.query_file}...")
@@ -1345,16 +2057,41 @@ if __name__ == "__main__":
     print("="*80)
     print()
 
-    main(args)
+    # Run property check first
+    # property_check_main(args)
 
     # Calculate and display entity coverage after qrel generation completes
-    print("\n" + "="*80)
-    print("Calculating entity coverage...")
-    print("="*80 + "\n")
+    # print("\n" + "="*80)
+    # print("Calculating entity coverage...")
+    # print("="*80 + "\n")
 
-    coverage_results = calculate_coverage(
+    # coverage_results = calculate_coverage(
+    #     dataset=args.dataset,
+    #     qrel_file_path=args.output_qrel,
+    #     subset=args.subset
+    # )
+    
+    # Now run value check on the property check results
+    print("\n" + "="*80)
+    print("STARTING VALUE CHECK PHASE")
+    print("="*80)
+    check_value(args)
+    
+    # Calculate and display entity coverage for value check results
+    print("\n" + "="*80)
+    print("Calculating entity coverage for value check results...")
+    print("="*80 + "\n")
+    
+    # Construct value qrel path (same logic as in check_value function)
+    property_qrel_path = args.output_qrel
+    if "/qrels_" in property_qrel_path:
+        value_qrel_path = property_qrel_path.replace("/qrels_", "/qrels_value_")
+    else:
+        value_qrel_path = property_qrel_path.replace("qrels_", "qrels_value_")
+    
+    value_coverage_results = calculate_coverage(
         dataset=args.dataset,
-        qrel_file_path=args.output_qrel,
+        qrel_file_path=value_qrel_path,
         subset=args.subset
     )
 
@@ -1363,7 +2100,7 @@ if __name__ == "__main__":
 # Usage Examples
 # ============================================================================
 #
-# python c3_qrel_generation/qrel_generation.py --dataset quest --subset test --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
+# python c3_qrel_generation/qrel_generation.py --dataset quest --subset val --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
 
 
 # 1. PARALLEL PROCESSING MODE (RECOMMENDED - 5-10x faster!):

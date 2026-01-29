@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=25
 #SBATCH --partition=staging
-#SBATCH --time=30:00:00
+#SBATCH --time=10:00:00
 #SBATCH --mem=180GB
 #SBATCH --output=script_logging/slurm_%A.out
 
@@ -58,10 +58,11 @@ mkdir -p qrel_logging
 python c3_qrel_generation/qrel_generation.py \
     --model gpt-4o-mini \
     --dataset quest \
-    --subset test \
+    --subset val \
     --use_parallel \
     --max_concurrent 20 \
-    --load_corpus_mode memory
+    --load_corpus_mode memory \
+    --limit 10
 
 # Print completion message
 echo ""
