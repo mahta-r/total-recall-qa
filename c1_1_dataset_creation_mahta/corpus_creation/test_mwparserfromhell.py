@@ -102,22 +102,22 @@ def wikicode_from_page_title(title):
 # page_title = "Fischer group Fi23"
 # page_title = "Abraham Lincoln"
 # page_title = "Andre Agassi"
-page_title = "Altruism"
+page_title = "List of Nobel Memorial Prize laureates in Economic Sciences"
 
 
 ######## Original Wikicode ########
 text, wikicode = wikicode_from_page_title(page_title)
-# print(wikicode)
-# print("================================================================================================================================")
+print(wikicode)
+print("================================================================================================================================")
 
 ######## Customized Wikicode ########
-wikicode = replace_custom_templates(text)
-for table in wikicode.filter_tags(matches=lambda t: "table" in t.tag.lower()):
-    wikicode.remove(table)
+# wikicode = replace_custom_templates(text)
+# for table in wikicode.filter_tags(matches=lambda t: "table" in t.tag.lower()):
+#     wikicode.remove(table)
 # print(wikicode)
 # print("================================================================================================================================")
 
 ######## Parsed Text ########
-parsed_page = wikicode.strip_code(keep_template_params=True)
+# parsed_page = wikicode.strip_code(keep_template_params=True)
 # print(parsed_page)
 # print("================================================================================================================================")
