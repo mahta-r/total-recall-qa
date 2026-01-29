@@ -1,7 +1,8 @@
 from wikidata.sparql_utils import get_structural_properties
 from io_utils import read_json_from_file
 
-NO_AGGREGATION_PROPS = [
+
+UNUSABLE_PROPS = [
     "P1705", # native label -- label for the items in their official language or their original language
     "P2561", # name -- name the subject is known by; preferably use a more specific subproperty if available
     "P1448", # official name -- official name of the subject in its official language(s)
@@ -28,7 +29,39 @@ NO_AGGREGATION_PROPS = [
     "P5949", # Unicode range -- set of Unicode code points covered by this element
     "P1456", # list of monuments -- link to the list of heritage monuments in the place/area
     "P4565", # electoral district number -- number of the constituency/electoral district established by law. Only to be used if the number is established by law, regulation, or other legally-binding decision; not to be used for database identifier numbers which lack legal force, even if contained in a government database.
+    "P131", # located in the administrative territorial entity -- the administrative territorial entity in which this item is located
+    "P150", # contains the administrative territorial entity -- (list of) direct subdivisions of an administrative territorial entity
+    "P279", # subclass of -- relation of type constraint
+    "P8138", # located in the statistical territorial entity -- statistical territorial entity in which a place is located or is part of
+    "P463", # member of -- organization, club or musical group to which the subject belongs
+    "P1830", # owner of -- entities owned by the subject
+    "P1344", # participant in -- event in which a person, organization or creative work was/is a participant
+    "P530", # diplomatic relation -- diplomatic relations of the country
+    "P2341", # indigenous to -- place or ethnic group where a language, art genre, cultural tradition or expression, cooking style or food, or biological species or variety is found (or was originally found)
+    "P832", # public holiday -- official public holiday that occurs in this place in its honor, usually a non-working day
+    "P485", # archives at -- the institution holding the subject's archives
+    "P1313", # office held by head of government -- political office that is fulfilled by the head of the government of this item
+    "P8402", # open data portal -- platform with publicly accessible data of an organization
+    "P461", # opposite of -- item that is in some way the opposite of this item
+    "P8956", # compatible with -- this work, product, object or standard can interact with another work, product, object or standard
+    "P1552", # has characteristic -- inherent or distinguishing quality or feature of the entity. Use a more specific property when possible
+    "P2852", # emergency phone number -- telephone number to contact emergency services
+    "P527", # has part(s) -- part of this subject; inverse property of "part of" (P361). See also "has parts of the class" (P2670).
+    "P421", # located in time zone -- time zone for this item
+    "P1365", # replaces -- person, state or item replaced. Use "structure replaces" (P1398) for structures. Use "follows" (P155) if the previous item was not replaced or predecessor and successor are identical
+    "P1376", # capital of -- country, state, department, canton or other administrative division of which the municipality is the governmental seat
+    "P706", # located in/on physical feature -- located on the specified (geo)physical feature. Should not be used when the value is only political/administrative (P131) or a mountain range (P4552). Use P206 for things in/on bodies of water. 
+    "P138", # named after -- entity or event that inspired the subject's name, or namesake (in at least one language). Qualifier "applies to name" (P5168) can be used to indicate which one
 ]
+
+NO_AGGREGATION_PROPS = [
+    "P1383" # contains settlement -- settlement which an administrative division contains
+]
+
+NO_CONNECTING_PROPS = [
+    
+]
+
 
 POINT_IN_TIME_QUALIFIER = 'P585'  # https://www.wikidata.org/wiki/Property:P585
 
