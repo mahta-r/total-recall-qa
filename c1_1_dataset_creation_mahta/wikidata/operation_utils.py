@@ -260,7 +260,7 @@ def items_filter(
             k = 1
         else:
             k = rand.choice([2, 3])
-            k = min(k, len(universe))
+            k = min(k, int(len(universe)/2))
 
         reference = rand.sample(universe, k)
         reference_idx = [item2indices[ref][0] for ref in reference]

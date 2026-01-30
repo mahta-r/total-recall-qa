@@ -55,11 +55,15 @@ UNUSABLE_PROPS = [
 ]
 
 NO_AGGREGATION_PROPS = [
-    "P1383" # contains settlement -- settlement which an administrative division contains
+    "P1383", # contains settlement -- settlement which an administrative division contains
+    "P17", # country -- sovereign state that this item is in (not to be used for human beings)
+    "P36", # capital -- seat of government of a country, province, state or other type of administrative territorial entity
+    "P276", # location -- location of the object, structure or event; use P131 to indicate the containing administrative entity, P8138 for statistical entities, or P706 for geographic entities; use P7153 for locations associated with the object
+    "P30", # continent -- continent of which the subject is a part
 ]
 
 NO_CONNECTING_PROPS = [
-    
+    "P47", # shares border with -- countries or administrative subdivisions, of equal level, that this item borders, either by land or water. A single common point is enough.
 ]
 
 

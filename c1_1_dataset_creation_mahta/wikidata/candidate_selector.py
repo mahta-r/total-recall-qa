@@ -336,7 +336,7 @@ class CandidateSelector:
             for class_path in sorted(
                 available_classes, 
                 key = has_most_rare_pops
-            )[:self.max_queries_per_prop]:
+            )[:self.min_queries_per_prop]:
                 if len(self.current_queries_per_class(class_path[0][0])) < self.max_props_per_class:
                     self.add_selected_pair(prop_id, class_path)
         
@@ -351,7 +351,7 @@ class CandidateSelector:
                 continue
             
             total_used = len(self.current_queries_per_prop(prop_id))
-            if total_used >= self.min_queries_per_prop:
+            if total_used >= self.max_queries_per_prop:
                 continue
 
             available_query_candidates = defaultdict(list)
@@ -393,7 +393,7 @@ class CandidateSelector:
                 num_without_constraint = len(self.current_queries_per_class(class_path[0][0])) - num_with_constraint
                 return abs(num_without_constraint - num_with_constraint) / (num_with_constraint + num_without_constraint)
             
-            num_queries_to_add = self.min_queries_per_prop - total_used
+            num_queries_to_add = self.max_queries_per_prop - total_used
 
             # print(f"pass2: need {num_queries_to_add}, have {len(available_query_candidates.keys())}, or {sum([len(v) for v in available_query_candidates.values()])} ")
             for candid_class in sorted(
@@ -415,10 +415,14 @@ class CandidateSelector:
 
         query_generation_candidates = []
 
+        candidate_num = 0
+
         for class_id in self.selected_class2props:
             for query_type, query_candidates in self.selected_class2props[class_id].items():
                 for query_candidate in query_candidates:
-
+                    
+                    candidate_num += 1
+                    
                     query_generation_candidate = {}
 
                     src_class_id, connecting_prop_id = query_candidate['class_path'][0]
@@ -440,6 +444,7 @@ class CandidateSelector:
                         assert connecting_prop_id is None
                         
                         aggregation_class = src_class
+                        aggregation_class_id = src_class_id
                     
                     elif query_type == 'multihop':
                         assert len(query_candidate['class_path']) == 2
@@ -471,9 +476,12 @@ class CandidateSelector:
                         }
                         
                         aggregation_class = hop_class
+                        aggregation_class_id = f"{src_class_id}-{query_generation_candidate['connecting_prop']['id']}-{hop_class['id']}"
 
                     aggregation_prop_id = query_candidate['aggregation_property']
                     aggregation_prop = aggregation_class['candidate_properties'][aggregation_prop_id]
+
+                    candidate_id = f"{candidate_num}_{aggregation_class_id}_{aggregation_prop_id}"
                     
                     query_generation_candidate['aggregation_prop'] = {
                         'id': aggregation_prop['property_info']['property_id'],
@@ -532,11 +540,17 @@ class CandidateSelector:
                                 query_generation_candidate['constraint_prop']['calendar'] = constraint_prop['property_info']['calendar']
                             
                             final_entity_ids = filtered_entity_ids
+
+                            candidate_id += f"-{constraint_prop_id}"
                     
                     assert len(final_entity_ids) >= 2
+                    query_generation_candidate['filtered_entity_ids'] = final_entity_ids
+                    query_generation_candidate['id'] = candidate_id
 
                     query_generation_candidates.append(query_generation_candidate)
 
+
+                    print(f"-------------- Candidate ID: {query_generation_candidate['id']} --------------")
                     print(
                         "Class: {class_label} ({class_id}) | #{instance_count} | {class_description}"
                         .format(
@@ -595,6 +609,10 @@ class CandidateSelector:
                             prop_description = query_generation_candidate['aggregation_prop']['description'],
                         )
                     )
+                    if query_generation_candidate['aggregation_prop']['datatype'] == 'WikibaseItem':
+                        print("    Item class: {item_class}".format(
+                            item_class = query_generation_candidate['aggregation_prop']['item_class']
+                        ))
                     print("At time: {shared_time}".format(
                             shared_time = query_generation_candidate['aggregation_prop']['shared_time']
                         ))
@@ -604,7 +622,7 @@ class CandidateSelector:
                         key=lambda x: x['entity_id']
                     )):
                         pass
-                        bullet = "[YES]" if entity_value['entity_id'] in final_entity_ids else "[NO]"
+                        bullet = "[YES]" if entity_value['entity_id'] in query_generation_candidate['filtered_entity_ids'] else "[NO]"
                         print(f"  {bullet} {entity_value['entity_label']} ({entity_value['entity_id']}) = {entity_value['value_node']}")
                         
                         if 'constraint_prop' in query_generation_candidate:
@@ -617,20 +635,6 @@ class CandidateSelector:
                             print(f"    |__ Constraint value: {just_for_now[idx]['value_node']}")
 
                     print("-------------------------------------------------------------------")
-                    # input()
         
 
         return query_generation_candidates
-        
-
-
-
-
-                    
-
-
-
-
-
-
-
