@@ -6,12 +6,13 @@ import logging
 import sys
 import tqdm
 import argparse
+import asyncio
 
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from datasets import load_dataset
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 from io_utils import read_jsonl_from_file, read_json_from_file, write_json_to_file, encode_datetime
 from wikidata.data_utils import format_value, format_time_for_prompt
@@ -92,10 +93,12 @@ class QrelGenerator:
 
         self.corpus = load_dataset(args.corpus_path, split="train")
         self.page2chunk2idx = create_random_access_mapping(self.corpus, args.page2chunk2idx_path)
-        
-        self.property_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        # self.property_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.property_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.property_model = args.judge_model
         self.property_temperature = args.judge_temperature
+        self.max_concurrent_calls = args.max_concurrent_calls
 
         self.rewrite_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.rewrite_model = args.rewrite_model
@@ -109,7 +112,7 @@ class QrelGenerator:
 
 
         self.total_llm_calls = 0
-        self.num_queries_missing_wikipages = 0
+        self.queries_missing_wikipages = []
         self.missing_wikipage_ids = set()
         self.total_passages_processed = 0
         self.num_yes_same = 0
@@ -120,7 +123,7 @@ class QrelGenerator:
 
 
 
-    def get_query_relevance_judgements(self, instances, property, candidate_id, candidate_logger):
+    async def get_query_relevance_judgements(self, instances, property, candidate_id, candidate_logger, entity_progress_bar=None):
         
         missing_wikipage_ids = []
         assert all("wikipage_id" in inst for inst in instances)
@@ -132,9 +135,8 @@ class QrelGenerator:
                 candidate_logger.warning(f"{wikipage_id} ({inst['label']}, {inst['wikipedia']}) not found in corpus mapping.")
         if missing_wikipage_ids:
             self.missing_wikipage_ids.update(missing_wikipage_ids)
-            self.num_queries_missing_wikipages += 1
+            self.queries_missing_wikipages.append(candidate_id)
             return
-            # return 0, missing_wikipage_ids 
 
         candidate_num, aggregation_class_id, aggregation_prop_id = candidate_id.split('_')
 
@@ -146,7 +148,6 @@ class QrelGenerator:
         total_llm_calls_for_this_property = 0
 
         for idx, instance in enumerate(instances):
-            
             main_logger.info(f"---> Instance {idx+1}/{len(instances)}: {instance['label']} | Property: {property['label']}")
             
             candidate_logger.info(f"--------------------------------------------------------------------------------")
@@ -165,26 +166,48 @@ class QrelGenerator:
 
             wikipage_id = str(instance["wikipage_id"])
             chunk2idx = self.page2chunk2idx[wikipage_id]
-            
-            # total_judgments_for_this_property += len(chunk2idx)
 
             label_to_passage = defaultdict(list) # YES/NO answers from LLM
-            for chunk_id, passage_idx in sorted(chunk2idx.items(), key=lambda x: x[0]):
+            
+            # for chunk_id, passage_idx in sorted(chunk2idx.items(), key=lambda x: x[0]):
                 
+            #     passage_id = f"{wikipage_id}-{chunk_id}"
+            #     passage = self.get_latest_passage_version(passage_id, passage_idx)
+                
+            #     total_llm_calls_for_this_property += 1
+            #     response = self.run_llm_as_judge(
+            #         entity_value, 
+            #         property, 
+            #         passage,
+            #         candidate_logger
+            #     )
+
+            #     label_to_passage[response].append((passage['id'], passage_idx))
+            
+            passage_labeling_tasks, task_meta = [], []
+            semaphore = asyncio.Semaphore(self.max_concurrent_calls)
+            for chunk_id, passage_idx in sorted(chunk2idx.items(), key=lambda x: x[0]):
                 passage_id = f"{wikipage_id}-{chunk_id}"
                 passage = self.get_latest_passage_version(passage_id, passage_idx)
-                # passage = self.corpus[passage_idx]
-                # assert passage['id'] == passage_id
-                
-                total_llm_calls_for_this_property += 1
-                response = self.run_llm_as_judge(
-                    entity_value, 
-                    property, 
-                    passage,
-                    candidate_logger
-                )
 
-                label_to_passage[response].append((passage['id'], passage_idx))
+                passage_labeling_tasks.append(
+                    self._judge_with_semaphore(
+                        semaphore,
+                        entity_value,
+                        property,
+                        passage,
+                        candidate_logger,
+                    )
+                )
+                task_meta.append((passage_id, passage_idx))
+
+            total_llm_calls_for_this_property += len(passage_labeling_tasks)
+            
+            responses = await asyncio.gather(*passage_labeling_tasks)
+            
+            for (passage_id, passage_idx), response in zip(task_meta, responses):
+                label_to_passage[response].append((passage_id, passage_idx))
+
 
             for label, passage_ids in label_to_passage.items():
                 main_logger.info(f"  {label}: {len(passage_ids)} passages")
@@ -207,8 +230,6 @@ class QrelGenerator:
             
             for passage_id, passage_idx in label_to_passage['YES-DIFFERENT']:
                 passage = self.get_latest_passage_version(passage_id, passage_idx)
-                # passage = self.corpus[passage_idx]
-                # assert passage['id'] == passage_id
                 total_llm_calls_for_this_property += 1
                 rewrite_response = self.run_llm_as_rewriter(
                     entity_value,
@@ -237,8 +258,6 @@ class QrelGenerator:
                 if len(rewrite_options) > 0:
                     passage_id, passage_idx = rewrite_options[0] # choose a related passage, or the first passage in document
                     passage = self.get_latest_passage_version(passage_id, passage_idx)
-                    # passage = self.corpus[passage_idx]
-                    # assert passage['id'] == passage_id
                     
                     total_llm_calls_for_this_property += 1
                     rewrite_response = self.run_llm_as_rewriter(
@@ -289,15 +308,36 @@ class QrelGenerator:
                 qrel_result=self.results[aggregation_class_id][property['id']][instance["id"]]
             )
 
+            if entity_progress_bar is not None:
+                entity_progress_bar.update(1)
+
         
         main_logger.info(F"{total_llm_calls_for_this_property} LLM calls for Property {property['label']}")
         self.total_llm_calls += total_llm_calls_for_this_property
-        
-        # return total_llm_calls_for_this_property, missing_wikipage_ids
-        # return True
 
 
-    def run_llm_as_judge(self, entity_value, property, passage, candidate_logger):
+    async def _judge_with_semaphore(
+        self,
+        semaphore,
+        entity_value,
+        property,
+        passage,
+        candidate_logger,
+    ):
+        async with semaphore:
+            # try:
+                return await self.run_llm_as_judge(
+                    entity_value,
+                    property,
+                    passage,
+                    candidate_logger,
+                )
+            # except Exception as e:
+            #     candidate_logger.error(f"Judge failed for passage {passage['id']}: {e}")
+            #     return "NO-UNRELATED"
+
+
+    async def run_llm_as_judge(self, entity_value, property, passage, candidate_logger):
 
         input_instance = self.prepare_input_instance(
             entity_value, 
@@ -309,7 +349,7 @@ class QrelGenerator:
             statement_explanation = DATATYPE_EXPLANATION[property['datatype']]
         )
 
-        completion = self.property_client.chat.completions.create(
+        completion = await self.property_client.chat.completions.create(
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": input_instance}
@@ -320,9 +360,16 @@ class QrelGenerator:
 
         response = completion.choices[0].message.content.strip()
 
-        candidate_logger.info("PROMPT:\n" + input_instance)
-        candidate_logger.info("RESPONSE:\n" + response + "\n")
-        candidate_logger.info("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
+        passage_log = (
+            f"PASSAGE ID: {passage['id']}\n"
+            f"PROMPT:\n{input_instance}\n\n"
+            f"RESPONSE:\n{response}\n"
+            f"{'- '*40}"
+        )
+        candidate_logger.info(passage_log)
+        # candidate_logger.info("PROMPT:\n" + input_instance)
+        # candidate_logger.info("RESPONSE:\n" + response + "\n")
+        # candidate_logger.info("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
 
         if response not in ["YES-SAME", "YES-DIFFERENT", "NO-RELATED", "NO-UNRELATED"]:
             if "YES-SAME".lower() in response.lower():
@@ -448,31 +495,25 @@ def create_candidate_logger(candidate_idx, log_dir):
     
 
 
-def main(args):
+async def main(args):
+        
+        # print argparse to log
+        main_logger.info("========== STARTING QREL GENERATION ==========")
+        main_logger.info("Arguments:")
+        for arg, value in vars(args).items():
+            main_logger.info(f"  {arg}: {value}")
+        main_logger.info("")
 
-    # print("Loading generations...")
-    # generations = read_jsonl_from_file(args.generations_path)
-    # with open(args.log_file_path, 'w', encoding='utf-8') as log_file:
-        
-        
         main_logger.info("Loading candidates...")
         candidates = read_json_from_file(args.query_candidates_path)
         main_logger.info(f"Total candidates loaded: {len(candidates)}")
         
-        # total_llm_calls = 0
         qrel_generator = QrelGenerator(args)
 
         candidates_processed = 0
-        for idx, candidate in tqdm.tqdm(enumerate(candidates)):
-            
-            # if candidate['id'] not in [
-            #     '8_Q1221156-P6-Q5_P39-P569',
-            #     '40_Q83057-P37-Q1288568_P5109-P3823',
-            #     '145_Q56059-P36-Q82794_P571', 
-            #     '159_Q250811_P1082', 
-            #     '162_Q1052743_P47', 
-            # ]:
-            #     continue
+        num_total_entities = 2805
+        pbar = tqdm.tqdm(total=num_total_entities)
+        for idx, candidate in enumerate(candidates):
             
             candidate_logger, candidate_handler = create_candidate_logger(candidate_idx=idx, log_dir=args.log_file_dir)
 
@@ -490,45 +531,37 @@ def main(args):
             aggregation_prop = candidate['aggregation_prop']
             instances = aggregation_subclass['instances']
 
-
-            # num_llm_calls_aggregation, missing_wikipage_ids = qrel_generator.get_query_relevance_judgements(
-            qrel_generator.get_query_relevance_judgements(
+            await qrel_generator.get_query_relevance_judgements(
                 instances, 
                 aggregation_prop,
                 candidate_id=candidate['id'],
-                candidate_logger=candidate_logger
+                candidate_logger=candidate_logger,
+                entity_progress_bar=pbar
             )
             # TODO: remove queries with missing wikipages from candidates in next step
-            
-            # total_llm_calls += num_llm_calls_aggregation
-            # print(f"+{num_llm_calls_aggregation}", end=' ')
 
             if 'constraint_prop' in candidate:
                 constraint_prop = candidate['constraint_prop']
 
-                # num_llm_calls_constraint, missing_wikipage_ids = qrel_generator.get_query_relevance_judgements(
-                qrel_generator.get_query_relevance_judgements(
+                await qrel_generator.get_query_relevance_judgements(
                     instances, 
                     constraint_prop,
                     candidate_id=candidate['id'],
-                    candidate_logger=candidate_logger
+                    candidate_logger=candidate_logger,
+                    entity_progress_bar=pbar
                 )
                 # TODO: remove queries with missing wikipages from candidates in next step
-                
-                # total_llm_calls += num_llm_calls_constraint
-                # print(f"+{num_llm_calls_constraint}", end=' ')
 
             candidate_logger.removeHandler(candidate_handler)
             candidate_handler.close()
 
             candidates_processed += 1
-            
-            # print(f"= {total_llm_calls}")
 
         main_logger.info("\n========== SUMMARY ==========")
         main_logger.info(f"Total candidates processed: {candidates_processed}/{len(candidates)}")
         main_logger.info(f"Total wikipages missing from corpus: {len(qrel_generator.missing_wikipage_ids)}")
-        main_logger.info(f"Total queries removed: {qrel_generator.num_queries_missing_wikipages}")
+        main_logger.info(f"Total queries removed: {len(qrel_generator.queries_missing_wikipages)}")
+        main_logger.info(f"  |__ {', '.join(qrel_generator.queries_missing_wikipages)}")
         main_logger.info(f"Total LLM calls needed: {qrel_generator.total_llm_calls}") 
         main_logger.info(f"Total passages processed: {qrel_generator.total_passages_processed}")
         main_logger.info(f"Total YES-SAME passages: {qrel_generator.num_yes_same}")
@@ -536,10 +569,6 @@ def main(args):
         main_logger.info(f"Total entities with at least one YES-SAME passage: {qrel_generator.num_entities_yes_same}")
         main_logger.info(f"Total entities with at least one YES-DIFFERENT passage: {qrel_generator.num_entities_yes_different}")
         main_logger.info(f"Total entities with NO relevant passages: {qrel_generator.num_entities_no}")
-        
-        # print(f"Total wikipages missing from corpus: {len(missing_wikipages)}")
-        # print(f"Total queries removed: {total_queries_removed}")
-        # print(f"Total LLM calls needed: {total_llm_calls}")
 
 
 if __name__ == "__main__":
@@ -562,12 +591,6 @@ if __name__ == "__main__":
         required=True,
         help="Path to JSONL file to write passage rewrites to."
     )
-    # parser.add_argument(
-    #     "--generations_path", 
-    #     type=str, 
-    #     required=True, 
-    #     help="Path to JSON generations file, same as --output_file in generate_queries.py"
-    # )
     parser.add_argument(
         "--log-file-dir", 
         type=str, 
@@ -611,6 +634,12 @@ if __name__ == "__main__":
         default=0.7, 
         help="Temperature for generation"
     )
+    parser.add_argument(
+        "--max-concurrent-calls", 
+        type=int, 
+        default=20, 
+        help="Maximum number of concurrent LLM calls"
+    )
     args = parser.parse_args()
     
     
@@ -642,7 +671,8 @@ if __name__ == "__main__":
     logging.getLogger("openai").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     
-    main(args) 
+    # main(args) 
+    asyncio.run(main(args))
 
 
     """
@@ -655,7 +685,7 @@ if __name__ == "__main__":
         --page2chunk2idx-path data/data_creation_runs/V4/enwiki_20251001_infoboxconv_page2chunk2idx.json \
         --judge-model gpt-4o-mini \
         --judge-temperature 0.0 \
-        --rewrite-model gpt-4o-mini \
-        --rewrite-temperature 0.7
+        --rewrite-model gpt-5-mini \
+        --rewrite-temperature 1
     """
 
