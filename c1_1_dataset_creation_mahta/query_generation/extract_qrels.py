@@ -4,7 +4,6 @@ import re
 import copy
 import logging
 import sys
-from xml.sax import handler
 import tqdm
 import argparse
 
@@ -38,24 +37,24 @@ def load_qrel_results_if_exists(results_path):
         
         result_list = read_jsonl_from_file(results_path)
         for result_line in result_list:
-            candidate_idx = result_line['candidate_idx']
+            candidate_class_id = result_line['candidate_class_id']
             property_id = result_line['property_id']
             instance_id = result_line['instance_id']
-            if candidate_idx not in results:
-                results[candidate_idx] = {}
-            if property_id not in results[candidate_idx]:
-                results[candidate_idx][property_id] = {}
-            results[candidate_idx][property_id][instance_id] = result_line['qrel_result']
+            if candidate_class_id not in results:
+                results[candidate_class_id] = {}
+            if property_id not in results[candidate_class_id]:
+                results[candidate_class_id][property_id] = {}
+            results[candidate_class_id][property_id][instance_id] = result_line['qrel_result']
         
         main_logger.info(f"Loaded qrel results for {len(results)} candidates.")
     
     return results
 
 
-def append_record_to_qrel_results_file(results_path, candidate_idx, property_id, instance_id, qrel_result):
+def append_record_to_qrel_results_file(results_path, candidate_class_id, property_id, instance_id, qrel_result):
     with open(results_path, 'a', encoding='utf-8') as f:
         record = {
-            "candidate_idx": candidate_idx,
+            "candidate_class_id": candidate_class_id,
             "property_id": property_id,
             "instance_id": instance_id,
             "qrel_result": qrel_result
@@ -121,7 +120,7 @@ class QrelGenerator:
 
 
 
-    def get_query_relevance_judgements(self, instances, property, candidate_idx, candidate_logger):
+    def get_query_relevance_judgements(self, instances, property, candidate_id, candidate_logger):
         
         missing_wikipage_ids = []
         assert all("wikipage_id" in inst for inst in instances)
@@ -137,10 +136,12 @@ class QrelGenerator:
             return
             # return 0, missing_wikipage_ids 
 
-        if candidate_idx not in self.results:
-            self.results[candidate_idx] = {}
-        if property['id'] not in self.results[candidate_idx]:
-            self.results[candidate_idx][property['id']] = {}
+        candidate_num, aggregation_class_id, aggregation_prop_id = candidate_id.split('_')
+
+        if aggregation_class_id not in self.results:
+            self.results[aggregation_class_id] = {}
+        if property['id'] not in self.results[aggregation_class_id]:
+            self.results[aggregation_class_id][property['id']] = {}
 
         total_llm_calls_for_this_property = 0
 
@@ -152,7 +153,7 @@ class QrelGenerator:
             candidate_logger.info(f"---> Instance {idx+1}/{len(instances)}: {instance['label']} | Property: {property['label']}")
             candidate_logger.info(f"--------------------------------------------------------------------------------")
 
-            if instance["id"] in self.results[candidate_idx][property['id']]:
+            if instance["id"] in self.results[aggregation_class_id][property['id']]:
                 main_logger.info(f"Already processed instance {idx+1}, skipping.")
                 continue # already processed
 
@@ -273,7 +274,7 @@ class QrelGenerator:
                 rewrites_path=self.passage_rewrites_path,
                 rewrites=rewrites
             )
-            self.results[candidate_idx][property['id']][instance["id"]] = {
+            self.results[aggregation_class_id][property['id']][instance["id"]] = {
                 "property_label": property['label'],
                 "shared_time": property["shared_time"],
                 "entity_value": entity_value,
@@ -282,10 +283,10 @@ class QrelGenerator:
             }
             append_record_to_qrel_results_file(
                 results_path=self.results_path,
-                candidate_idx=candidate_idx,
+                candidate_class_id=aggregation_class_id,
                 property_id=property['id'],
                 instance_id=instance["id"],
-                qrel_result=self.results[candidate_idx][property['id']][instance["id"]]
+                qrel_result=self.results[aggregation_class_id][property['id']][instance["id"]]
             )
 
         
@@ -430,13 +431,13 @@ def create_random_access_mapping(corpus, page2chunk2idx_path):
     return page2chunk2idx
 
 
-def create_candidate_logger(candidate_id, log_dir):
+def create_candidate_logger(candidate_idx, log_dir):
     
-    logger = logging.getLogger(f"candidate_{candidate_id}")
+    logger = logging.getLogger(f"candidate_{candidate_idx}")
     logger.setLevel(logging.INFO)
     logger.propagate = False  # IMPORTANT: don't leak into main log
     
-    log_path = Path(log_dir) / f"candidate_{candidate_id}.log"
+    log_path = Path(log_dir) / f"candidate_{candidate_idx}.log"
 
     handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
     handler.setLevel(logging.INFO)
@@ -454,20 +455,29 @@ def main(args):
     # with open(args.log_file_path, 'w', encoding='utf-8') as log_file:
         
         
-        main_logger.info("Loading candidates...") # print("Loading candidates...")
+        main_logger.info("Loading candidates...")
         candidates = read_json_from_file(args.query_candidates_path)
-        main_logger.info(f"Total candidates loaded: {len(candidates)}") # print(f"Total candidates loaded: {len(candidates)}")
+        main_logger.info(f"Total candidates loaded: {len(candidates)}")
         
         # total_llm_calls = 0
         qrel_generator = QrelGenerator(args)
 
-        first_n_candidates = 10
-        
-        for idx, candidate in tqdm.tqdm(enumerate(list(reversed(candidates))[:first_n_candidates])):
-            # TODO: change candidate_idx to from the candidate itself for the full run
-            candidate_logger, candidate_handler = create_candidate_logger(candidate_id=idx, log_dir=args.log_file_dir)
+        candidates_processed = 0
+        for idx, candidate in tqdm.tqdm(enumerate(candidates)):
+            
+            # if candidate['id'] not in [
+            #     '8_Q1221156-P6-Q5_P39-P569',
+            #     '40_Q83057-P37-Q1288568_P5109-P3823',
+            #     '145_Q56059-P36-Q82794_P571', 
+            #     '159_Q250811_P1082', 
+            #     '162_Q1052743_P47', 
+            # ]:
+            #     continue
+            
+            candidate_logger, candidate_handler = create_candidate_logger(candidate_idx=idx, log_dir=args.log_file_dir)
 
-            main_logger.info(f"---------- Processing candidate index {idx+1}/{len(candidates)} ----------") 
+            main_logger.info(f"---------- Processing candidate {idx+1}/{len(candidates)}: {candidate['id']} ----------") 
+            candidate_logger.info(f"---------- Processing candidate {idx+1}/{len(candidates)}: {candidate['id']} ----------")
 
             if 'connecting_prop' in candidate:
                 pass # multihop, for now skip checking
@@ -485,7 +495,7 @@ def main(args):
             qrel_generator.get_query_relevance_judgements(
                 instances, 
                 aggregation_prop,
-                candidate_idx=idx,
+                candidate_id=candidate['id'],
                 candidate_logger=candidate_logger
             )
             # TODO: remove queries with missing wikipages from candidates in next step
@@ -500,7 +510,7 @@ def main(args):
                 qrel_generator.get_query_relevance_judgements(
                     instances, 
                     constraint_prop,
-                    candidate_idx=idx,
+                    candidate_id=candidate['id'],
                     candidate_logger=candidate_logger
                 )
                 # TODO: remove queries with missing wikipages from candidates in next step
@@ -510,12 +520,13 @@ def main(args):
 
             candidate_logger.removeHandler(candidate_handler)
             candidate_handler.close()
+
+            candidates_processed += 1
             
             # print(f"= {total_llm_calls}")
 
         main_logger.info("\n========== SUMMARY ==========")
-        # main_logger.info(f"Total candidates processed: {len(candidates)}")
-        main_logger.info(f"Total candidates processed: {first_n_candidates}")
+        main_logger.info(f"Total candidates processed: {candidates_processed}/{len(candidates)}")
         main_logger.info(f"Total wikipages missing from corpus: {len(qrel_generator.missing_wikipage_ids)}")
         main_logger.info(f"Total queries removed: {qrel_generator.num_queries_missing_wikipages}")
         main_logger.info(f"Total LLM calls needed: {qrel_generator.total_llm_calls}") 
@@ -639,7 +650,7 @@ if __name__ == "__main__":
         --query-candidates-path data/data_creation_runs/V4/query_generation_candidates.json \
         --qrel-results-path data/data_creation_runs/V4/qrels/qrel_results.jsonl \
         --passage-rewrites-path data/data_creation_runs/V4/qrels/passage_rewrites.jsonl \
-        --log-file-dir data/data_creation_runs/V4/logs \
+        --log-file-dir data/data_creation_runs/V4/qrels/logs \
         --corpus-path HeydarS/enwiki_20251001_infoboxconv \
         --page2chunk2idx-path data/data_creation_runs/V4/enwiki_20251001_infoboxconv_page2chunk2idx.json \
         --judge-model gpt-4o-mini \

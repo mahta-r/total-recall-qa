@@ -40,6 +40,7 @@ REWRITE_EXPLANATION = {
         If statement doesn't have time or passage doesn't mention time, you must only replace the value mentioned in the passage with the value given in the statement.
         If statement has the same time as the passage, you must replace the value mentioned in the passage with the value given in the statement.
         If statement has a different time than the passage, you must add a sentence to the passage that mentions the value of the property for the time given in statement.   
+        Very important: if the property value is not a noun (for example, if it's a phrase with verb: "position held", "has grammatical gender", "shares border with"), you can't use that as property name, you must rephrase the sentence to a more natural form.
     """,
     "ADD": """
         The value of the property is not mentioned in the passage.
@@ -51,6 +52,7 @@ REWRITE_EXPLANATION = {
         - "The [inception] of [C] is [x]" --> "C was founded in x" OR "C came into existence in x"
         - "The [population] of [D] is [x]" --> "D, with a population of x, ..." (added as a phrase in passage)
         If the statement includes time of validness, you must also include that time in the added sentence or phrase.
+        Very important: if the property value is not a noun (for example, if it's a phrase with verb: "position held", "has grammatical gender", "shares border with"), you can't use that as property name, you must rephrase the sentence to a more natural form.
         Goal of step 1 is to NEVER copy the exact wording from the statement. That is strictly forbidden.
         Step 2: add the rephrased sentence/phrase from step 1 to the passage.
         Try to place the sentence in the middle of the passage if possible, and sometimes at the beginning or end if it makes most sense there.
