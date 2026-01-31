@@ -3,7 +3,7 @@ import copy
 import json
 from typing import List, Dict
 
-from wikidata.sparql_utils import find_shared_superclass, is_wikidata_id
+from .sparql_utils import find_shared_superclass, is_wikidata_id
 
 
 

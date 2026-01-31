@@ -2100,7 +2100,7 @@ if __name__ == "__main__":
 # Usage Examples
 # ============================================================================
 #
-# python c3_qrel_generation/qrel_generation.py --dataset quest --subset val --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 1
+# python c3_qrel_generation/qrel_generation.py --dataset quest --subset val --use_parallel --load_corpus_mode memory --max_concurrent 20 --limit 10
 
 
 # 1. PARALLEL PROCESSING MODE (RECOMMENDED - 5-10x faster!):
