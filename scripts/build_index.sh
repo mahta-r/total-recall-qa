@@ -18,7 +18,7 @@ save_dir=/projects/0/prjs0834/heydars/CORPUS_Mahta/indices
 retriever_name=bm25
 
 # srun 
-CUDA_VISIBLE_DEVICES=0,1,2,3 python $HOME/total-recall-rag/c2_corpus_creation/src/index_builder.py \
+CUDA_VISIBLE_DEVICES=0,1,2,3 python $HOME/total-recall-rag/c2_corpus_creation/index_builder.py \
     --retrieval_method $retriever_name \
     --corpus_path $corpus_file \
     --save_dir $save_dir \

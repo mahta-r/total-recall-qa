@@ -30,9 +30,9 @@ api = HfApi(token=HF_TOKEN)
 # )
 
 # --- Corpus
-REPO_ID = "HeydarS/enwiki_20251001_infoboxconv"
-LOCAL_FILE = "corpus_datasets/corpus/enwiki_20251001_infoboxconv.jsonl"
-PATH_IN_REPO = "enwiki_20251001_infoboxconv.jsonl"
+REPO_ID = "HeydarS/enwiki_20251001_infoboxconv_rewritten"
+LOCAL_FILE = "corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl"
+PATH_IN_REPO = "enwiki_20251001_infoboxconv_rewritten.jsonl"
 api.create_repo(
     repo_id=REPO_ID,
     repo_type="dataset",
