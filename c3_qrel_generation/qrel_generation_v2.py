@@ -1,9 +1,8 @@
 """
-QRel Generation V2 for Total Recall RAG
+QRel Generation for Total Recall RAG
 
 This script combines:
 - Prompt approach from c1_1_dataset_creation_mahta/query_generation/extract_qrels.py
-- Dataset reading from c3_qrel_generation/qrel_generation.py
 
 It generates TREC-format qrels by:
 1. Reading queries from JSONL file
@@ -1626,7 +1625,7 @@ def main(args):
         
         # Write header (only if not appending)
         if not should_append:
-            log_file.write(f"QRel Generation V2 Log\n")
+            log_file.write(f"QRel Generation Log\n")
             log_file.write(f"Query file: {args.query_file}\n")
             log_file.write(f"Corpus: {args.corpus_jsonl}\n")
             log_file.write(f"Corpus loading mode: {args.load_corpus_mode}\n")
@@ -1767,24 +1766,24 @@ if __name__ == "__main__":
     # Construct file paths
     if subdir:
         args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/{subset_name}_generations.jsonl"
-        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/qrels_v2_{subset_name}.txt"
+        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/qrels_{subset_name}.txt"
         if args.passage_rewrites_path is None:
-            args.passage_rewrites_path = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/passage_rewrites_v2_{subset_name}.jsonl"
+            args.passage_rewrites_path = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/passage_rewrites_{subset_name}.jsonl"
     else:
         args.query_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subset_name}_generations.jsonl"
-        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/qrels_v2_{subset_name}.txt"
+        args.output_qrel = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/qrels_{subset_name}.txt"
         if args.passage_rewrites_path is None:
-            args.passage_rewrites_path = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/passage_rewrites_v2_{subset_name}.jsonl"
+            args.passage_rewrites_path = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/passage_rewrites_{subset_name}.jsonl"
     
     # Create log file path
     log_dir = Path(args.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    args.log_file = str(log_dir / f"qrel_generation_v2_{subset_name}_{timestamp}.log")
+    args.log_file = str(log_dir / f"qrel_generation_{subset_name}_{timestamp}.log")
     
     # Print configuration
     print("="*80)
-    print("QRel Generation V2 Configuration")
+    print("QRel Generation Configuration")
     print("="*80)
     print(f"Dataset: {args.dataset}")
     print(f"Subset: {subset_name}")
@@ -1835,52 +1834,52 @@ if __name__ == "__main__":
 # ============================================================================
 #
 # 1. PARALLEL + IN-MEMORY MODE (RECOMMENDED - Fastest, 5-10x speedup):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test \
 #        --use_parallel --load_corpus_mode memory --max_concurrent 20
 #
 # 2. PARALLEL + STREAMING MODE (Good performance, lower memory):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test \
 #        --use_parallel --load_corpus_mode stream --max_concurrent 20
 #
 # 3. SEQUENTIAL + IN-MEMORY MODE (Default - No parallel processing):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test
 #
 # 4. SEQUENTIAL + STREAMING MODE (Lowest memory usage, slowest):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --load_corpus_mode stream
 #
 # 5. With specific models:
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --use_parallel \
 #        --judge_model gpt-4o-mini --rewrite_model gpt-4o-mini
 #
 # 6. Limit queries for testing:
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset val --use_parallel \
 #        --load_corpus_mode memory --max_concurrent 20 --limit 10
 #
 # 7. Disable rewriting (judge only):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --no_rewrite
 #
 # 8. Resume mode (continue from interruption):
 #    Default resume (uses heuristic to detect incomplete last query):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --use_parallel --resume
 #
 #    Safe resume (always re-processes last query):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --use_parallel --resume --reprocess_last
 #
 #    Fast resume (trusts last query is complete):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --use_parallel --resume --trust_last
 #
 #    Custom threshold (re-process if last query has < N passages):
-#    python c3_qrel_generation/qrel_generation_v2.py \
+#    python c3_qrel_generation/qrel_generation.py \
 #        --dataset quest --subset test --use_parallel --resume --min_passages_threshold 10
 #
 # Performance Notes:
