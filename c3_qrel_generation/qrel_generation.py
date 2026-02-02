@@ -23,7 +23,7 @@ import asyncio
 import copy
 import re
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, TextIO
+from typing import List, Dict, Optional, Tuple, TextIO, MutableMapping
 from openai import OpenAI, AsyncOpenAI
 from tqdm import tqdm
 from datetime import datetime
@@ -49,7 +49,7 @@ from c1_1_dataset_creation_mahta.query_generation.prompts.LLM_as_relevance_judge
 )
 
 # Import analysis functions from qrel_analysis
-from c3_qrel_generation.qrel_analysis import calculate_coverage
+from c3_qrel_generation.src.qrel_analysis import calculate_coverage
 
 
 def extract_page_id_from_passage_id(passage_id: str) -> Optional[str]:
@@ -850,6 +850,28 @@ def prepare_resume(args, queries):
     return queries_to_process, True
 
 
+def load_existing_rewrites_if_exists(rewrites_path: Optional[str]) -> Dict[Tuple[str, str], Dict]:
+    """
+    Load existing passage rewrites from JSONL file if it exists.
+    
+    Returns a dict mapping (query_id, passage_id) -> rewrite_record.
+    When resuming, this allows reusing existing rewrites instead of calling the LLM again.
+    """
+    rewrites: Dict[Tuple[str, str], Dict] = {}
+    
+    if rewrites_path and Path(rewrites_path).exists():
+        print(f"Loading existing passage rewrites from {rewrites_path}...")
+        rewrite_list = read_jsonl_from_file(rewrites_path)
+        for rewrite_record in rewrite_list:
+            query_id = rewrite_record.get("query_id", "")
+            passage_id = rewrite_record.get("passage_id", rewrite_record.get("passage", {}).get("id", ""))
+            if query_id and passage_id:
+                rewrites[(query_id, passage_id)] = rewrite_record
+        print(f"Loaded rewrites for {len(rewrites)} query-passage pairs.")
+    
+    return rewrites
+
+
 def append_rewrite_to_file(rewrites_path: str, rewrite_record: Dict):
     """
     Append a rewrite record to the rewrites file.
@@ -923,7 +945,8 @@ def process_query(
     corpus_dict: Optional[Dict[str, Dict]] = None,
     page_index: Optional[Dict[str, List[str]]] = None,
     rewrite_passages: bool = True,
-    passage_rewrites_path: Optional[str] = None
+    passage_rewrites_path: Optional[str] = None,
+    existing_rewrites: Optional[MutableMapping[Tuple[str, str], Dict]] = None
 ) -> Dict:
     """
     Process a single query to generate qrels using the extract_qrels approach.
@@ -1058,44 +1081,54 @@ def process_query(
         # Handle YES-DIFFERENT passages (rewrite with REPLACE)
         if rewrite_passages:
             for passage in label_to_passage['YES-DIFFERENT']:
-                rewritten_content = rewrite_passage(
-                    passage=passage,
-                    entity_label=entity_label,
-                    property_label=property_label,
-                    property_description=property_description,
-                    property_value=property_value,
-                    shared_time=shared_time,
-                    rewrite_type="REPLACE",
-                    client=rewrite_client,
-                    model=rewrite_model,
-                    temperature=rewrite_temperature
-                )
+                passage_id = passage.get('id', 'unknown')
+                cache_key = (query_id, passage_id)
                 
-                log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage.get('id', 'unknown')}\n")
-                log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
-                log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
+                # Use existing rewrite if available (resume support)
+                if existing_rewrites is not None and cache_key in existing_rewrites:
+                    rewrite_record = existing_rewrites[cache_key]
+                    rewritten_content = rewrite_record["rewritten_passage"]["contents"]
+                    log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage_id} (from cache)\n")
+                else:
+                    rewritten_content = rewrite_passage(
+                        passage=passage,
+                        entity_label=entity_label,
+                        property_label=property_label,
+                        property_description=property_description,
+                        property_value=property_value,
+                        shared_time=shared_time,
+                        rewrite_type="REPLACE",
+                        client=rewrite_client,
+                        model=rewrite_model,
+                        temperature=rewrite_temperature
+                    )
+                    log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage_id}\n")
+                    log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
+                    log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
+                    
+                    # Save rewrite to file (only when we created a new rewrite)
+                    if passage_rewrites_path:
+                        rewritten_passage = copy.deepcopy(passage)
+                        rewritten_passage['contents'] = rewritten_content
+                        rewrite_record = {
+                            "query_id": query_id,
+                            "passage_id": passage_id,
+                            "passage_title": passage.get('title', ''),
+                            "entity_label": entity_label,
+                            "entity_qid": qid,
+                            "property_label": property_label,
+                            "property_id": property_id,
+                            "property_value": property_value,
+                            "shared_time": shared_time,
+                            "rewrite_type": "REPLACE",
+                            "passage": passage,
+                            "rewritten_passage": rewritten_passage
+                        }
+                        append_rewrite_to_file(passage_rewrites_path, rewrite_record)
+                        if existing_rewrites is not None:
+                            existing_rewrites[cache_key] = rewrite_record
                 
-                # Save rewrite to file
-                if passage_rewrites_path:
-                    rewritten_passage = copy.deepcopy(passage)
-                    rewritten_passage['contents'] = rewritten_content
-                    rewrite_record = {
-                        "query_id": query_id,
-                        "passage_id": passage.get('id', 'unknown'),
-                        "passage_title": passage.get('title', ''),
-                        "entity_label": entity_label,
-                        "entity_qid": qid,
-                        "property_label": property_label,
-                        "property_id": property_id,
-                        "property_value": property_value,
-                        "shared_time": shared_time,
-                        "rewrite_type": "REPLACE",
-                        "passage": passage,
-                        "rewritten_passage": rewritten_passage
-                    }
-                    append_rewrite_to_file(passage_rewrites_path, rewrite_record)
-                
-                write_trec_qrel(qrel_output_file, query_id, passage.get('id', 'unknown'), 1)
+                write_trec_qrel(qrel_output_file, query_id, passage_id, 1)
                 qrel_output_file.flush()
                 stats['relevant_passages'] += 1
                 stats['rewrites_performed'] += 1
@@ -1105,45 +1138,54 @@ def process_query(
         if rewrite_passages and not entity_has_relevant_passage and len(label_to_passage['NO-RELATED']) > 0:
             # Choose the first NO-RELATED passage
             passage = label_to_passage['NO-RELATED'][0]
+            passage_id = passage.get('id', 'unknown')
+            cache_key = (query_id, passage_id)
             
-            rewritten_content = rewrite_passage(
-                passage=passage,
-                entity_label=entity_label,
-                property_label=property_label,
-                property_description=property_description,
-                property_value=property_value,
-                shared_time=shared_time,
-                rewrite_type="ADD",
-                client=rewrite_client,
-                model=rewrite_model,
-                temperature=rewrite_temperature
-            )
+            # Use existing rewrite if available (resume support)
+            if existing_rewrites is not None and cache_key in existing_rewrites:
+                rewrite_record = existing_rewrites[cache_key]
+                rewritten_content = rewrite_record["rewritten_passage"]["contents"]
+                log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage_id} (from cache)\n")
+            else:
+                rewritten_content = rewrite_passage(
+                    passage=passage,
+                    entity_label=entity_label,
+                    property_label=property_label,
+                    property_description=property_description,
+                    property_value=property_value,
+                    shared_time=shared_time,
+                    rewrite_type="ADD",
+                    client=rewrite_client,
+                    model=rewrite_model,
+                    temperature=rewrite_temperature
+                )
+                log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage_id}\n")
+                log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
+                log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
+                
+                # Save rewrite to file (only when we created a new rewrite)
+                if passage_rewrites_path:
+                    rewritten_passage = copy.deepcopy(passage)
+                    rewritten_passage['contents'] = rewritten_content
+                    rewrite_record = {
+                        "query_id": query_id,
+                        "passage_id": passage_id,
+                        "passage_title": passage.get('title', ''),
+                        "entity_label": entity_label,
+                        "entity_qid": qid,
+                        "property_label": property_label,
+                        "property_id": property_id,
+                        "property_value": property_value,
+                        "shared_time": shared_time,
+                        "rewrite_type": "ADD",
+                        "passage": passage,
+                        "rewritten_passage": rewritten_passage
+                    }
+                    append_rewrite_to_file(passage_rewrites_path, rewrite_record)
+                    if existing_rewrites is not None:
+                        existing_rewrites[cache_key] = rewrite_record
             
-            log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage.get('id', 'unknown')}\n")
-            log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
-            log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
-            
-            # Save rewrite to file
-            if passage_rewrites_path:
-                rewritten_passage = copy.deepcopy(passage)
-                rewritten_passage['contents'] = rewritten_content
-                rewrite_record = {
-                    "query_id": query_id,
-                    "passage_id": passage.get('id', 'unknown'),
-                    "passage_title": passage.get('title', ''),
-                    "entity_label": entity_label,
-                    "entity_qid": qid,
-                    "property_label": property_label,
-                    "property_id": property_id,
-                    "property_value": property_value,
-                    "shared_time": shared_time,
-                    "rewrite_type": "ADD",
-                    "passage": passage,
-                    "rewritten_passage": rewritten_passage
-                }
-                append_rewrite_to_file(passage_rewrites_path, rewrite_record)
-            
-            write_trec_qrel(qrel_output_file, query_id, passage.get('id', 'unknown'), 1)
+            write_trec_qrel(qrel_output_file, query_id, passage_id, 1)
             qrel_output_file.flush()
             stats['relevant_passages'] += 1
             stats['rewrites_performed'] += 1
@@ -1226,7 +1268,8 @@ async def process_query_async(
     page_index: Optional[Dict[str, List[str]]] = None,
     rewrite_passages: bool = True,
     max_concurrent: int = 10,
-    passage_rewrites_path: Optional[str] = None
+    passage_rewrites_path: Optional[str] = None,
+    existing_rewrites: Optional[MutableMapping[Tuple[str, str], Dict]] = None
 ) -> Dict:
     """
     Async version: Process a single query with parallel LLM calls for judging passages.
@@ -1359,41 +1402,55 @@ async def process_query_async(
         
         # Handle YES-DIFFERENT passages (rewrite with REPLACE)
         if rewrite_passages:
-            # Rewrite YES-DIFFERENT passages in parallel
+            cached_results = []
             rewrite_tasks = []
             semaphore = asyncio.Semaphore(max_concurrent)
             
             for passage in label_to_passage['YES-DIFFERENT']:
-                task = rewrite_passage_async(
-                    passage=passage,
-                    entity_label=entity_label,
-                    property_label=property_label,
-                    property_description=property_description,
-                    property_value=property_value,
-                    shared_time=shared_time,
-                    rewrite_type="REPLACE",
-                    client=rewrite_client,
-                    model=rewrite_model,
-                    temperature=rewrite_temperature,
-                    semaphore=semaphore
-                )
-                rewrite_tasks.append((passage, task))
+                passage_id = passage.get('id', 'unknown')
+                cache_key = (query_id, passage_id)
+                
+                if existing_rewrites is not None and cache_key in existing_rewrites:
+                    rewritten_content = existing_rewrites[cache_key]["rewritten_passage"]["contents"]
+                    cached_results.append((passage, rewritten_content, True))
+                else:
+                    task = rewrite_passage_async(
+                        passage=passage,
+                        entity_label=entity_label,
+                        property_label=property_label,
+                        property_description=property_description,
+                        property_value=property_value,
+                        shared_time=shared_time,
+                        rewrite_type="REPLACE",
+                        client=rewrite_client,
+                        model=rewrite_model,
+                        temperature=rewrite_temperature,
+                        semaphore=semaphore
+                    )
+                    rewrite_tasks.append((passage, task))
             
+            # Gather results for passages that needed LLM rewrite
             if rewrite_tasks:
                 rewrite_results = await asyncio.gather(*[task for _, task in rewrite_tasks])
-                
                 for (passage, _), rewritten_content in zip(rewrite_tasks, rewrite_results):
-                    log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage.get('id', 'unknown')}\n")
+                    cached_results.append((passage, rewritten_content, False))
+            
+            for passage, rewritten_content, from_cache in cached_results:
+                passage_id = passage.get('id', 'unknown')
+                cache_key = (query_id, passage_id)
+                if from_cache:
+                    log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage_id} (from cache)\n")
+                else:
+                    log_file.write(f"\n[REWRITE-REPLACE] Passage ID: {passage_id}\n")
                     log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
                     log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
                     
-                    # Save rewrite to file
                     if passage_rewrites_path:
                         rewritten_passage = copy.deepcopy(passage)
                         rewritten_passage['contents'] = rewritten_content
                         rewrite_record = {
                             "query_id": query_id,
-                            "passage_id": passage.get('id', 'unknown'),
+                            "passage_id": passage_id,
                             "passage_title": passage.get('title', ''),
                             "entity_label": entity_label,
                             "entity_qid": qid,
@@ -1406,56 +1463,65 @@ async def process_query_async(
                             "rewritten_passage": rewritten_passage
                         }
                         append_rewrite_to_file(passage_rewrites_path, rewrite_record)
-                    
-                    write_trec_qrel(qrel_output_file, query_id, passage.get('id', 'unknown'), 1)
-                    qrel_output_file.flush()
-                    stats['relevant_passages'] += 1
-                    stats['rewrites_performed'] += 1
-                    entity_has_relevant_passage = True
+                        if existing_rewrites is not None:
+                            existing_rewrites[cache_key] = rewrite_record
+                
+                write_trec_qrel(qrel_output_file, query_id, passage_id, 1)
+                qrel_output_file.flush()
+                stats['relevant_passages'] += 1
+                stats['rewrites_performed'] += 1
+                entity_has_relevant_passage = True
         
         # Handle NO-RELATED passages (if no relevant passages found, rewrite with ADD)
         if rewrite_passages and not entity_has_relevant_passage and len(label_to_passage['NO-RELATED']) > 0:
             # Choose the first NO-RELATED passage
             passage = label_to_passage['NO-RELATED'][0]
+            passage_id = passage.get('id', 'unknown')
+            cache_key = (query_id, passage_id)
             
-            rewritten_content = await rewrite_passage_async(
-                passage=passage,
-                entity_label=entity_label,
-                property_label=property_label,
-                property_description=property_description,
-                property_value=property_value,
-                shared_time=shared_time,
-                rewrite_type="ADD",
-                client=rewrite_client,
-                model=rewrite_model,
-                temperature=rewrite_temperature
-            )
+            if existing_rewrites is not None and cache_key in existing_rewrites:
+                rewrite_record = existing_rewrites[cache_key]
+                rewritten_content = rewrite_record["rewritten_passage"]["contents"]
+                log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage_id} (from cache)\n")
+            else:
+                rewritten_content = await rewrite_passage_async(
+                    passage=passage,
+                    entity_label=entity_label,
+                    property_label=property_label,
+                    property_description=property_description,
+                    property_value=property_value,
+                    shared_time=shared_time,
+                    rewrite_type="ADD",
+                    client=rewrite_client,
+                    model=rewrite_model,
+                    temperature=rewrite_temperature
+                )
+                log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage_id}\n")
+                log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
+                log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
+                
+                if passage_rewrites_path:
+                    rewritten_passage = copy.deepcopy(passage)
+                    rewritten_passage['contents'] = rewritten_content
+                    rewrite_record = {
+                        "query_id": query_id,
+                        "passage_id": passage_id,
+                        "passage_title": passage.get('title', ''),
+                        "entity_label": entity_label,
+                        "entity_qid": qid,
+                        "property_label": property_label,
+                        "property_id": property_id,
+                        "property_value": property_value,
+                        "shared_time": shared_time,
+                        "rewrite_type": "ADD",
+                        "passage": passage,
+                        "rewritten_passage": rewritten_passage
+                    }
+                    append_rewrite_to_file(passage_rewrites_path, rewrite_record)
+                    if existing_rewrites is not None:
+                        existing_rewrites[cache_key] = rewrite_record
             
-            log_file.write(f"\n[REWRITE-ADD] Passage ID: {passage.get('id', 'unknown')}\n")
-            log_file.write(f"Original: {passage.get('contents', '')[:200]}...\n")
-            log_file.write(f"Rewritten: {rewritten_content[:200]}...\n")
-            
-            # Save rewrite to file
-            if passage_rewrites_path:
-                rewritten_passage = copy.deepcopy(passage)
-                rewritten_passage['contents'] = rewritten_content
-                rewrite_record = {
-                    "query_id": query_id,
-                    "passage_id": passage.get('id', 'unknown'),
-                    "passage_title": passage.get('title', ''),
-                    "entity_label": entity_label,
-                    "entity_qid": qid,
-                    "property_label": property_label,
-                    "property_id": property_id,
-                    "property_value": property_value,
-                    "shared_time": shared_time,
-                    "rewrite_type": "ADD",
-                    "passage": passage,
-                    "rewritten_passage": rewritten_passage
-                }
-                append_rewrite_to_file(passage_rewrites_path, rewrite_record)
-            
-            write_trec_qrel(qrel_output_file, query_id, passage.get('id', 'unknown'), 1)
+            write_trec_qrel(qrel_output_file, query_id, passage_id, 1)
             qrel_output_file.flush()
             stats['relevant_passages'] += 1
             stats['rewrites_performed'] += 1
@@ -1616,6 +1682,9 @@ def main(args):
     # Cache for QID to Wikipedia mappings
     qid2wikipedia_cache = {}
     
+    # Load existing rewrites for resume support (skip re-rewriting passages we've already done)
+    existing_rewrites = load_existing_rewrites_if_exists(args.passage_rewrites_path) if args.passage_rewrites_path else {}
+    
     # Determine file opening mode based on resume
     file_mode = 'a' if should_append else 'w'
     
@@ -1672,7 +1741,8 @@ def main(args):
                         page_index=page_index,
                         rewrite_passages=args.rewrite_passages,
                         max_concurrent=args.max_concurrent,
-                        passage_rewrites_path=args.passage_rewrites_path
+                        passage_rewrites_path=args.passage_rewrites_path,
+                        existing_rewrites=existing_rewrites
                     )
                     stats_list.append(stats)
                 return stats_list
@@ -1697,7 +1767,8 @@ def main(args):
                     corpus_dict=corpus_dict,
                     page_index=page_index,
                     rewrite_passages=args.rewrite_passages,
-                    passage_rewrites_path=args.passage_rewrites_path
+                    passage_rewrites_path=args.passage_rewrites_path,
+                    existing_rewrites=existing_rewrites
                 )
                 all_stats.append(stats)
         

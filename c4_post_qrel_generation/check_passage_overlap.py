@@ -7,8 +7,12 @@ This script analyzes multiple rewritten passage files and reports:
 - Examples of overlapping passages
 """
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import argparse
-from rewrite_merger import check_passage_overlap
+from c4_post_qrel_generation.src.rewrite_merger import check_passage_overlap
 
 
 def main():
@@ -20,10 +24,10 @@ def main():
 Examples:
 # Check overlap across all rewrite files
 python c2_corpus_creation/src/check_passage_overlap.py \
-    --rewrites corpus_datasets/dataset_creation_heydar/qald10/passage_rewrites_v2_qald10.jsonl \
-        corpus_datasets/dataset_creation_heydar/quest/test/passage_rewrites_v2_test_quest.jsonl \
-        corpus_datasets/dataset_creation_heydar/quest/train/passage_rewrites_v2_train_quest.jsonl \
-        corpus_datasets/dataset_creation_heydar/quest/val/passage_rewrites_v2_val_quest.jsonl \
+    --rewrites corpus_datasets/dataset_creation_heydar/qald10/passage_rewrites_qald10.jsonl \
+        corpus_datasets/dataset_creation_heydar/quest/test/passage_rewrites_test_quest.jsonl \
+        corpus_datasets/dataset_creation_heydar/quest/train/passage_rewrites_train_quest.jsonl \
+        corpus_datasets/dataset_creation_heydar/quest/val/passage_rewrites_val_quest.jsonl \
         corpus_datasets/dataset_creation_mahta/passage_rewrites.jsonl
   
   # Check overlap with quiet output (just statistics)
