@@ -84,5 +84,3 @@ VALID_PROP_DATATYPES = [
     "WikibaseItem"
 ]
 
-prop_type_mapping = read_json_from_file("wikidata/resources/prop_type_mapping.json")
-prop_operation_mapping = read_json_from_file("wikidata/resources/prop_operation_mapping.json")

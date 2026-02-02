@@ -3,9 +3,12 @@ import json
 import random
 import math
 
-from requests import session
-from wikidata.prop_utils import NO_AGGREGATION_PROPS, NO_CONNECTING_PROPS, UNUSABLE_PROPS, prop_operation_mapping
-from wikidata.operation_utils import coordinates_filter, numerical_filter, temporal_filter, items_filter
+from io_utils import encode_datetime
+from wikidata.prop_utils import NO_AGGREGATION_PROPS, NO_CONNECTING_PROPS, UNUSABLE_PROPS
+from wikidata.resources.prop_operation_mapping import OPERATION_FREQUENCY, PROP_OP_MAPPING
+from wikidata.operation_utils import is_valid_for_values
+from wikidata.operation_utils import numerical_filter, coordinates_filter, temporal_filter, items_filter
+from wikidata.operation_utils import numerical_aggregation, coordinates_aggregation, temporal_aggregation, items_aggregation
 
 
 
@@ -14,8 +17,6 @@ class CandidateSelector:
     def __init__(
         self, 
         candidate_classes,
-        # prop_num, 
-        # selection_strategy, 
         max_props_per_class = None,
         max_multihop_props_per_class = None,
         max_queries_per_prop = None,
@@ -24,6 +25,8 @@ class CandidateSelector:
     ):
 
         random.seed(seed)
+        self.operation_sampler = random.Random(seed)
+        self.constraint_sampler = random.Random(seed + 1)
 
         self.property_stats = defaultdict(dict)
         self.subclass_stats = defaultdict(dict)
@@ -40,78 +43,54 @@ class CandidateSelector:
         for subclass in candidate_classes:
             self.get_all_available_stats(self.property_stats, self.subclass_stats, subclass, max_hops=1)
 
-        # self.prop_num = prop_num
-        # self.selection = selection_strategy
-        # self.max_props = max_props
-
-        # self.used_property_operation_combos = {}
-
-        # all_props = [
-        #     prop_id
-        #     for subclass in self.query_generation_classes
-        #     for prop_id in subclass['candidate_properties'].keys()
-        # ]
-        # self.all_props_available = Counter(all_props)
-
-    # def __iter__(self):
-    #     for subclass in self.query_generation_classes:
-    #         properties = subclass['candidate_properties']
-            
-    #         if not properties:
-    #             continue
-
-    #         property_ids = self.select_properties(properties.keys())
-
-    #         for prop_id in property_ids:
-    #             selected_op = self.select_operation(prop_id)
-    #             yield subclass, prop_id, selected_op
-
-
-    # def select_properties(self, property_ids):
-    #     assert len(property_ids) > 0
-
-    #     if self.prop_num == "all":
-    #         num_to_select = len(property_ids)
-    #     elif self.prop_num == "log":
-    #         num_to_select = math.floor(math.log(len(property_ids), 2)) + 1
-    #     else:
-    #         raise ValueError(f"Invalid property per subclass strategy: {self.prop_num}")
-
-    #     num_to_select = min(num_to_select, self.max_props)
-
-    #     if self.selection == "random":
-    #         selected_properties = random.sample(property_ids, num_to_select)
-    #     elif self.selection == "least":
-    #         # TODO: optimize selection
-    #         property_count = lambda prop_id: sum(self.used_property_operation_combos.get(prop_id, {}).values())
-    #         property_scarcity = lambda prop_id: self.all_props_available[prop_id]
-    #         selected_properties = sorted(property_ids, key=property_scarcity)[:num_to_select]
-    #     else:
-    #         raise ValueError(f"Invalid property selection strategy: {self.selection}")
-
-    #     for prop_id in selected_properties:
-    #         if prop_id not in self.used_property_operation_combos:
-    #             self.used_property_operation_combos[prop_id] = {}
-
-    #     return selected_properties
-
+        self.used_property_operation_combos = defaultdict(lambda: defaultdict(int))
     
-    # def select_operation(self, prop_id):
-    #     valid_ops = prop_operation_mapping[prop_id]
-    #     # property_operation_count = lambda op: self.used_property_operation_combos.get(prop_id, {}).get(op, 0)
-    #     # selected_op = sorted(valid_ops, key=property_operation_count)[0]
 
-    #     op_counts = [(op, self.used_property_operation_combos[prop_id].get(op, 0)) for op in valid_ops]
-    #     op_counts_sorted = sorted(op_counts, key=lambda x: x[1])
-    #     min_count = op_counts_sorted[0][1]
-    #     least_used_ops = [op for op, count in op_counts_sorted if count == min_count]
-    #     selected_op = random.choice(least_used_ops)
+    def select_operation(self, prop_id, prop_datatype, input_entity_values):
+        valid_ops = [op for op in PROP_OP_MAPPING[prop_id] if is_valid_for_values(op, input_entity_values)]
+        # sort by:
+        # 1) least used operation for this property
+        # 2) least used operation overall (across all properties)
+        # 3) overall rareness of the operation, i.e., operations compatible with fewer properties are preferred
+        
+        if len(valid_ops) == 0:
+            print(json.dumps(input_entity_values, indent=2, default=encode_datetime))
+            raise ValueError(f"No valid operations for property {prop_id} with datatype {prop_datatype} and input values {input_entity_values}")
+        
+        op_counts = [
+            (
+                op, 
+                self.used_property_operation_combos[prop_id][op],
+                sum(self.used_property_operation_combos[pid][op] for pid in self.used_property_operation_combos),
+                OPERATION_FREQUENCY[op]
+            ) 
+            for op in valid_ops
+        ]
+        op_counts_sorted = sorted(op_counts, key=lambda x: (x[1], x[2], x[3]))
+        min_op, min_prop_count, min_count, min_freq = op_counts_sorted[0]
+        least_used_ops = [op for op, prop_count, count, freq in op_counts_sorted if 
+                            prop_count == min_prop_count and 
+                            count == min_count and 
+                            freq == min_freq
+                        ]
+        selected_op = self.operation_sampler.choice(least_used_ops)
+        
+        self.used_property_operation_combos[prop_id][selected_op] += 1
 
-    #     if selected_op not in self.used_property_operation_combos[prop_id]:
-    #         self.used_property_operation_combos[prop_id][selected_op] = 0
-    #     self.used_property_operation_combos[prop_id][selected_op] += 1
+        if prop_datatype == 'Quantity':
+            operation, operation_args, final_answer = numerical_aggregation(selected_op, input_entity_values, self.operation_sampler)
+        if prop_datatype == 'GlobeCoordinate':
+            operation, operation_args, final_answer = coordinates_aggregation(selected_op, input_entity_values, self.operation_sampler)
+        if prop_datatype == 'Time':
+            operation, operation_args, final_answer = temporal_aggregation(selected_op, input_entity_values, self.operation_sampler)
+        if prop_datatype == 'WikibaseItem':
+            operation, operation_args, final_answer = items_aggregation(selected_op, input_entity_values, self.operation_sampler)
 
-    #     return selected_op
+        assert operation is not None
+        assert final_answer is not None
+        assert operation_args is not None
+        
+        return operation, operation_args, final_answer
     
 
     def filter_based_on_constraint(self, constraint_datatype, constraint_entity_values):
@@ -120,7 +99,7 @@ class CandidateSelector:
                 (entity_value['value_node']['value'], idx)
                 for idx, entity_value in enumerate(constraint_entity_values)
             ]
-            filtered_indices, reference_idx, operator = numerical_filter(values)
+            filtered_indices, reference_idx, operator = numerical_filter(values, rand=self.constraint_sampler)
             filtered_ids = [constraint_entity_values[idx]['entity_id'] for idx in filtered_indices]
             reference_entity = constraint_entity_values[reference_idx]
     
@@ -129,7 +108,7 @@ class CandidateSelector:
                 (entity_value['value_node']['value'], idx)
                 for idx, entity_value in enumerate(constraint_entity_values)
             ]
-            filtered_indices, reference_idx, operator = coordinates_filter(coordinates)
+            filtered_indices, reference_idx, operator = coordinates_filter(coordinates, rand=self.constraint_sampler)
             filtered_ids = [constraint_entity_values[idx]['entity_id'] for idx in filtered_indices]
             reference_entity = constraint_entity_values[reference_idx]
 
@@ -138,7 +117,7 @@ class CandidateSelector:
                 (entity_value['value_node']['value'], idx)
                 for idx, entity_value in enumerate(constraint_entity_values)
             ]
-            filtered_indices, reference_idx, operator = temporal_filter(datetimes)
+            filtered_indices, reference_idx, operator = temporal_filter(datetimes, rand=self.constraint_sampler)
             filtered_ids = [constraint_entity_values[idx]['entity_id'] for idx in filtered_indices]
             reference_entity = constraint_entity_values[reference_idx]
 
@@ -147,7 +126,7 @@ class CandidateSelector:
                 [entity_value['value_item_id'] for entity_value in entity_values_list['value_node']]
                 for entity_values_list in constraint_entity_values   
             ]
-            filtered_indices, reference_idx, operator = items_filter(items)
+            filtered_indices, reference_idx, operator = items_filter(items, rand=self.constraint_sampler)
             
             if not filtered_indices:
                 return None, None, None
@@ -179,6 +158,7 @@ class CandidateSelector:
                 if prop_key not in property_stats:
                     property_stats[prop_key] = {
                         "label": prop['property_info']['label'],
+                        "description": prop['property_info']['description'],
                         "datatype": prop['property_info']['datatype'],
                         "num_classes": 0,
                         "class_ids": []
@@ -290,7 +270,6 @@ class CandidateSelector:
             classes_having_prop = prop_stats['class_ids']
             available_classes = [
                 candid_class for candid_class in classes_having_prop if (
-                    # len(self.current_queries_per_class(candid_class[0][0])) < self.max_props_per_class
                     len(self.current_queries_per_class(candid_class[0][0])) < self.max_props_per_class and (
                         len(candid_class) == 1 or
                         len(self.current_multihop_queries_per_class(candid_class[0][0])) < self.max_multihop_props_per_class
@@ -302,8 +281,6 @@ class CandidateSelector:
                     candid_class for candid_class in available_classes
                     if self._get_last_hop(candid_class)['instance_count'] > 2
                 ]
-
-            # print(f"pass1: need {self.max_queries_per_prop}, have {len(available_classes)}")
 
             least_used_class = lambda class_path: len(self.current_queries_per_class(class_path[0][0]))
             has_most_rare_pops = lambda class_path: (
@@ -340,7 +317,7 @@ class CandidateSelector:
                 if len(self.current_queries_per_class(class_path[0][0])) < self.max_props_per_class:
                     self.add_selected_pair(prop_id, class_path)
         
-        # Pass 2: for properties used < min_queries_per_prop, add them as constraint to previous candidates
+        # Pass 2: for properties used < max_queries_per_prop, add them as constraint to previous candidates
         properties_used_least_to_most = sorted(
             self.property_stats.items(), 
             key=lambda x: len(self.current_queries_per_prop(x[0]))
@@ -395,7 +372,6 @@ class CandidateSelector:
             
             num_queries_to_add = self.max_queries_per_prop - total_used
 
-            # print(f"pass2: need {num_queries_to_add}, have {len(available_query_candidates.keys())}, or {sum([len(v) for v in available_query_candidates.values()])} ")
             for candid_class in sorted(
                 available_query_candidates.keys(), 
                 key = lambda x: constraint_diff_ratio(x)
@@ -430,7 +406,6 @@ class CandidateSelector:
                     assert class_id == src_class['id']
                     assert class_id == src_class_id
 
-                    # query_generation_candidate['src_class'] = src_class
                     query_generation_candidate['src_class'] = {
                         'id': src_class['id'],
                         'label': src_class['label'],
@@ -456,7 +431,6 @@ class CandidateSelector:
                         assert hop_class_id == hop_class['id']
                         assert next_hop_prop_id is None
                         
-                        # query_generation_candidate['hop_class'] = hop_class
                         query_generation_candidate['hop_class'] = {
                             'id': hop_class['id'],
                             'label': hop_class['label'],
@@ -465,7 +439,6 @@ class CandidateSelector:
                             'instances': hop_class['instances'],
                         }
 
-                        # query_generation_candidate['connecting_property'] = connecting_prop
                         query_generation_candidate['connecting_prop'] = {
                             'id': connecting_prop['property_info']['property_id'],
                             'label': connecting_prop['property_info']['label'],
@@ -526,7 +499,7 @@ class CandidateSelector:
                                 'shared_time': constraint_prop['shared_time'],
                                 'list_of_entity_values': constraint_prop['entities_values'],
                                 'reference_entity': reference_entity,
-                                'direction': direction,
+                                'constraint': direction,
                             }
 
                             if constraint_prop['property_info']['datatype'] == 'WikibaseItem':
@@ -547,8 +520,22 @@ class CandidateSelector:
                     query_generation_candidate['filtered_entity_ids'] = final_entity_ids
                     query_generation_candidate['id'] = candidate_id
 
+                    operation, operation_args, final_answer = self.select_operation(
+                        aggregation_prop_id,
+                        aggregation_prop['property_info']['datatype'],
+                        [entity_value for entity_value in aggregation_prop['entities_values'] 
+                            if entity_value['entity_id'] in final_entity_ids]
+                    )
+                    query_generation_candidate['operation'] = operation
+                    query_generation_candidate['operation_args'] = operation_args
+                    query_generation_candidate['final_answer'] = final_answer
+
+
                     query_generation_candidates.append(query_generation_candidate)
 
+
+                    # ---------------------------------- log selected candidate ----------------------------------
+                    # --------------------------------------------------------------------------------------------
 
                     print(f"-------------- Candidate ID: {query_generation_candidate['id']} --------------")
                     print(
@@ -589,6 +576,10 @@ class CandidateSelector:
                                 constraint_prop_description = query_generation_candidate['constraint_prop']['description'],
                             )
                         )
+                        if query_generation_candidate['constraint_prop']['datatype'] == 'WikibaseItem':
+                            print("    Item class: {item_class}".format(
+                                item_class = query_generation_candidate['constraint_prop']['item_class']
+                            ))
                         print("    At time: {constraint_shared_time}".format(
                             constraint_shared_time = query_generation_candidate['constraint_prop']['shared_time']
                         ))
@@ -596,8 +587,8 @@ class CandidateSelector:
                             reference_entity = query_generation_candidate['constraint_prop']['reference_entity']
                             )
                         )
-                        print("    Direction: {direction}".format(
-                            direction = query_generation_candidate['constraint_prop']['direction']
+                        print("    Constraint: {constraint}".format(
+                            constraint = query_generation_candidate['constraint_prop']['constraint']
                             )
                         )
                     print(
@@ -610,18 +601,23 @@ class CandidateSelector:
                         )
                     )
                     if query_generation_candidate['aggregation_prop']['datatype'] == 'WikibaseItem':
-                        print("    Item class: {item_class}".format(
+                        print("Item class: {item_class}".format(
                             item_class = query_generation_candidate['aggregation_prop']['item_class']
                         ))
                     print("At time: {shared_time}".format(
                             shared_time = query_generation_candidate['aggregation_prop']['shared_time']
                         ))
                     
+                    print("Operation: {operation}, {operation_args} ---> Final Answer: {final_answer}".format(
+                        operation = query_generation_candidate['operation'],
+                        operation_args = query_generation_candidate['operation_args'],
+                        final_answer = query_generation_candidate['final_answer'],
+                    ))
+
                     for idx, entity_value in enumerate(sorted(
                         query_generation_candidate['aggregation_prop']['list_of_entity_values'], 
                         key=lambda x: x['entity_id']
                     )):
-                        pass
                         bullet = "[YES]" if entity_value['entity_id'] in query_generation_candidate['filtered_entity_ids'] else "[NO]"
                         print(f"  {bullet} {entity_value['entity_label']} ({entity_value['entity_id']}) = {entity_value['value_node']}")
                         
