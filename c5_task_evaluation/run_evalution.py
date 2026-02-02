@@ -8,19 +8,18 @@ This script runs evaluation on QA datasets using different method types:
 3. Interleaved: Retrieval and generation interleaved (e.g., ReAct, SelfAsk, SearchO1)
 
 Usage:
-    # No retrieval (LLM only)
-    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-5.2 --method_type no_retrieval
-    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type no_retrieval
+    # No retrieval (LLM only) - heydar val/test, mahta, or zahra
+    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval
+    python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval
 
     # Test with limited samples (e.g., first 10)
-    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type no_retrieval --limit 10
-    python c4_task_evaluation/run_evalution.py --dataset quest --model openai/gpt-4o --method_type no_retrieval --limit 10
+    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval --limit 10
 
     # Sequential retrieval + generation
-    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type sequential --method single_retrieval
+    python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval
 
     # Interleaved retrieval + generation
-    python c4_task_evaluation/run_evalution.py --dataset qald10 --model openai/gpt-4o --method_type interleaved --method react
+    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type interleaved --method react
 """
 
 import os
@@ -32,13 +31,14 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 
-# Add current directory to path for imports
-eval_dir = Path(__file__).parent
-sys.path.insert(0, str(eval_dir.parent))
+# Add project root and this package to path so imports work from any cwd
+_eval_dir = Path(__file__).resolve().parent
+_project_root = _eval_dir.parent
+sys.path.insert(0, str(_project_root))
 
 from utils.general_utils import set_seed
-from c4_task_evaluation.methods.retrieval_augmented_models import NoRetrieval, SingleRetrieval, ReAct_Model, SelfAsk_Model, SearchO1_Model, ReSearch_Model, SearchR1_Model, StepSearch_Model
-from c4_task_evaluation.metrics.generation_eval_metrics import soft_exact_match
+from c5_task_evaluation.methods.retrieval_augmented_models import NoRetrieval, SingleRetrieval, ReAct_Model, SelfAsk_Model, SearchO1_Model, ReSearch_Model, SearchR1_Model, StepSearch_Model
+from c5_task_evaluation.metrics.generation_eval_metrics import soft_exact_match
 
 
 def load_dataset(dataset_file):
@@ -271,8 +271,8 @@ def main():
     parser = argparse.ArgumentParser(description='Run evaluation pipeline on QA datasets')
 
     # Dataset arguments
-    parser.add_argument('--dataset', type=str, required=True, choices=['qald10', 'quest'], help='Dataset to evaluate on')
-    parser.add_argument('--subset', type=str, default="val", help='Subset name (e.g., "test_quest", "train_quest"). If not provided, defaults to "test_quest" for quest dataset')
+    parser.add_argument('--dataset', type=str, required=True, choices=['heydar', 'mahta', 'zahra'], help='Dataset to evaluate on (heydar, mahta, or zahra)')
+    parser.add_argument('--subset', type=str, default='val', choices=['val', 'test'], help='Subset: val or test (for heydar/mahta/zahra)')
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
 
     # Model arguments
@@ -284,8 +284,8 @@ def main():
 
     # Retriever arguments
     parser.add_argument('--retriever', type=str, default='contriever', choices=['bm25', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
-    parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/INDICES', help='Directory containing retrieval indices')
-    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001.jsonl', help='Path to corpus file')
+    parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices')
+    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
     parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of documents to retrieve (default: 3)')
     parser.add_argument('--faiss_gpu', action='store_true', default=False, help='Use GPU for FAISS computation')
 
@@ -293,7 +293,7 @@ def main():
     parser.add_argument('--max_iter', type=int, default=10, help='Maximum iterations for multi-step models (default: 10)')
     parser.add_argument('--device', type=int, default=0, help='CUDA device ID (default: 0)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed (default: 42)')
-    parser.add_argument('--run', type=str, default='run_3', help='Run identifier (default: run_1)')
+    parser.add_argument('--run', type=str, default='run_4', help='Run identifier (default: run_1)')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory (default: auto-generated)')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of samples to process (for testing, default: None = process all)')
 
@@ -302,34 +302,17 @@ def main():
     # Set dataset_name for compatibility
     args.dataset_name = args.dataset
 
-    # Determine subset and subdirectory
-    # User can pass short form (e.g., "test") or full form (e.g., "test_quest")
-    # For quest dataset: test -> test/, train -> train/, val -> val/
-    # For other datasets (e.g., qald10): no subdirectory
-    if args.subset:
-        # If subset contains underscore, assume it's full form (e.g., "test_quest")
-        if "_" in args.subset:
-            args.subset_name = args.subset
-            subdir = args.subset.split("_")[0]  # Extract prefix as subdir
-        else:
-            # Short form (e.g., "test") - construct full name
-            subdir = args.subset
-            args.subset_name = f"{args.subset}_{args.dataset}"  # e.g., "test_quest"
-    else:
-        # Default mapping: quest -> test_quest, qald10 -> qald10
-        if args.dataset == "quest":
-            args.subset_name = "test_quest"
-            subdir = "test"
-        else:
-            args.subset_name = args.dataset
-            subdir = ""
+    # Subset name for display and output paths (e.g., val_heydar, test_heydar)
+    args.subset_name = f"{args.subset}_{args.dataset}"
 
     # Set dataset file path if not provided
+    # heydar/mahta/zahra: val -> queries_validation_final.jsonl, test -> queries_test_final.jsonl
     if args.dataset_file is None:
-        if subdir:
-            args.dataset_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{subdir}/{args.subset_name}_queries.jsonl"
+        if args.subset == "val":
+            query_filename = "queries_validation_final.jsonl"
         else:
-            args.dataset_file = f"corpus_datasets/dataset_creation_heydar/{args.dataset}/{args.subset_name}_queries.jsonl"
+            query_filename = "queries_test_final.jsonl"
+        args.dataset_file = f"corpus_datasets/dataset_creation_{args.dataset}/{query_filename}"
 
     # Set model_name_or_path for compatibility
     args.model_name_or_path = args.model
@@ -389,3 +372,6 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+    
+
+# python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval --limit 10

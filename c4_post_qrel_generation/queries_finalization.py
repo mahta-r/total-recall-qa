@@ -51,7 +51,7 @@ def _to_output_entry(q: Dict[str, Any], src: str) -> Dict[str, Any]:
     """Reduce a generation record to output format: id, question, answer, src."""
     return {
         "id": q.get("qid", ""),
-        "question": q.get("original_query", ""),
+        "question": q.get("question", ""),  # Use 'question' field (from queries file), not 'original_query' (from generations file)
         "answer": q.get("ground_truth"),
         "src": src,
     }
@@ -74,6 +74,23 @@ def _resolve_generations_path(dataset: str, subset: Optional[str], base_dir: Pat
     return base_dir / dataset / f"{subset_name}_generations.jsonl"
 
 
+def _resolve_queries_path(dataset: str, subset: Optional[str], base_dir: Path) -> Path:
+    """Resolve path to queries file (parallel to generations file)."""
+    if subset:
+        if "_" in subset:
+            subset_name = subset
+            subdir = subset.split("_")[0]
+        else:
+            subdir = subset
+            subset_name = f"{subset}_{dataset}"
+    else:
+        subset_name = dataset
+        subdir = ""
+    if subdir:
+        return base_dir / dataset / subdir / f"{subset_name}_queries.jsonl"
+    return base_dir / dataset / f"{subset_name}_queries.jsonl"
+
+
 def get_valid_queries_for_subset(
     dataset: str,
     subset: Optional[str],
@@ -83,6 +100,7 @@ def get_valid_queries_for_subset(
     """
     Load generations for a subset, run coverage, and return only valid queries.
     Uses the same logic as calculate_coverage (valid = all entities have at least one passage).
+    Loads questions from *_queries.jsonl (not from *_generations.jsonl).
     Returns (valid_queries, total_queries, valid_count).
     """
     if qrel_file_path is None:
@@ -108,12 +126,36 @@ def get_valid_queries_for_subset(
         subset=subset,
     )
     valid_indices = results.get("valid_query_indices", [])
+    
+    # Load generations (for ground_truth and qid)
     generations_path = _resolve_generations_path(dataset, subset, base_dir)
     if not generations_path.exists():
         raise FileNotFoundError(f"Generations file not found: {generations_path}")
-    queries = read_jsonl_from_file(str(generations_path))
-    valid_queries = [queries[i] for i in valid_indices]
-    total = len(queries)
+    generations = read_jsonl_from_file(str(generations_path))
+    
+    # Load queries (for correct question text)
+    queries_path = _resolve_queries_path(dataset, subset, base_dir)
+    if not queries_path.exists():
+        raise FileNotFoundError(f"Queries file not found: {queries_path}")
+    queries = read_jsonl_from_file(str(queries_path))
+    
+    # Create mapping from id to question
+    id_to_question = {q["id"]: q["question"] for q in queries}
+    
+    # Merge: add correct question from queries to generations data
+    merged_queries = []
+    for gen in generations:
+        qid = gen.get("qid", "")
+        if qid in id_to_question:
+            gen["question"] = id_to_question[qid]  # Add correct question
+        else:
+            print(f"WARNING: qid={qid} not found in queries file")
+            gen["question"] = gen.get("original_query", "")  # Fallback to original_query
+        merged_queries.append(gen)
+    
+    # Filter to valid queries only
+    valid_queries = [merged_queries[i] for i in valid_indices]
+    total = len(merged_queries)
     valid_count = len(valid_queries)
     return valid_queries, total, valid_count
 
