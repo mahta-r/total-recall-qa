@@ -30,43 +30,43 @@ api = HfApi(token=HF_TOKEN)
 # )
 
 # --- Corpus
-REPO_ID = "HeydarS/enwiki_20251001_infoboxconv_rewritten"
-LOCAL_FILE = "corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl"
-PATH_IN_REPO = "enwiki_20251001_infoboxconv_rewritten.jsonl"
+# REPO_ID = "HeydarS/enwiki_20251001_infoboxconv_rewritten"
+# LOCAL_FILE = "corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl"
+# PATH_IN_REPO = "enwiki_20251001_infoboxconv_rewritten.jsonl"
 # api.create_repo(
 #     repo_id=REPO_ID,
 #     repo_type="dataset",
 #     private=False,
 #     exist_ok=True
 # )
-api.upload_file(
-    path_or_fileobj=LOCAL_FILE,
-    path_in_repo=PATH_IN_REPO,
-    repo_id=REPO_ID,
-    repo_type="dataset",
-    commit_message="Add large JSONL"
-)
-print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main/{PATH_IN_REPO}")
+# api.upload_file(
+#     path_or_fileobj=LOCAL_FILE,
+#     path_in_repo=PATH_IN_REPO,
+#     repo_id=REPO_ID,
+#     repo_type="dataset",
+#     commit_message="Add large JSONL"
+# )
+# print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main/{PATH_IN_REPO}")
 
 # --- BM25 index
-# REPO_ID = "HeydarS/bm25_index"
-# LOCAL_FOLDER = "corpus_datasets/indices/bm25_index"
-# PATH_IN_REPO = ""
-# api.create_repo(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     private=False,
-#     exist_ok=True
-# )
-# api.upload_folder(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     folder_path=LOCAL_FOLDER,
-#     path_in_repo=PATH_IN_REPO,
-#     commit_message="Add BM25 index folder",
-#     ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
-# )
-# print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
+REPO_ID = "HeydarS/enwiki_20251001_bm25_index"
+LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bm25_index"
+PATH_IN_REPO = ""
+api.create_repo(
+    repo_id=REPO_ID,
+    repo_type="dataset",
+    private=False,
+    exist_ok=True
+)
+api.upload_folder(
+    repo_id=REPO_ID,
+    repo_type="dataset",
+    folder_path=LOCAL_FOLDER,
+    path_in_repo=PATH_IN_REPO,
+    commit_message="Add BM25 index folder",
+    ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
+)
+print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
 
 # --- Contriever Index 
 # split -b 45G /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index.part_

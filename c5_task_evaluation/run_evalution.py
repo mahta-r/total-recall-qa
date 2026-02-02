@@ -2,24 +2,36 @@
 """
 Evaluation Pipeline Runner
 
-This script runs evaluation on QA datasets using different method types:
+This script runs evaluation on QA datasets using two pipelines:
+1. Retrieval Pipeline: Evaluate retrieval only using entity recall
+2. Generation Pipeline: Evaluate retrieval + generation (or generation only)
+
+Pipeline Types:
+- retrieval: Only retrieve, evaluate entity recall (no LLM generation)
+- generation: Full RAG evaluation with LLM generation and exact/soft match metrics
+
+Method Types (for generation pipeline):
 1. No retrieval: Direct LLM generation
-2. Sequential: Retrieve first, then generate (e.g., single_retrieval, generate_then_retrieve)
+2. Sequential: Retrieve first, then generate (e.g., single_retrieval)
 3. Interleaved: Retrieval and generation interleaved (e.g., ReAct, SelfAsk, SearchO1)
 
 Usage:
-    # No retrieval (LLM only) - heydar val/test, mahta, or zahra
-    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval
-    python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval
+    # RETRIEVAL PIPELINE - evaluate retrieval with entity recall
+    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_topk 100
+    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever --retrieval_topk 50
+
+    # GENERATION PIPELINE - full RAG evaluation
+    # No retrieval (LLM only)
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval
 
     # Test with limited samples (e.g., first 10)
-    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval --limit 10
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval --limit 10
 
     # Sequential retrieval + generation
-    python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval
 
     # Interleaved retrieval + generation
-    python c5_task_evaluation/run_evalution.py --dataset heydar --subset val --model openai/gpt-4o --method_type interleaved --method react
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type interleaved --method react
 """
 
 import os
@@ -39,6 +51,11 @@ sys.path.insert(0, str(_project_root))
 from utils.general_utils import set_seed
 from c5_task_evaluation.methods.retrieval_augmented_models import NoRetrieval, SingleRetrieval, ReAct_Model, SelfAsk_Model, SearchO1_Model, ReSearch_Model, SearchR1_Model, StepSearch_Model
 from c5_task_evaluation.metrics.generation_eval_metrics import soft_exact_match
+from c5_task_evaluation.metrics.retrieval_eval_metrics import (
+    load_qrels,
+    evaluate_entity_retrieval,
+    entity_recall_at_k,
+)
 
 
 def load_dataset(dataset_file):
@@ -100,17 +117,17 @@ def initialize_model(args):
     return model
 
 
-def run_evaluation(args):
+def run_generation_evaluation(args):
     """
-    Main evaluation loop.
+    Generation evaluation pipeline.
 
     For each query:
     1. Get prediction and ranked list (method-dependent)
-    2. Evaluate against ground truth
+    2. Evaluate against ground truth using exact/soft match
     3. Save results
     """
     print("=" * 70)
-    print("EVALUATION PIPELINE")
+    print("GENERATION EVALUATION PIPELINE")
     print("=" * 70)
     print(f"Dataset:     {args.dataset_name}")
     print(f"Subset:      {args.subset_name}")
@@ -267,13 +284,207 @@ def run_evaluation(args):
     return 0
 
 
+def _get_passage_id(doc):
+    """
+    Get passage/document id from a retrieved doc dict.
+    Retrievers may use different keys: DenseRetriever returns corpus rows with 'id';
+    BM25 with stored index may return only 'title', 'text', 'contents'.
+    """
+    for key in ('id', 'doc_id', 'passage_id', 'docid'):
+        val = doc.get(key)
+        if val is not None:
+            return str(val)
+    # BM25 with contain_doc=True builds only title/text/contents; title may be passage id in some indices
+    if 'title' in doc:
+        return str(doc['title']).strip()
+    raise KeyError("Retrieved doc has no id field. Keys: %s" % list(doc.keys()))
+
+
+def initialize_retriever(args):
+    """Initialize retriever for retrieval-only evaluation."""
+    from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+    
+    print(f"\n=== Initializing Retriever: {args.retriever_name} ===")
+    
+    if args.retriever_name == 'bm25':
+        retriever = BM25Retriever(args)
+    elif args.retriever_name in ['rerank_l6', 'rerank_l12']:
+        retriever = RerankRetriever(args)
+    elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
+        retriever = DenseRetriever(args)
+    else:
+        raise ValueError(f"Unknown retriever: {args.retriever_name}")
+    
+    return retriever
+
+
+def run_retrieval_evaluation(args):
+    """
+    Retrieval evaluation pipeline.
+    
+    Evaluates retrieval performance using entity recall:
+    - For each query, retrieve top-k passages
+    - Compare retrieved passage entities against gold entities from qrels
+    - Entity recall = |retrieved_entities ∩ gold_entities| / |gold_entities|
+    
+    Multiple passages from the same entity only count as covering that entity once.
+    """
+    print("=" * 70)
+    print("RETRIEVAL EVALUATION PIPELINE")
+    print("=" * 70)
+    print(f"Dataset:     {args.dataset_name}")
+    print(f"Subset:      {args.subset_name}")
+    print(f"Retriever:   {args.retriever_name}")
+    print(f"Top-k:       {args.retrieval_topk}")
+    print(f"Qrel File:   {args.qrel_file}")
+    print(f"Seed:        {args.seed}")
+    print()
+    
+    # Load qrels
+    print("=== Loading QRels ===")
+    if not Path(args.qrel_file).exists():
+        print(f"Error: Qrel file not found: {args.qrel_file}")
+        return 1
+    
+    qrels = load_qrels(args.qrel_file)
+    print(f"Loaded qrels for {len(qrels)} queries")
+    
+    # Load dataset
+    print("\n=== Loading Dataset ===")
+    query_ids, test_dataset = load_dataset(args.dataset_file)
+    print(f"Total queries in dataset: {len(test_dataset)}")
+    
+    # Filter to queries that have qrels
+    queries_with_qrels = {qid: data for qid, data in test_dataset.items() if qid in qrels}
+    print(f"Queries with qrels: {len(queries_with_qrels)}")
+    
+    # Get existing results for resumption
+    generated_qids = get_existing_results(args.output_file)
+    filtered_dataset = {qid: data for qid, data in queries_with_qrels.items() if qid not in generated_qids}
+    print(f"Already processed: {len(generated_qids)}")
+    print(f"Remaining: {len(filtered_dataset)}")
+    
+    # Initialize retriever
+    retriever = initialize_retriever(args)
+    
+    # Main evaluation loop
+    print("\n=== Starting Retrieval Evaluation ===")
+    all_results = []
+    
+    # K values for entity recall
+    k_values = [1, 3, 10, 100, 1000]
+    # Filter k_values to only include values <= retrieval_topk
+    k_values = [k for k in k_values if k <= args.retrieval_topk]
+    if args.retrieval_topk not in k_values:
+        k_values.append(args.retrieval_topk)
+    k_values = sorted(k_values)
+    
+    # Aggregated metrics
+    entity_recall_sums = {k: 0.0 for k in k_values}
+    entity_recall_sum_all = 0.0
+    total_count = 0
+    
+    # Apply limit if specified
+    if args.limit is not None and args.limit > 0:
+        filtered_dataset_items = list(filtered_dataset.items())[:args.limit]
+        print(f"Limiting to first {args.limit} samples")
+    else:
+        filtered_dataset_items = list(filtered_dataset.items())
+    
+    with open(args.output_file, 'a') as res_f:
+        for i, (qid, sample) in enumerate(tqdm(filtered_dataset_items, desc="Processing queries")):
+            
+            # Extract query
+            query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
+            
+            # Get gold passage IDs from qrels
+            gold_passage_ids = qrels.get(qid, [])
+            
+            # Retrieve passages
+            retrieved_docs = retriever.search(query)
+            retrieved_ids = [_get_passage_id(doc) for doc in retrieved_docs]
+            
+            # Compute entity recall metrics
+            metrics = evaluate_entity_retrieval(retrieved_ids, gold_passage_ids, k_values)
+            
+            # Accumulate for averaging
+            for k in k_values:
+                entity_recall_sums[k] += metrics[f'entity_recall@{k}']
+            entity_recall_sum_all += metrics['entity_recall']
+            total_count += 1
+            
+            # Prepare result
+            result_item = {
+                "qid": qid,
+                "query": query,
+                "num_gold_passages": len(gold_passage_ids),
+                "num_gold_entities": metrics['num_gold_entities'],
+                "num_retrieved_passages": len(retrieved_ids),
+                "num_retrieved_entities": metrics['num_retrieved_entities'],
+                "retrieved_ids": retrieved_ids,
+                "entity_recall": metrics['entity_recall'],
+            }
+            
+            # Add entity recall at different k
+            for k in k_values:
+                result_item[f'entity_recall@{k}'] = metrics[f'entity_recall@{k}']
+            
+            # Add optional fields
+            if 'file_id' in sample:
+                result_item['file_id'] = sample['file_id']
+            if 'src' in sample:
+                result_item['src'] = sample['src']
+            
+            all_results.append(result_item)
+            
+            # Write to file
+            res_f.write(json.dumps(result_item) + '\n')
+            res_f.flush()
+    
+    # Compute metrics summary
+    print("\n=== Retrieval Evaluation Summary ===")
+    if all_results:
+        print(f"Queries evaluated: {total_count}")
+        
+        print("\nEntity Recall@k:")
+        metrics_summary = {
+            "n": total_count,
+            "retriever": args.retriever_name,
+            "retrieval_topk": args.retrieval_topk,
+        }
+        
+        for k in k_values:
+            mean_recall = entity_recall_sums[k] / total_count
+            metrics_summary[f'entity_recall@{k}'] = mean_recall
+            print(f"  Entity Recall@{k:3d}: {mean_recall:.4f} ({mean_recall*100:.2f}%)")
+        
+        mean_recall_all = entity_recall_sum_all / total_count
+        metrics_summary['entity_recall'] = mean_recall_all
+        print(f"\n  Entity Recall (all): {mean_recall_all:.4f} ({mean_recall_all*100:.2f}%)")
+        
+        # Save metrics summary
+        metrics_file = args.output_file.replace('.jsonl', '_metrics.json')
+        with open(metrics_file, 'w') as f:
+            json.dump(metrics_summary, f, indent=2)
+        print(f"\nMetrics saved to: {metrics_file}")
+    else:
+        print("No new queries processed.")
+    
+    print(f"\nResults saved to: {args.output_file}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description='Run evaluation pipeline on QA datasets')
 
+    # Pipeline selection
+    parser.add_argument('--pipeline', type=str, default='retrieval', choices=['retrieval', 'generation'], help='Pipeline type: retrieval (entity recall only) or generation (full RAG with LLM)')
+
     # Dataset arguments
-    parser.add_argument('--dataset', type=str, required=True, choices=['heydar', 'mahta', 'zahra'], help='Dataset to evaluate on (heydar, mahta, or zahra)')
-    parser.add_argument('--subset', type=str, default='val', choices=['val', 'test'], help='Subset: val or test (for heydar/mahta/zahra)')
+    parser.add_argument('--dataset', type=str, default="heydar", choices=['heydar', 'mahta', 'zahra'], help='Dataset to evaluate on (heydar, mahta, or zahra)')
+    parser.add_argument('--subset', type=str, default='test', choices=['val', 'test'], help='Subset: val or test (for heydar/mahta/zahra)')
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
+    parser.add_argument('--qrel_file', type=str, default=None, help='Path to qrel file (for retrieval pipeline, overrides default)')
 
     # Model arguments
     parser.add_argument('--model', type=str, default='openai/gpt-4o', help='Model to use for generation (default: openai/gpt-4o)')
@@ -293,7 +504,7 @@ def main():
     parser.add_argument('--max_iter', type=int, default=10, help='Maximum iterations for multi-step models (default: 10)')
     parser.add_argument('--device', type=int, default=0, help='CUDA device ID (default: 0)')
     parser.add_argument('--seed', type=int, default=42, help='Random seed (default: 42)')
-    parser.add_argument('--run', type=str, default='run_4', help='Run identifier (default: run_1)')
+    parser.add_argument('--run', type=str, default='run_1', help='Run identifier (default: run_1)')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory (default: auto-generated)')
     parser.add_argument('--limit', type=int, default=None, help='Limit number of samples to process (for testing, default: None = process all)')
 
@@ -313,6 +524,14 @@ def main():
         else:
             query_filename = "queries_test_final.jsonl"
         args.dataset_file = f"corpus_datasets/dataset_creation_{args.dataset}/{query_filename}"
+
+    # Set qrel file path if not provided (for retrieval pipeline)
+    if args.qrel_file is None:
+        if args.subset == "val":
+            qrel_filename = "qrels_validation_final.txt"
+        else:
+            qrel_filename = "qrels_test_final.txt"
+        args.qrel_file = f"corpus_datasets/dataset_creation_{args.dataset}/{qrel_filename}"
 
     # Set model_name_or_path for compatibility
     args.model_name_or_path = args.model
@@ -336,11 +555,16 @@ def main():
 
     # Set output directory and file
     if args.output_dir is None:
-        model_short = args.model_name_or_path.split('/')[-1]
-        if args.method_type == 'no_retrieval':
-            args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}"
+        if args.pipeline == 'retrieval':
+            # Retrieval pipeline: run_output/{run}/retrieval/{subset_name}/{retriever}_topk{k}
+            args.output_dir = f"run_output/{args.run}/retrieval/{args.subset_name}/{args.retriever_name}_topk{args.retrieval_topk}"
         else:
-            args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}_{args.retriever_name}"
+            # Generation pipeline: run_output/{run}/{model}/{subset_name}/{method}[_{retriever}]
+            model_short = args.model_name_or_path.split('/')[-1]
+            if args.method_type == 'no_retrieval':
+                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}"
+            else:
+                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}_{args.retriever_name}"
 
     os.makedirs(args.output_dir, exist_ok=True)
     args.output_file = f"{args.output_dir}/evaluation_results.jsonl"
@@ -360,9 +584,18 @@ def main():
         print(f"Error: Dataset file not found: {args.dataset_file}")
         return 1
 
-    # Run evaluation
+    # Check if qrel file exists (for retrieval pipeline)
+    if args.pipeline == 'retrieval':
+        if not Path(args.qrel_file).exists():
+            print(f"Error: Qrel file not found: {args.qrel_file}")
+            return 1
+
+    # Run evaluation based on pipeline type
     try:
-        return run_evaluation(args)
+        if args.pipeline == 'retrieval':
+            return run_retrieval_evaluation(args)
+        else:
+            return run_generation_evaluation(args)
     except Exception as e:
         print(f"\n✗ Evaluation failed: {e}")
         import traceback
@@ -372,6 +605,16 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-    
 
-# python c5_task_evaluation/run_evalution.py --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval --limit 10
+
+# ============================================================================
+# EXAMPLE USAGE
+# ============================================================================
+
+# --- RETRIEVAL PIPELINE (entity recall evaluation) ---
+# python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_topk 100
+# python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever --retrieval_topk 50
+
+# --- GENERATION PIPELINE (full RAG with LLM) ---
+# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval --limit 10
+# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval

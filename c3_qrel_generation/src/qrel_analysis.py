@@ -226,16 +226,21 @@ def calculate_coverage(
             'valid_query_indices': []
         }
 
+    # Query IDs that have at least one row in the qrel file (for strict validity)
+    query_ids_with_qrel_rows: Set[str] = set()
     with open(qrel_file_path, 'r', encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 4:
+                query_id = parts[0]
                 passage_id = parts[2]
                 relevance = int(parts[3])
                 if relevance > 0:
                     relevant_passage_ids.add(passage_id)
+                    query_ids_with_qrel_rows.add(query_id)
 
     print(f"Found {len(relevant_passage_ids)} relevant passages in qrel file")
+    print(f"Queries with at least one qrel row: {len(query_ids_with_qrel_rows)}")
 
     # Extract page IDs from relevant passage IDs
     relevant_page_ids = set()
@@ -278,7 +283,11 @@ def calculate_coverage(
                     all_covered = False
                     break
 
-        if all_covered:
+        # Valid only if all entities covered AND this query has at least one qrel row.
+        # Otherwise a query with 0 rows can "pass" because its entities' pages are covered by other queries' rows.
+        qid = query_obj.get('qid', '')
+        has_qrel_rows = qid in query_ids_with_qrel_rows
+        if all_covered and has_qrel_rows:
             queries_with_full_coverage += 1
             valid_query_indices.append(idx)
 

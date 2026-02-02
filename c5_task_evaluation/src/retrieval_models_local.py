@@ -255,18 +255,25 @@ class BM25Retriever(BaseRetriever):
             hits = hits[:num]
 
         if self.contain_doc:
-            all_contents = [
-                json.loads(self.searcher.doc(hit.docid).raw())['contents'] 
+            raw_docs = [
+                json.loads(self.searcher.doc(hit.docid).raw())
                 for hit in hits
             ]
-            results = [
-                {
-                    'title': content.split("\n")[0].strip("\""),
-                    'text': "\n".join(content.split("\n")[1:]),
+            results = []
+            for raw_doc in raw_docs:
+                content = raw_doc.get('contents', '')
+                result = {
+                    'title': content.split("\n")[0].strip("\"") if content else '',
+                    'text': "\n".join(content.split("\n")[1:]) if content else '',
                     'contents': content
-                } 
-                for content in all_contents
-            ]
+                }
+                if 'id' in raw_doc:
+                    result['id'] = raw_doc['id']
+                elif 'doc_id' in raw_doc:
+                    result['doc_id'] = raw_doc['doc_id']
+                elif 'passage_id' in raw_doc:
+                    result['passage_id'] = raw_doc['passage_id']
+                results.append(result)
         else:
             results = load_docs(self.corpus, [hit.docid for hit in hits])
 
