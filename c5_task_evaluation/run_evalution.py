@@ -3,35 +3,35 @@
 Evaluation Pipeline Runner
 
 This script runs evaluation on QA datasets using two pipelines:
-1. Retrieval Pipeline: Evaluate retrieval only using entity recall
+1. Retrieval Pipeline: Evaluate retrieval only using entity recall (only Retriever arguments are used)
 2. Generation Pipeline: Evaluate retrieval + generation (or generation only)
 
 Pipeline Types:
-- retrieval: Only retrieve, evaluate entity recall (no LLM generation)
-- generation: Full RAG evaluation with LLM generation and exact/soft match metrics
+- retrieval: Only retrieve, evaluate entity recall (no LLM). Use only Retriever arguments.
+- generation: Full RAG evaluation with LLM. Use generation_method (and deep_research_model when applicable).
 
-Method Types (for generation pipeline):
-1. No retrieval: Direct LLM generation
-2. Sequential: Retrieve first, then generate (e.g., single_retrieval)
-3. Interleaved: Retrieval and generation interleaved (e.g., ReAct, SelfAsk, SearchO1)
+Generation methods (valid only when pipeline=generation):
+- no_retrieval: Direct LLM generation, no retrieval
+- single_retrieval: Retrieve once, then generate
+- deep_research: Interleaved retrieval + generation; requires --deep_research_model
+
+Deep research models (when generation_method=deep_research):
+  self_ask, react, search_o1, research, search_r1, step_search
 
 Usage:
-    # RETRIEVAL PIPELINE - evaluate retrieval with entity recall
+    # RETRIEVAL PIPELINE - only Retriever arguments
     python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_topk 100
     python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever --retrieval_topk 50
 
-    # GENERATION PIPELINE - full RAG evaluation
+    # GENERATION PIPELINE
     # No retrieval (LLM only)
-    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --generation_method no_retrieval
 
-    # Test with limited samples (e.g., first 10)
-    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type no_retrieval --limit 10
+    # Single retrieval + generation
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --generation_method single_retrieval --retriever contriever --retrieval_topk 5
 
-    # Sequential retrieval + generation
-    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval
-
-    # Interleaved retrieval + generation
-    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --method_type interleaved --method react
+    # Deep research (interleaved); specify which model
+    python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --generation_method deep_research --deep_research_model react --retriever contriever
 """
 
 import os
@@ -86,33 +86,31 @@ def get_existing_results(output_file):
 
 
 def initialize_model(args):
-    """Initialize the model based on method type and method name."""
-    print(f"\n=== Initializing Model: {args.method} ===")
+    """Initialize the model based on generation_method and (for deep_research) deep_research_model."""
+    print(f"\n=== Initializing Model: {args.generation_method}" + (f" ({args.deep_research_model})" if args.generation_method == 'deep_research' else "") + " ===")
 
-    if args.method_type == 'no_retrieval':
+    if args.generation_method == 'no_retrieval':
         model = NoRetrieval(args.device, args)
-    elif args.method_type == 'sequential':
-        if args.method == 'single_retrieval':
-            model = SingleRetrieval(args.device, args)
-        else:
-            raise NotImplementedError(f"Sequential method {args.method} not implemented")
-    elif args.method_type == 'interleaved':
-        if args.method == 'self_ask':
+    elif args.generation_method == 'single_retrieval':
+        model = SingleRetrieval(args.device, args)
+    elif args.generation_method == 'deep_research':
+        dm = args.deep_research_model
+        if dm == 'self_ask':
             model = SelfAsk_Model(args.device, args)
-        elif args.method == 'react':
+        elif dm == 'react':
             model = ReAct_Model(args.device, args)
-        elif args.method == 'search_o1':
+        elif dm == 'search_o1':
             model = SearchO1_Model(args.device, args)
-        elif args.method == 'research':
+        elif dm == 'research':
             model = ReSearch_Model(args.device, args)
-        elif args.method == 'search_r1':
+        elif dm == 'search_r1':
             model = SearchR1_Model(args.device, args)
-        elif args.method == 'step_search':
+        elif dm == 'step_search':
             model = StepSearch_Model(args.device, args)
         else:
-            raise NotImplementedError(f"Interleaved method {args.method} not implemented")
+            raise NotImplementedError(f"Deep research model {dm} not implemented")
     else:
-        raise ValueError(f"Unknown method_type: {args.method_type}")
+        raise ValueError(f"Unknown generation_method: {args.generation_method}")
 
     return model
 
@@ -132,8 +130,7 @@ def run_generation_evaluation(args):
     print(f"Dataset:     {args.dataset_name}")
     print(f"Subset:      {args.subset_name}")
     print(f"Model:       {args.model_name_or_path}")
-    print(f"Method Type: {args.method_type}")
-    print(f"Method:      {args.method}")
+    print(f"Generation method: {args.generation_method}" + (f" ({args.deep_research_model})" if args.generation_method == 'deep_research' else ""))
     print(f"Seed:        {args.seed}")
     print(f"Device:      {args.device}")
     print()
@@ -189,26 +186,15 @@ def run_generation_evaluation(args):
             else:
                 gt_answer = ''
 
-            # Get prediction based on method type
-            if args.method_type == 'no_retrieval':
-                # No retrieval - just generation
+            # Get prediction based on generation method
+            if args.generation_method == 'no_retrieval':
                 reasoning_path, prediction = model.inference(query)
                 ranked_list = []
-
-            elif args.method_type == 'sequential':
-                # Sequential: retrieve first, then generate
-                # Model returns (reasoning_path, prediction)
-                # We need to also track retrieved docs
+            elif args.generation_method == 'single_retrieval':
                 reasoning_path, prediction = model.inference(query)
-                # TODO: Extract ranked_list from model (will be added when we refactor methods)
                 ranked_list = []
-
-            elif args.method_type == 'interleaved':
-                # Interleaved: retrieval and generation happen together
-                # Model returns (reasoning_path, prediction)
-                # reasoning_path contains retrieval steps
+            elif args.generation_method == 'deep_research':
                 reasoning_path, prediction = model.inference(query)
-                # TODO: Extract ranked_list from reasoning_path (will be added when we refactor methods)
                 ranked_list = []
 
             # Compute soft exact match for each tolerance
@@ -486,14 +472,12 @@ def main():
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
     parser.add_argument('--qrel_file', type=str, default=None, help='Path to qrel file (for retrieval pipeline, overrides default)')
 
-    # Model arguments
-    parser.add_argument('--model', type=str, default='openai/gpt-4o', help='Model to use for generation (default: openai/gpt-4o)')
+    # Generation arguments (only used when pipeline=generation)
+    parser.add_argument('--model', type=str, default='openai/gpt-4o', help='Model for generation (default: openai/gpt-4o). Used only when pipeline=generation.')
+    parser.add_argument('--generation_method', type=str, default='no_retrieval', choices=['no_retrieval', 'single_retrieval', 'deep_research'], help='Generation method: no_retrieval, single_retrieval, or deep_research (default: no_retrieval). Used only when pipeline=generation.')
+    parser.add_argument('--deep_research_model', type=str, default='react', choices=['self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Deep research model when generation_method=deep_research (default: react). Used only when pipeline=generation and generation_method=deep_research.')
 
-    # Method type and method
-    parser.add_argument('--method_type', type=str, default='no_retrieval', choices=['no_retrieval', 'sequential', 'interleaved'], help='Method type: no_retrieval, sequential, or interleaved (default: no_retrieval)')
-    parser.add_argument('--method', type=str, default='no_retrieval', choices=['no_retrieval', 'single_retrieval', 'self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Specific method to use (default: no_retrieval)')
-
-    # Retriever arguments
+    # Retriever arguments (used for pipeline=retrieval; also for pipeline=generation when generation_method is single_retrieval or deep_research)
     parser.add_argument('--retriever', type=str, default='contriever', choices=['bm25', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices')
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
@@ -536,8 +520,14 @@ def main():
     # Set model_name_or_path for compatibility
     args.model_name_or_path = args.model
 
-    # Set generation_model for compatibility with existing model classes
-    args.generation_model = args.method
+    # Set generation_model for compatibility with model classes (no_retrieval, single_retrieval, or deep_research model name)
+    if args.pipeline == 'generation':
+        if args.generation_method == 'deep_research':
+            args.generation_model = args.deep_research_model
+        else:
+            args.generation_model = args.generation_method
+    else:
+        args.generation_model = None  # not used for retrieval pipeline
 
     # Set retriever_name for compatibility
     args.retriever_name = args.retriever
@@ -559,12 +549,14 @@ def main():
             # Retrieval pipeline: run_output/{run}/retrieval/{subset_name}/{retriever}_topk{k}
             args.output_dir = f"run_output/{args.run}/retrieval/{args.subset_name}/{args.retriever_name}_topk{args.retrieval_topk}"
         else:
-            # Generation pipeline: run_output/{run}/{model}/{subset_name}/{method}[_{retriever}]
+            # Generation pipeline: run_output/{run}/{model}/{subset_name}/{generation_method}[_{retriever}]
             model_short = args.model_name_or_path.split('/')[-1]
-            if args.method_type == 'no_retrieval':
-                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}"
+            if args.generation_method == 'no_retrieval':
+                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}"
+            elif args.generation_method == 'deep_research':
+                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}_{args.deep_research_model}_{args.retriever_name}"
             else:
-                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.method}_{args.retriever_name}"
+                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}_{args.retriever_name}"
 
     os.makedirs(args.output_dir, exist_ok=True)
     args.output_file = f"{args.output_dir}/evaluation_results.jsonl"
@@ -590,6 +582,15 @@ def main():
             print(f"Error: Qrel file not found: {args.qrel_file}")
             return 1
 
+    # For generation pipeline, generation_method is required (and deep_research_model when generation_method=deep_research)
+    if args.pipeline == 'generation':
+        if args.generation_method not in ('no_retrieval', 'single_retrieval', 'deep_research'):
+            print(f"Error: generation_method must be one of no_retrieval, single_retrieval, deep_research (got {args.generation_method})")
+            return 1
+        if args.generation_method == 'deep_research' and args.deep_research_model not in ('self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'):
+            print(f"Error: deep_research_model must be one of self_ask, react, search_o1, research, search_r1, step_search (got {args.deep_research_model})")
+            return 1
+
     # Run evaluation based on pipeline type
     try:
         if args.pipeline == 'retrieval':
@@ -611,10 +612,11 @@ if __name__ == "__main__":
 # EXAMPLE USAGE
 # ============================================================================
 
-# --- RETRIEVAL PIPELINE (entity recall evaluation) ---
-# python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_topk 100
+# --- RETRIEVAL PIPELINE (only Retriever arguments) ---
+# python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever bm25 --retrieval_topk 100 --limit 5
 # python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever --retrieval_topk 50
 
-# --- GENERATION PIPELINE (full RAG with LLM) ---
-# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type no_retrieval --limit 10
-# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --method_type sequential --method single_retrieval
+# --- GENERATION PIPELINE ---
+# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --generation_method no_retrieval --limit 10
+# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --generation_method single_retrieval --retriever contriever --retrieval_topk 5
+# python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --generation_method deep_research --deep_research_model react --retriever contriever

@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, AutoModel
 from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 
 
+# == For testing the index ====
 # input_file = "corpus_datasets/enwiki_20251001.jsonl"
 # output_file = "corpus_datasets/enwiki_20251001_1.jsonl"
 # with open(input_file, "r", encoding="utf-8") as infile, open(output_file, "w", encoding="utf-8") as outfile:
@@ -29,39 +30,36 @@ from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 #         except json.JSONDecodeError as e:
 #             print(f"Skipping invalid line: {e}")
 
-
-# == For testing the index ====
-def subsample_corpus():
-    num_rows = 5000000
-    input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
-    # output_file = f"./enwiki_20251001_{num_rows}.jsonl"
-    output_file = f"/projects/0/prjs0834/heydars/INDICES/enwiki_20251001_{num_rows}.jsonl"
+# def subsample_corpus():
+#     num_rows = 5000000
+#     input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
+#     # output_file = f"./enwiki_20251001_{num_rows}.jsonl"
+#     output_file = f"/projects/0/prjs0834/heydars/INDICES/enwiki_20251001_{num_rows}.jsonl"
     
-    with open(input_file, 'r', encoding='utf-8', errors='replace') as infile, \
-         open(output_file, 'w', encoding='utf-8') as outfile:
-        for i, line in enumerate(infile):
-            if i >= num_rows:
-                break
-            try:
-                data = json.loads(line)
-                json.dump(data, outfile, ensure_ascii=False)
-                outfile.write("\n")
-            except json.JSONDecodeError:
-                print(f"Skipping line {i}: invalid JSON")
+#     with open(input_file, 'r', encoding='utf-8', errors='replace') as infile, \
+#          open(output_file, 'w', encoding='utf-8') as outfile:
+#         for i, line in enumerate(infile):
+#             if i >= num_rows:
+#                 break
+#             try:
+#                 data = json.loads(line)
+#                 json.dump(data, outfile, ensure_ascii=False)
+#                 outfile.write("\n")
+#             except json.JSONDecodeError:
+#                 print(f"Skipping line {i}: invalid JSON")
 
-
-def print_by_id(doc_id):
-    input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
-    with open(input_file, 'r', encoding='utf-8', errors='replace') as infile:
-        for line in infile:
-            try:
-                data = json.loads(line)
-                if data.get('id') == doc_id:
-                    print(json.dumps(data, indent=2, ensure_ascii=False))
-                    return
-            except json.JSONDecodeError:
-                continue
-    print(f"Document with id {doc_id} not found.")
+# def print_by_id(doc_id):
+#     input_file = "/projects/0/prjs0834/heydars/INDICES/enwiki_20251001.jsonl"
+#     with open(input_file, 'r', encoding='utf-8', errors='replace') as infile:
+#         for line in infile:
+#             try:
+#                 data = json.loads(line)
+#                 if data.get('id') == doc_id:
+#                     print(json.dumps(data, indent=2, ensure_ascii=False))
+#                     return
+#             except json.JSONDecodeError:
+#                 continue
+#     print(f"Document with id {doc_id} not found.")
     
 
 
@@ -407,19 +405,17 @@ def main():
     parser = argparse.ArgumentParser(description = "Creating index...")
 
     # Basic parameters
-    parser.add_argument('--retrieval_method', type=str, default='contriever', choices=[
-        'bm25', 'contriever', 'dpr', 'e5', 'bge'
-    ])
-    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001.jsonl')
-    parser.add_argument('--save_dir', default= 'corpus_datasets/indices',type=str)
+    parser.add_argument('--retrieval_method', type=str, default='e5', choices=['bm25', 'contriever', 'dpr', 'e5', 'bge'])
+    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl')
+    parser.add_argument('--save_dir', default= '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices',type=str)
     
     # Parameters for building dense index
     parser.add_argument('--max_length', type=int, default=256)
-    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--faiss_type', type=str, default='Flat')
     parser.add_argument('--embedding_path', type=str, default=None)
-    parser.add_argument('--save_embedding', action='store_true', default=False)
-    parser.add_argument('--use_fp16', action='store_true', default=False)
+    parser.add_argument('--save_embedding', action='store_true', default=True)
+    parser.add_argument('--use_fp16', action='store_true', default=True)
     parser.add_argument('--faiss_gpu', action='store_true', default=False)
     
     args = parser.parse_args()
@@ -449,7 +445,7 @@ if __name__ == "__main__":
     main()
     
     
-# python c2_corpus_annotation/src/index_builder.py
+# python c2_corpus_creation/index_builder.py
 
 
 
