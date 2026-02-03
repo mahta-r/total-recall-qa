@@ -19,9 +19,9 @@ Deep research models (when generation_method=deep_research):
   self_ask, react, search_o1, research, search_r1, step_search
 
 Usage:
-    # RETRIEVAL PIPELINE - only Retriever arguments
-    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_topk 100
-    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever --retrieval_topk 50
+    # RETRIEVAL PIPELINE - retrieval_eval_ks defines k values for entity recall@k; we retrieve max(eval_ks) (retrieval_topk is not used)
+    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_eval_ks 1 3 10 100
+    python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever
 
     # GENERATION PIPELINE
     # No retrieval (LLM only)
@@ -288,12 +288,14 @@ def _get_passage_id(doc):
 
 def initialize_retriever(args):
     """Initialize retriever for retrieval-only evaluation."""
-    from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+    from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever, SPLADERetriever
     
     print(f"\n=== Initializing Retriever: {args.retriever_name} ===")
     
     if args.retriever_name == 'bm25':
         retriever = BM25Retriever(args)
+    elif args.retriever_name == 'spladepp':
+        retriever = SPLADERetriever(args)
     elif args.retriever_name in ['rerank_l6', 'rerank_l12']:
         retriever = RerankRetriever(args)
     elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
@@ -321,7 +323,7 @@ def run_retrieval_evaluation(args):
     print(f"Dataset:     {args.dataset_name}")
     print(f"Subset:      {args.subset_name}")
     print(f"Retriever:   {args.retriever_name}")
-    print(f"Top-k:       {args.retrieval_topk}")
+    print(f"Eval k's:    {args.retrieval_eval_ks} (retrieving top {args.retrieval_topk} for evaluation)")
     print(f"Qrel File:   {args.qrel_file}")
     print(f"Seed:        {args.seed}")
     print()
@@ -357,13 +359,8 @@ def run_retrieval_evaluation(args):
     print("\n=== Starting Retrieval Evaluation ===")
     all_results = []
     
-    # K values for entity recall
-    k_values = [1, 3, 10, 100, 1000]
-    # Filter k_values to only include values <= retrieval_topk
-    k_values = [k for k in k_values if k <= args.retrieval_topk]
-    if args.retrieval_topk not in k_values:
-        k_values.append(args.retrieval_topk)
-    k_values = sorted(k_values)
+    # K values for entity recall (retrieval pipeline always retrieves max(eval_ks), so all requested k's are computed)
+    k_values = sorted(set(args.retrieval_eval_ks))
     
     # Aggregated metrics
     entity_recall_sums = {k: 0.0 for k in k_values}
@@ -436,7 +433,8 @@ def run_retrieval_evaluation(args):
         metrics_summary = {
             "n": total_count,
             "retriever": args.retriever_name,
-            "retrieval_topk": args.retrieval_topk,
+            "retrieval_eval_ks": args.retrieval_eval_ks,
+            "retrieval_eval_max_k": args.retrieval_topk,  # num docs retrieved for eval (max of eval_ks); retrieval_topk is only for LLM in generation pipeline
         }
         
         for k in k_values:
@@ -478,10 +476,11 @@ def main():
     parser.add_argument('--deep_research_model', type=str, default='react', choices=['self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Deep research model when generation_method=deep_research (default: react). Used only when pipeline=generation and generation_method=deep_research.')
 
     # Retriever arguments (used for pipeline=retrieval; also for pipeline=generation when generation_method is single_retrieval or deep_research)
-    parser.add_argument('--retriever', type=str, default='contriever', choices=['bm25', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
+    parser.add_argument('--retriever', type=str, default='bm25', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices')
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
-    parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of documents to retrieve (default: 3)')
+    parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
+    parser.add_argument('--retrieval_eval_ks', type=int, nargs='+', default=[1, 3, 10, 100], help='K values for retrieval evaluation (entity recall@k). Retrieval pipeline retrieves max(eval_ks) and reports these k’s (default: 1 3 10 100)')
     parser.add_argument('--faiss_gpu', action='store_true', default=False, help='Use GPU for FAISS computation')
 
     # Other arguments
@@ -532,6 +531,10 @@ def main():
     # Set retriever_name for compatibility
     args.retriever_name = args.retriever
 
+    # Retrieval pipeline: retrieval_topk is only for generation (LLM). For retrieval eval we retrieve max(eval_ks).
+    if args.pipeline == 'retrieval':
+        args.retrieval_topk = max(args.retrieval_eval_ks)
+
     # Set model source
     if args.model_name_or_path in ["openai/gpt-4o", "openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "deepseek/deepseek-chat-v3-0324", "qwen/qwen3-235b-a22b-2507"]:
         args.model_source = 'api'
@@ -547,16 +550,16 @@ def main():
     if args.output_dir is None:
         if args.pipeline == 'retrieval':
             # Retrieval pipeline: run_output/{run}/retrieval/{subset_name}/{retriever}_topk{k}
-            args.output_dir = f"run_output/{args.run}/retrieval/{args.subset_name}/{args.retriever_name}_topk{args.retrieval_topk}"
+            args.output_dir = f"run_output/{args.run}/{args.subset_name}/retrieval_{args.retriever_name}"
         else:
             # Generation pipeline: run_output/{run}/{model}/{subset_name}/{generation_method}[_{retriever}]
             model_short = args.model_name_or_path.split('/')[-1]
             if args.generation_method == 'no_retrieval':
-                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}"
+                args.output_dir = f"run_output/{args.run}/{args.subset_name}/{model_short}_{args.generation_method}"
             elif args.generation_method == 'deep_research':
-                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}_{args.deep_research_model}_{args.retriever_name}"
+                args.output_dir = f"run_output/{args.run}/{args.subset_name}/{model_short}_{args.generation_method}_{args.deep_research_model}_{args.retriever_name}"
             else:
-                args.output_dir = f"run_output/{args.run}/{model_short}/{args.subset_name}/{args.generation_method}_{args.retriever_name}"
+                args.output_dir = f"run_output/{args.run}/{args.subset_name}/{model_short}_{args.generation_method}_{args.retriever_name}"
 
     os.makedirs(args.output_dir, exist_ok=True)
     args.output_file = f"{args.output_dir}/evaluation_results.jsonl"

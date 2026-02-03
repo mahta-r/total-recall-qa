@@ -20,7 +20,8 @@ MODEL2PATH = {
     "dpr": "facebook/dpr-question_encoder-single-nq-base",
     "e5": "intfloat/e5-base-v2",
     "bge": "BAAI/bge-large-en-v1.5",
-    "reasonir": 'reasonir/ReasonIR-8B'
+    "reasonir": 'reasonir/ReasonIR-8B',
+    "spladepp": "naver/splade-cocondenser-ensembledistil"
 }
 
 MODEL2POOLING = {
@@ -28,7 +29,8 @@ MODEL2POOLING = {
     "dpr": "pooler",
     "e5": "mean",
     "bge": "cls",
-    "reasonir": 'mean'
+    "reasonir": 'mean',
+    "spladepp": None
 }
 
 def load_model(retrieval_method, model_path: str, use_fp16: bool = False):
@@ -208,6 +210,10 @@ class BaseRetriever:
             self.index_path = f"{config.index_dir}/bm25_index"
             self.pooling_method = None
             self.retrieval_model_path = "cross-encoder/ms-marco-MiniLM-L-6-v2" # "cross-encoder/ms-marco-MiniLM-L-6-v2", "cross-encoder/ms-marco-MiniLM-L12-v2"
+        elif config.retriever_name == 'spladepp':
+            self.index_path = f"{config.index_dir}/spladepp_index"
+            self.pooling_method = None
+            self.retrieval_model_path = MODEL2PATH[config.retriever_name]
         else:
             self.index_path = f"{config.index_dir}/{config.retriever_name}_Flat.index"
             self.retrieval_model_path = MODEL2PATH[config.retriever_name]
@@ -282,6 +288,144 @@ class BM25Retriever(BaseRetriever):
         else:
             return results
 
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        else:
+            return results
+
+class SPLADERetriever(BaseRetriever):
+    """SPLADE++ retriever using Pyserini impact index with custom query encoding."""
+    def __init__(self, config):
+        super().__init__(config)
+        from pyserini.search.lucene import LuceneSearcher
+        
+        # Initialize impact searcher (without encoder, we'll encode queries manually)
+        self.searcher = LuceneSearcher(self.index_path)
+        
+        # Load SPLADE model for query encoding
+        print(f"Loading SPLADE model for queries: {self.retrieval_model_path}")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.retrieval_model_path)
+        self.model = AutoModel.from_pretrained(self.retrieval_model_path)
+        self.model.eval()
+        self.model.cuda()
+        
+        self.contain_doc = self._check_contain_doc()
+        if not self.contain_doc:
+            self.corpus = load_corpus(self.corpus_path)
+        self.max_process_num = 8
+    
+    def _check_contain_doc(self):
+        try:
+            return self.searcher.doc(0).raw() is not None
+        except:
+            return False
+    
+    @torch.no_grad()
+    def _encode_splade_query(self, query: str):
+        """Encode query with SPLADE model - same as document encoding."""
+        # Tokenize
+        inputs = self.tokenizer(
+            query,
+            max_length=512,
+            padding=True,
+            truncation=True,
+            return_tensors='pt'
+        )
+        inputs = {k: v.cuda() for k, v in inputs.items()}
+        
+        # Forward pass
+        outputs = self.model(**inputs)
+        
+        # Get SPLADE representation (same as indexing)
+        hidden_states = outputs.last_hidden_state  # [1, seq_len, vocab_size]
+        
+        # Apply ReLU and log transformation
+        relu_log = torch.log(1 + torch.relu(hidden_states))
+        
+        # Max pool over sequence dimension
+        mask_expanded = inputs['attention_mask'].unsqueeze(-1).expand_as(relu_log)
+        relu_log = relu_log * mask_expanded
+        logits = torch.max(relu_log, dim=1)[0]  # [1, vocab_size]
+        
+        # Get non-zero terms for sparse representation
+        non_zero_indices = torch.nonzero(logits[0] > 0, as_tuple=True)[0]
+        
+        if len(non_zero_indices) == 0:
+            return {}
+        
+        # Convert to token -> weight mapping
+        tokens = self.tokenizer.convert_ids_to_tokens(non_zero_indices.cpu().tolist())
+        weights = logits[0][non_zero_indices].cpu().tolist()
+        
+        sparse_vector = {token: float(weight) for token, weight in zip(tokens, weights)}
+        
+        return sparse_vector
+    
+    def _search(self, query: str, num: int = None, return_score: bool = False):
+        if num is None:
+            num = self.topk
+        
+        # Encode query to sparse vector
+        sparse_query = self._encode_splade_query(query)
+        
+        if not sparse_query:
+            # Empty query, return empty results
+            return ([], []) if return_score else []
+        
+        # Build impact query string: "token1^weight1 token2^weight2 ..."
+        query_tokens = [f"{token}^{weight:.4f}" for token, weight in sparse_query.items()]
+        impact_query = " ".join(query_tokens)
+        
+        # Search with impact query
+        hits = self.searcher.search(impact_query, k=num)
+        
+        if len(hits) < 1:
+            if return_score:
+                return [], []
+            else:
+                return []
+        
+        scores = [hit.score for hit in hits]
+        if len(hits) < num:
+            warnings.warn('Not enough documents retrieved!')
+        else:
+            hits = hits[:num]
+        
+        if self.contain_doc:
+            raw_docs = [
+                json.loads(self.searcher.doc(hit.docid).raw())
+                for hit in hits
+            ]
+            results = []
+            for raw_doc in raw_docs:
+                content = raw_doc.get('contents', '')
+                result = {
+                    'title': content.split("\n")[0].strip("\"") if content else '',
+                    'text': "\n".join(content.split("\n")[1:]) if content else '',
+                    'contents': content
+                }
+                if 'id' in raw_doc:
+                    result['id'] = raw_doc['id']
+                elif 'doc_id' in raw_doc:
+                    result['doc_id'] = raw_doc['doc_id']
+                elif 'passage_id' in raw_doc:
+                    result['passage_id'] = raw_doc['passage_id']
+                results.append(result)
+        else:
+            results = load_docs(self.corpus, [hit.docid for hit in hits])
+        
+        if return_score:
+            return results, scores
+        else:
+            return results
+    
     def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
         results = []
         scores = []
