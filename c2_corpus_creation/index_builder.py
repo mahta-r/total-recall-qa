@@ -608,15 +608,15 @@ def main():
     parser = argparse.ArgumentParser(description = "Creating index...")
 
     # Basic parameters
-    parser.add_argument('--retrieval_method', type=str, default='spladepp', choices=['bm25', 'contriever', 'dpr', 'e5', 'bge', 'spladepp'])
+    parser.add_argument('--retrieval_method', type=str, default='e5', choices=['bm25', 'contriever', 'dpr', 'e5', 'bge', 'spladepp'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl')
     parser.add_argument('--save_dir', default= '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices',type=str)
     
     # Parameters for building dense index
     parser.add_argument('--max_length', type=int, default=256)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--faiss_type', type=str, default='Flat')
-    parser.add_argument('--embedding_path', type=str, default=None)
+    parser.add_argument('--embedding_path', type=str, default="/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/emb_e5.memmap")
     parser.add_argument('--save_embedding', action='store_true', default=True)
     parser.add_argument('--use_fp16', action='store_true', default=True)
     parser.add_argument('--faiss_gpu', action='store_true', default=False)

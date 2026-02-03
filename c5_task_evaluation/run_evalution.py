@@ -85,6 +85,103 @@ def get_existing_results(output_file):
     return generated_qids
 
 
+def _get_soft_match_value(record, pct):
+    """Fetch stored soft match value for a tolerance pct from a result record."""
+    soft_matches = record.get('soft_matches')
+    if not isinstance(soft_matches, dict):
+        return None
+
+    key_variants = [pct, str(pct)]
+    if isinstance(pct, float) and pct.is_integer():
+        key_variants.extend([int(pct), str(int(pct))])
+
+    for key in key_variants:
+        if key in soft_matches:
+            return soft_matches[key]
+    return None
+
+
+def aggregate_generation_metrics_from_file(output_file, tolerance_percentages):
+    """
+    Aggregate generation metrics across every result stored in output_file.
+    This allows resumed runs to report metrics over both past and newly processed queries.
+    """
+    if not os.path.exists(output_file):
+        return None
+
+    exact_match_count = 0
+    soft_match_counts = {pct: 0 for pct in tolerance_percentages}
+    total_count = 0
+
+    with open(output_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            total_count += 1
+
+            prediction = str(data.get('prediction', ''))
+            gt_answer = str(data.get('gt_answer', ''))
+
+            exact_match = data.get('exact_match')
+            if exact_match is None:
+                exact_match = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=None)['exact_match']
+            if exact_match:
+                exact_match_count += 1
+
+            for pct in tolerance_percentages:
+                soft_match = _get_soft_match_value(data, pct)
+                if soft_match is None:
+                    soft_match = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)['soft_match']
+                if soft_match:
+                    soft_match_counts[pct] += 1
+
+    if total_count == 0:
+        return None
+
+    return {
+        "n": total_count,
+        "exact_match_count": exact_match_count,
+        "soft_match_counts": soft_match_counts,
+        "exact_match": exact_match_count / total_count,
+        "soft_exact_match": {pct: soft_match_counts[pct] / total_count for pct in tolerance_percentages},
+    }
+
+
+def aggregate_retrieval_metrics_from_file(output_file, k_values):
+    """
+    Aggregate retrieval metrics across every stored result, ensuring resumed runs
+    report metrics over the union of processed queries.
+    """
+    if not os.path.exists(output_file):
+        return None
+
+    entity_recall_sums = {k: 0.0 for k in k_values}
+    entity_recall_sum_all = 0.0
+    total_count = 0
+
+    with open(output_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            total_count += 1
+            entity_recall_sum_all += float(data.get('entity_recall', 0.0))
+            for k in k_values:
+                entity_recall_sums[k] += float(data.get(f'entity_recall@{k}', 0.0))
+
+    if total_count == 0:
+        return None
+
+    return {
+        "n": total_count,
+        "entity_recall": entity_recall_sum_all / total_count,
+        "entity_recall_by_k": {k: entity_recall_sums[k] / total_count for k in k_values},
+    }
+
+
 def initialize_model(args):
     """Initialize the model based on generation_method and (for deep_research) deep_research_model."""
     print(f"\n=== Initializing Model: {args.generation_method}" + (f" ({args.deep_research_model})" if args.generation_method == 'deep_research' else "") + " ===")
@@ -151,15 +248,8 @@ def run_generation_evaluation(args):
 
     # Main evaluation loop
     print("\n=== Starting Evaluation ===")
-    all_results = []
-
     # Tolerance percentages for soft matching
     tolerance_percentages = [1.0, 5.0, 10.0, 20.0, 50.0, 90.0]
-
-    # Counters for metrics
-    exact_match_count = 0
-    soft_match_counts = {pct: 0 for pct in tolerance_percentages}
-    total_count = 0
 
     # Apply limit if specified
     if args.limit is not None and args.limit > 0:
@@ -167,6 +257,8 @@ def run_generation_evaluation(args):
         print(f"Limiting to first {args.limit} samples")
     else:
         filtered_dataset_items = list(filtered_dataset.items())
+
+    new_queries_processed = 0
 
     with open(args.output_file, 'a') as res_f:
         for i, (qid, sample) in enumerate(tqdm(filtered_dataset_items, desc="Processing queries")):
@@ -202,16 +294,11 @@ def run_generation_evaluation(args):
             for pct in tolerance_percentages:
                 match_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)
                 soft_matches[pct] = match_result['soft_match']
-                if match_result['soft_match']:
-                    soft_match_counts[pct] += 1
 
             # Exact match (no tolerance)
             exact_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=None)
             exact_match = exact_result['exact_match']
-            if exact_match:
-                exact_match_count += 1
-
-            total_count += 1
+            new_queries_processed += 1
 
             # Prepare result
             result_item = {
@@ -233,30 +320,33 @@ def run_generation_evaluation(args):
             if 'aggregation_function' in sample:
                 result_item['aggregation_function'] = sample['aggregation_function']
 
-            all_results.append(result_item)
-
             # Write to file
             res_f.write(json.dumps(result_item) + '\n')
             res_f.flush()
 
-    # Compute metrics summary
-    print("\n=== Evaluation Summary ===")
-    if all_results:
-        print(f"Queries evaluated: {total_count}")
+    if new_queries_processed == 0:
+        print("\nNo new queries processed in this run.")
+    else:
+        print(f"\nNew queries processed in this run: {new_queries_processed}")
 
-        exact_match_pct = (exact_match_count / total_count) * 100
+    # Compute metrics summary aggregated over all stored results
+    aggregated_metrics = aggregate_generation_metrics_from_file(args.output_file, tolerance_percentages)
+    print("\n=== Evaluation Summary (aggregated) ===")
+    if aggregated_metrics:
+        print(f"Total queries evaluated so far: {aggregated_metrics['n']}")
+
+        exact_match_pct = aggregated_metrics['exact_match'] * 100
         print(f"\nExact Match:       {exact_match_pct:.2f}%")
 
         print("\nSoft Exact Match (with tolerance):")
         for pct in sorted(tolerance_percentages):
-            soft_pct = (soft_match_counts[pct] / total_count) * 100
+            soft_pct = aggregated_metrics['soft_exact_match'][pct] * 100
             print(f"  {pct:5.1f}% tolerance: {soft_pct:.2f}%")
 
-        # Save metrics summary
         metrics_summary = {
-            "n": total_count,
-            "exact_match": exact_match_count / total_count,
-            "soft_exact_match": {pct: soft_match_counts[pct] / total_count for pct in tolerance_percentages}
+            "n": aggregated_metrics['n'],
+            "exact_match": aggregated_metrics['exact_match'],
+            "soft_exact_match": aggregated_metrics['soft_exact_match']
         }
 
         metrics_file = args.output_file.replace('.jsonl', '_metrics.json')
@@ -264,7 +354,7 @@ def run_generation_evaluation(args):
             json.dump(metrics_summary, f, indent=2)
         print(f"\nMetrics saved to: {metrics_file}")
     else:
-        print("No new queries processed.")
+        print("No evaluation results available yet.")
 
     print(f"\nResults saved to: {args.output_file}")
     return 0
@@ -357,15 +447,8 @@ def run_retrieval_evaluation(args):
     
     # Main evaluation loop
     print("\n=== Starting Retrieval Evaluation ===")
-    all_results = []
-    
     # K values for entity recall (retrieval pipeline always retrieves max(eval_ks), so all requested k's are computed)
     k_values = sorted(set(args.retrieval_eval_ks))
-    
-    # Aggregated metrics
-    entity_recall_sums = {k: 0.0 for k in k_values}
-    entity_recall_sum_all = 0.0
-    total_count = 0
     
     # Apply limit if specified
     if args.limit is not None and args.limit > 0:
@@ -374,6 +457,8 @@ def run_retrieval_evaluation(args):
     else:
         filtered_dataset_items = list(filtered_dataset.items())
     
+    new_queries_processed = 0
+
     with open(args.output_file, 'a') as res_f:
         for i, (qid, sample) in enumerate(tqdm(filtered_dataset_items, desc="Processing queries")):
             
@@ -390,11 +475,7 @@ def run_retrieval_evaluation(args):
             # Compute entity recall metrics
             metrics = evaluate_entity_retrieval(retrieved_ids, gold_passage_ids, k_values)
             
-            # Accumulate for averaging
-            for k in k_values:
-                entity_recall_sums[k] += metrics[f'entity_recall@{k}']
-            entity_recall_sum_all += metrics['entity_recall']
-            total_count += 1
+            new_queries_processed += 1
             
             # Prepare result
             result_item = {
@@ -418,41 +499,44 @@ def run_retrieval_evaluation(args):
             if 'src' in sample:
                 result_item['src'] = sample['src']
             
-            all_results.append(result_item)
-            
             # Write to file
             res_f.write(json.dumps(result_item) + '\n')
             res_f.flush()
     
-    # Compute metrics summary
-    print("\n=== Retrieval Evaluation Summary ===")
-    if all_results:
-        print(f"Queries evaluated: {total_count}")
-        
+    if new_queries_processed == 0:
+        print("\nNo new queries processed in this run.")
+    else:
+        print(f"\nNew queries processed in this run: {new_queries_processed}")
+
+    # Compute metrics summary aggregated over all stored results
+    aggregated_metrics = aggregate_retrieval_metrics_from_file(args.output_file, k_values)
+    print("\n=== Retrieval Evaluation Summary (aggregated) ===")
+    if aggregated_metrics:
+        print(f"Total queries evaluated so far: {aggregated_metrics['n']}")
+
         print("\nEntity Recall@k:")
         metrics_summary = {
-            "n": total_count,
+            "n": aggregated_metrics['n'],
             "retriever": args.retriever_name,
             "retrieval_eval_ks": args.retrieval_eval_ks,
-            "retrieval_eval_max_k": args.retrieval_topk,  # num docs retrieved for eval (max of eval_ks); retrieval_topk is only for LLM in generation pipeline
+            "retrieval_eval_max_k": args.retrieval_topk,
         }
-        
+
         for k in k_values:
-            mean_recall = entity_recall_sums[k] / total_count
+            mean_recall = aggregated_metrics['entity_recall_by_k'][k]
             metrics_summary[f'entity_recall@{k}'] = mean_recall
             print(f"  Entity Recall@{k:3d}: {mean_recall:.4f} ({mean_recall*100:.2f}%)")
-        
-        mean_recall_all = entity_recall_sum_all / total_count
+
+        mean_recall_all = aggregated_metrics['entity_recall']
         metrics_summary['entity_recall'] = mean_recall_all
         print(f"\n  Entity Recall (all): {mean_recall_all:.4f} ({mean_recall_all*100:.2f}%)")
-        
-        # Save metrics summary
+
         metrics_file = args.output_file.replace('.jsonl', '_metrics.json')
         with open(metrics_file, 'w') as f:
             json.dump(metrics_summary, f, indent=2)
         print(f"\nMetrics saved to: {metrics_file}")
     else:
-        print("No new queries processed.")
+        print("No evaluation results available yet.")
     
     print(f"\nResults saved to: {args.output_file}")
     return 0
@@ -476,9 +560,9 @@ def main():
     parser.add_argument('--deep_research_model', type=str, default='react', choices=['self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Deep research model when generation_method=deep_research (default: react). Used only when pipeline=generation and generation_method=deep_research.')
 
     # Retriever arguments (used for pipeline=retrieval; also for pipeline=generation when generation_method is single_retrieval or deep_research)
-    parser.add_argument('--retriever', type=str, default='bm25', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
+    parser.add_argument('--retriever', type=str, default='e5', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices')
-    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
+    parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
     parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
     parser.add_argument('--retrieval_eval_ks', type=int, nargs='+', default=[1, 3, 10, 100], help='K values for retrieval evaluation (entity recall@k). Retrieval pipeline retrieves max(eval_ks) and reports these k’s (default: 1 3 10 100)')
     parser.add_argument('--faiss_gpu', action='store_true', default=False, help='Use GPU for FAISS computation')
