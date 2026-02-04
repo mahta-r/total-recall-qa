@@ -257,41 +257,53 @@ class Index_Builder:
         print(f"Finish! BM25 index stored at {index_dir}")
 
     def build_spladepp_index(self):
-        """Build a SPLADE++ impact index using direct encoding."""
-        if not self.model_path:
-            raise ValueError("SPLADE++ requires a valid model path.")
-
+        """Build a SPLADE++ impact index using direct encoding or existing vectors.jsonl."""
         self._ensure_module_available("pyserini", "pip install pyserini[impact]")
 
-        vector_dir = os.path.join(self.save_dir, f"{self.retrieval_method}_vectors")
         index_dir = self.index_save_path
-
-        if os.path.exists(vector_dir):
-            shutil.rmtree(vector_dir)
         if os.path.exists(index_dir):
             shutil.rmtree(index_dir)
-
-        os.makedirs(vector_dir, exist_ok=True)
         os.makedirs(index_dir, exist_ok=True)
 
-        # Load SPLADE model directly
-        print(f"Loading SPLADE model: {self.model_path}")
-        tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-        model = AutoModel.from_pretrained(self.model_path)
-        model.eval()
-        model.cuda()
-        if self.use_fp16:
-            model = model.half()
+        # Use existing vectors if embedding_path points to vectors.jsonl or a dir containing it
+        use_existing_vectors = False
+        if self.embedding_path is not None:
+            if os.path.isfile(self.embedding_path):
+                if os.path.basename(self.embedding_path) == "vectors.jsonl":
+                    vector_dir = os.path.dirname(os.path.abspath(self.embedding_path))
+                    use_existing_vectors = True
+            elif os.path.isdir(self.embedding_path):
+                vectors_file = os.path.join(self.embedding_path, "vectors.jsonl")
+                if os.path.isfile(vectors_file):
+                    vector_dir = os.path.abspath(self.embedding_path.rstrip(os.sep))
+                    use_existing_vectors = True
+            if use_existing_vectors:
+                print(f"Using existing SPLADE++ vectors from {vector_dir} (indexing only).")
 
-        # Encode corpus
-        print(f"Encoding corpus with SPLADE++ (batch size: {self.batch_size})...")
-        self._encode_splade_corpus(model, tokenizer, vector_dir)
+        if not use_existing_vectors:
+            if not self.model_path:
+                raise ValueError("SPLADE++ requires a valid model path or --embedding_path to vectors.jsonl.")
+            vector_dir = os.path.join(self.save_dir, f"{self.retrieval_method}_vectors")
+            if os.path.exists(vector_dir):
+                shutil.rmtree(vector_dir)
+            os.makedirs(vector_dir, exist_ok=True)
 
-        # Clean up model to free memory
-        del model, tokenizer
-        torch.cuda.empty_cache()
+            # Load SPLADE model and encode corpus
+            print(f"Loading SPLADE model: {self.model_path}")
+            tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+            model = AutoModel.from_pretrained(self.model_path)
+            model.eval()
+            model.cuda()
+            if self.use_fp16:
+                model = model.half()
 
-        # Build Lucene impact index
+            print(f"Encoding corpus with SPLADE++ (batch size: {self.batch_size})...")
+            self._encode_splade_corpus(model, tokenizer, vector_dir)
+
+            del model, tokenizer
+            torch.cuda.empty_cache()
+
+        # Build Lucene impact index from vector_dir
         cpu_threads = os.cpu_count() or 1
         cpu_threads = max(1, min(cpu_threads, 32))
         index_cmd = [
@@ -308,11 +320,12 @@ class Index_Builder:
         print("Building Lucene impact index for SPLADE++ outputs...")
         subprocess.run(index_cmd, check=True)
 
-        if not self.save_embedding and os.path.isdir(vector_dir):
-            shutil.rmtree(vector_dir)
-            print("Temporary SPLADE vector directory removed.")
-        else:
-            print(f"SPLADE vector dumps preserved at {vector_dir}")
+        if not use_existing_vectors:
+            if not self.save_embedding and os.path.isdir(vector_dir):
+                shutil.rmtree(vector_dir)
+                print("Temporary SPLADE vector directory removed.")
+            else:
+                print(f"SPLADE vector dumps preserved at {vector_dir}")
 
         print(f"Finish! SPLADE++ index stored at {index_dir}")
 
@@ -608,7 +621,7 @@ def main():
     parser = argparse.ArgumentParser(description = "Creating index...")
 
     # Basic parameters
-    parser.add_argument('--retrieval_method', type=str, default='e5', choices=['bm25', 'contriever', 'dpr', 'e5', 'bge', 'spladepp'])
+    parser.add_argument('--retrieval_method', type=str, default='bge', choices=['bm25', 'spladepp', 'contriever', 'dpr', 'e5', 'bge'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl')
     parser.add_argument('--save_dir', default= '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices',type=str)
     
@@ -656,49 +669,12 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-
-# def add_in_batches(index, x, bs=50_000):
-#     n = x.shape[0]
-#     for i in range(0, n, bs):
-#         index.add(x[i:i+bs])
-# add_in_batches(faiss_index, all_embeddings, bs=50_000)
-
-# Free big arrays before serializing
-# import gc
-# try:
-#     del all_embeddings
-# except NameError:
-#     pass
-# gc.collect()
-
-# # If you used GPU elsewhere:
-# try:
-#     import torch
-#     torch.cuda.empty_cache()
-# except Exception:
-#     pass
-
-# if self.have_contents:
-#     shutil.copyfile(self.corpus_path, temp_file_path)
-# else:
-#     with open(temp_file_path, "w") as f:
-#         for item in self.corpus:
-#             f.write(json.dumps(item) + "\n")
-
-# if args.pooling_method is None:
-#     pooling_method = 'mean'
-#     for k,v in MODEL2POOLING.items():
-#         if k in args.retrieval_method.lower():
-#             pooling_method = v
-#             break
-# else:
-#     if args.pooling_method not in ['mean','cls','pooler']:
-#         raise NotImplementedError
-#     else:
-#         pooling_method = args.pooling_method
+### --- For embedding with SPLADE++ ---
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --gpus=1
+#SBATCH --cpus-per-task=32
+#SBATCH --partition=gpu_h100
+#SBATCH --time=6:00:00
+#SBATCH --mem=40GB
+#SBATCH --output=script_logging/slurm_%A.out

@@ -49,24 +49,24 @@ api = HfApi(token=HF_TOKEN)
 # print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main/{PATH_IN_REPO}")
 
 # --- BM25 index
-REPO_ID = "HeydarS/enwiki_20251001_bm25_index"
-LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bm25_index"
-PATH_IN_REPO = ""
-api.create_repo(
-    repo_id=REPO_ID,
-    repo_type="dataset",
-    private=False,
-    exist_ok=True
-)
-api.upload_folder(
-    repo_id=REPO_ID,
-    repo_type="dataset",
-    folder_path=LOCAL_FOLDER,
-    path_in_repo=PATH_IN_REPO,
-    commit_message="Add BM25 index folder",
-    ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
-)
-print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
+# REPO_ID = "HeydarS/enwiki_20251001_bm25_index"
+# LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bm25_index"
+# PATH_IN_REPO = ""
+# api.create_repo(
+#     repo_id=REPO_ID,
+#     repo_type="dataset",
+#     private=False,
+#     exist_ok=True
+# )
+# api.upload_folder(
+#     repo_id=REPO_ID,
+#     repo_type="dataset",
+#     folder_path=LOCAL_FOLDER,
+#     path_in_repo=PATH_IN_REPO,
+#     commit_message="Add BM25 index folder",
+#     ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
+# )
+# print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
 
 # --- Contriever Index 
 # split -b 45G /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index.part_
@@ -90,25 +90,25 @@ print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/
 # print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
 
 # --- E5 Index 
-# split -b 45G /projects/0/prjs0834/heydars/INDICES/e5_Flat.index /projects/0/prjs0834/heydars/INDICES/e5_Flat.index.part_
-# REPO_ID = "HeydarS/e5_index"
-# LOCAL_FOLDER = "/projects/0/prjs0834/heydars/INDICES"
-# PATH_IN_REPO = ""
-# api.create_repo(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     private=False,
-#     exist_ok=True
-# )
-# api.upload_folder(
-#     folder_path=LOCAL_FOLDER,
-#     path_in_repo=PATH_IN_REPO,
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     allow_patterns=["e5_Flat.index.part_*"],
-#     commit_message="Upload sharded FAISS index parts (<50GB each)"
-# )
-# print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index.part_
+REPO_ID = "HeydarS/enwiki_20251001_e5_index"
+LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices"
+PATH_IN_REPO = ""
+api.create_repo(
+    repo_id=REPO_ID,
+    repo_type="dataset",
+    private=False,
+    exist_ok=True
+)
+api.upload_folder(
+    folder_path=LOCAL_FOLDER,
+    path_in_repo=PATH_IN_REPO,
+    repo_id=REPO_ID,
+    repo_type="dataset",
+    allow_patterns=["e5_Flat.index.part_*"],
+    commit_message="Upload sharded FAISS index parts (<50GB each)"
+)
+print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
 
 
 

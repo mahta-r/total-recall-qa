@@ -26,8 +26,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python $HOME/total-recall-rag/c2_corpus_creation/in
     --corpus_path $corpus_file \
     --save_dir $save_dir \
     --use_fp16 \
-    --max_length 256 \
-    --batch_size 512 \
+    --max_length 512 \
+    --batch_size 256 \
     --faiss_type Flat \
     --save_embedding \
     --embedding_path $embedding_path
