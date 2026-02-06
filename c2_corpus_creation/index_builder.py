@@ -1,3 +1,4 @@
+import errno
 import os
 import json
 import torch
@@ -11,7 +12,7 @@ import numpy as np
 import importlib.util
 from tqdm import tqdm
 from typing import cast
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
 from transformers import DPRContextEncoder, DPRContextEncoderTokenizerFast
 
 
@@ -86,6 +87,10 @@ MODEL2PATH = {
 }
 
 SPLADE_FIELD_DELIMITER = "<<<PY_FIELD_SEPARATOR>>>"
+# Must match retrieval_models_local._SPLADEQueryEncoderForImpact for index/query compatibility.
+# JsonVectorCollection (Anserini) expects sparse vector values as integers (asInt()); floats get truncated to 0.
+SPLADE_WEIGHT_RANGE = 5
+SPLADE_QUANT_RANGE = 256
 
 def load_model(retrieval_method, model_path: str, use_fp16: bool = False):
     if retrieval_method == 'dpr':
@@ -288,10 +293,10 @@ class Index_Builder:
                 shutil.rmtree(vector_dir)
             os.makedirs(vector_dir, exist_ok=True)
 
-            # Load SPLADE model and encode corpus
+            # Load SPLADE model and encode corpus (official SPLADE uses MLM head logits, not encoder hidden states)
             print(f"Loading SPLADE model: {self.model_path}")
             tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-            model = AutoModel.from_pretrained(self.model_path)
+            model = AutoModelForMaskedLM.from_pretrained(self.model_path)
             model.eval()
             model.cuda()
             if self.use_fp16:
@@ -403,21 +408,16 @@ class Index_Builder:
         )
         inputs = {k: v.cuda() for k, v in inputs.items()}
         
-        # Forward pass
+        # Forward pass (SPLADE uses MLM logits per official naver/splade: log(1+ReLU(logits)) then max pool)
         outputs = model(**inputs)
+        # logits: [batch, seq_len, vocab_size] from AutoModelForMaskedLM
+        mlm_logits = outputs.logits
         
-        # Get SPLADE representation
-        # Standard SPLADE: log(1 + ReLU(hidden_states)) with max pooling
-        hidden_states = outputs.last_hidden_state  # [batch, seq_len, vocab_size]
-        
-        # Apply ReLU and log transformation
-        relu_log = torch.log(1 + torch.relu(hidden_states))
-        
-        # Max pool over sequence dimension, considering attention mask
-        # Shape: [batch, seq_len, vocab_size] -> [batch, vocab_size]
+        # Apply ReLU and log transformation, then max pool over sequence (same as Splade.encode in naver/splade)
+        relu_log = torch.log(1 + torch.relu(mlm_logits))
         mask_expanded = inputs['attention_mask'].unsqueeze(-1).expand_as(relu_log)
         relu_log = relu_log * mask_expanded
-        logits = torch.max(relu_log, dim=1)[0]
+        logits = torch.max(relu_log, dim=1)[0]  # [batch, vocab_size]
         
         # Convert to sparse representation
         for doc_id, doc_logits in zip(batch_ids, logits):
@@ -428,9 +428,14 @@ class Index_Builder:
                 # Get tokens and weights
                 tokens = tokenizer.convert_ids_to_tokens(non_zero_indices.cpu().tolist())
                 weights = doc_logits[non_zero_indices].cpu().tolist()
-                
-                # Create sparse vector dict
-                vector = {token: float(weight) for token, weight in zip(tokens, weights)}
+                # Quantize to int: Anserini JsonVectorCollection uses asInt() for sparse vectors;
+                # floats get truncated (0.9 -> 0), so most doc terms would be dropped. Use same
+                # scale as query encoder (retrieval_models_local._SPLADEQueryEncoderForImpact).
+                vector = {}
+                for token, w in zip(tokens, weights):
+                    q = int(round(float(w) / SPLADE_WEIGHT_RANGE * SPLADE_QUANT_RANGE))
+                    if q >= 1:  # only index terms with positive quantized weight
+                        vector[token] = q
             else:
                 vector = {}
             
@@ -443,7 +448,7 @@ class Index_Builder:
             output_file.write(json.dumps(output_doc) + '\n')
         
         # Clean up
-        del inputs, outputs, logits
+        del inputs, outputs, mlm_logits, relu_log, logits
         torch.cuda.empty_cache()
 
     def _load_embedding(self, embedding_path, corpus_size, hidden_size):
@@ -575,8 +580,12 @@ class Index_Builder:
         else:
             all_embeddings = self.encode_all()
             if self.save_embedding:
-                self._save_embedding(all_embeddings)
-            
+                try:
+                    self._save_embedding(all_embeddings)
+                except (MemoryError, OSError) as e:
+                    if isinstance(e, OSError) and getattr(e, "errno", None) != errno.ENOMEM:
+                        raise
+                    print(f"WARNING: Could not save embeddings (OOM): {e}. Continuing to build index.")
             del self.corpus
 
         # build index
@@ -621,15 +630,15 @@ def main():
     parser = argparse.ArgumentParser(description = "Creating index...")
 
     # Basic parameters
-    parser.add_argument('--retrieval_method', type=str, default='bge', choices=['bm25', 'spladepp', 'contriever', 'dpr', 'e5', 'bge'])
+    parser.add_argument('--retrieval_method', type=str, default='spladepp', choices=['spladepp', 'spladepp', 'contriever', 'dpr', 'e5', 'bge'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl')
     parser.add_argument('--save_dir', default= '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices',type=str)
     
     # Parameters for building dense index
-    parser.add_argument('--max_length', type=int, default=256)
+    parser.add_argument('--max_length', type=int, default=512)
     parser.add_argument('--batch_size', type=int, default=512)
     parser.add_argument('--faiss_type', type=str, default='Flat')
-    parser.add_argument('--embedding_path', type=str, default="/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/emb_e5.memmap")
+    parser.add_argument('--embedding_path', type=str, default=None)
     parser.add_argument('--save_embedding', action='store_true', default=True)
     parser.add_argument('--use_fp16', action='store_true', default=True)
     parser.add_argument('--faiss_gpu', action='store_true', default=False)
@@ -638,6 +647,7 @@ def main():
     args.model_path = MODEL2PATH[args.retrieval_method]
     pooling_method = MODEL2POOLING.get(args.retrieval_method)
 
+    print(f"Building index for {args.retrieval_method} with model {args.model_path} and corpus {args.corpus_path}")
     index_builder = Index_Builder(
         retrieval_method = args.retrieval_method,
         model_path = args.model_path,

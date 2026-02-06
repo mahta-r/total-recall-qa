@@ -10,8 +10,8 @@ import numpy as np
 from tqdm import tqdm
 from typing import List
 from sentence_transformers import CrossEncoder
-from pyserini.search.lucene import LuceneSearcher
-from transformers import AutoTokenizer, AutoModel
+from pyserini.search.lucene import LuceneSearcher, LuceneImpactSearcher
+from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
 from transformers import DPRQuestionEncoder, DPRQuestionEncoderTokenizerFast
 
 
@@ -33,7 +33,7 @@ MODEL2POOLING = {
     "spladepp": None
 }
 
-def load_model(retrieval_method, model_path: str, use_fp16: bool = False):
+def load_model(retrieval_method, model_path: str, use_fp16: bool = False, device=None):
     if retrieval_method == 'dpr':
         tokenizer = DPRQuestionEncoderTokenizerFast.from_pretrained(model_path)
         model = DPRQuestionEncoder.from_pretrained(model_path)
@@ -42,7 +42,10 @@ def load_model(retrieval_method, model_path: str, use_fp16: bool = False):
         model = AutoModel.from_pretrained(model_path, trust_remote_code=True)
     
     model.eval()
-    model.cuda()
+    if device is not None:
+        model = model.to(device)
+    else:
+        model = model.cuda()
     if use_fp16: 
         model = model.half()
         
@@ -78,13 +81,23 @@ def load_corpus(corpus_path: str):
 #     # results = [corpus[idx] for idx in doc_idxs]
 #     return results
 
-def load_docs(corpus, doc_idxs):
-    # doc_idxs can be a NumPy array; make sure it's a plain list of ints
-    doc_idxs = [int(i) for i in doc_idxs]
+def load_docs(corpus, doc_idxs, id2idx=None):
+    """
+    Load documents by index or by id.
+    doc_idxs: list of int (corpus position) or str (external doc id like '46967975-0012').
+    id2idx: optional dict mapping doc id -> corpus position. Required when doc_idxs are strings.
+    """
+    # Handle string ids (e.g. from LuceneImpactSearcher returning external docids)
+    if doc_idxs and isinstance(doc_idxs[0], str):
+        if id2idx is None:
+            raise ValueError("doc_idxs are strings (external ids) but id2idx mapping not provided")
+        doc_idxs = [id2idx.get(i) for i in doc_idxs]
+        doc_idxs = [x for x in doc_idxs if x is not None]
+    else:
+        doc_idxs = [int(i) for i in doc_idxs]
 
     # pandas DataFrame: select rows by position
     if hasattr(corpus, "iloc"):
-        # returns a DataFrame of the selected rows
         return corpus.iloc[doc_idxs]
 
     # HuggingFace Dataset or list-like
@@ -93,24 +106,25 @@ def load_docs(corpus, doc_idxs):
 
     # dict keyed by integer ids
     if isinstance(corpus, dict):
-        # only use this if your keys are ints that align with positions
         return [corpus[i] for i in doc_idxs]
 
     # Fallback: try positional access
     return [corpus[int(i)] for i in doc_idxs]
 
 class Encoder:
-    def __init__(self, model_name, model_path, pooling_method, max_length, use_fp16):
+    def __init__(self, model_name, model_path, pooling_method, max_length, use_fp16, device=None):
         self.model_name = model_name
         self.model_path = model_path
         self.pooling_method = pooling_method
         self.max_length = max_length
         self.use_fp16 = use_fp16
+        self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.model, self.tokenizer = load_model(
             retrieval_method=self.model_name,
-            model_path = self.model_path,
-            use_fp16 = self.use_fp16
+            model_path=self.model_path,
+            use_fp16=self.use_fp16,
+            device=self.device
         )
         self.model.eval()
 
@@ -138,7 +152,7 @@ class Encoder:
             truncation=True,
             return_tensors="pt"
         )
-        inputs = {k: v.cuda() for k, v in inputs.items()}
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # ----- forward + pooling -----
         model_cls = type(self.model).__name__
@@ -300,104 +314,108 @@ class BM25Retriever(BaseRetriever):
         else:
             return results
 
-class SPLADERetriever(BaseRetriever):
-    """SPLADE++ retriever using Pyserini impact index with custom query encoding."""
-    def __init__(self, config):
-        super().__init__(config)
-        from pyserini.search.lucene import LuceneSearcher
-        
-        # Initialize impact searcher (without encoder, we'll encode queries manually)
-        self.searcher = LuceneSearcher(self.index_path)
-        
-        # Load SPLADE model for query encoding
-        print(f"Loading SPLADE model for queries: {self.retrieval_model_path}")
-        self.tokenizer = AutoTokenizer.from_pretrained(self.retrieval_model_path)
-        self.model = AutoModel.from_pretrained(self.retrieval_model_path)
+class _SPLADEQueryEncoderForImpact:
+    """Query encoder for LuceneImpactSearcher: encode(query) -> Dict[str, int] (token -> quantized weight)."""
+    # Same quantization as Pyserini SpladeQueryEncoder for index compatibility
+    WEIGHT_RANGE = 5
+    QUANT_RANGE = 256
+
+    def __init__(self, model_path: str, device, max_length: int = 256, use_fp16: bool = False):
+        self.device = device
+        self.max_length = max_length
+        print(f"Loading SPLADE model for impact queries: {model_path}")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        # SPLADE uses MLM head logits (official naver/splade), not encoder hidden states
+        self.model = AutoModelForMaskedLM.from_pretrained(model_path)
         self.model.eval()
-        self.model.cuda()
-        
-        self.contain_doc = self._check_contain_doc()
-        if not self.contain_doc:
-            self.corpus = load_corpus(self.corpus_path)
-        self.max_process_num = 8
-    
-    def _check_contain_doc(self):
-        try:
-            return self.searcher.doc(0).raw() is not None
-        except:
-            return False
-    
+        self.model = self.model.to(device)
+        if use_fp16:
+            self.model = self.model.half()
+
     @torch.no_grad()
-    def _encode_splade_query(self, query: str):
-        """Encode query with SPLADE model - same as document encoding."""
-        # Tokenize
+    def encode(self, query: str):
+        """Return Dict[str, int] for LuceneImpactSearcher (token -> quantized weight)."""
         inputs = self.tokenizer(
             query,
-            max_length=512,
+            max_length=self.max_length,
             padding=True,
             truncation=True,
             return_tensors='pt'
         )
-        inputs = {k: v.cuda() for k, v in inputs.items()}
-        
-        # Forward pass
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
         outputs = self.model(**inputs)
-        
-        # Get SPLADE representation (same as indexing)
-        hidden_states = outputs.last_hidden_state  # [1, seq_len, vocab_size]
-        
-        # Apply ReLU and log transformation
-        relu_log = torch.log(1 + torch.relu(hidden_states))
-        
-        # Max pool over sequence dimension
+        # logits: [1, seq_len, vocab_size] from AutoModelForMaskedLM (same as naver/splade)
+        mlm_logits = outputs.logits
+        relu_log = torch.log(1 + torch.relu(mlm_logits))
         mask_expanded = inputs['attention_mask'].unsqueeze(-1).expand_as(relu_log)
         relu_log = relu_log * mask_expanded
         logits = torch.max(relu_log, dim=1)[0]  # [1, vocab_size]
-        
-        # Get non-zero terms for sparse representation
         non_zero_indices = torch.nonzero(logits[0] > 0, as_tuple=True)[0]
-        
         if len(non_zero_indices) == 0:
             return {}
-        
-        # Convert to token -> weight mapping
         tokens = self.tokenizer.convert_ids_to_tokens(non_zero_indices.cpu().tolist())
         weights = logits[0][non_zero_indices].cpu().tolist()
-        
-        sparse_vector = {token: float(weight) for token, weight in zip(tokens, weights)}
-        
-        return sparse_vector
-    
+        # Quantize to int like Pyserini (LuceneImpactSearcher expects JInt)
+        out = {}
+        for token, w in zip(tokens, weights):
+            out[token] = int(round(float(w) / self.WEIGHT_RANGE * self.QUANT_RANGE))
+        return out
+
+
+class SPLADERetriever(BaseRetriever):
+    """SPLADE++ retriever using Pyserini impact index with LuceneImpactSearcher."""
+    def __init__(self, config):
+        super().__init__(config)
+        device = getattr(config, 'device', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        splade_max_length = getattr(config, 'splade_max_length', 256)
+        use_fp16 = getattr(config, 'retrieval_use_fp16', False)
+        query_encoder = _SPLADEQueryEncoderForImpact(
+            self.retrieval_model_path, device, max_length=splade_max_length, use_fp16=use_fp16
+        )
+        # Impact index must be searched with LuceneImpactSearcher, not LuceneSearcher (BM25)
+        self.searcher = LuceneImpactSearcher(
+            self.index_path, query_encoder=query_encoder, min_idf=0, encoder_type='pytorch'
+        )
+        # SPLADE impact index stores docs with empty 'contents'; LuceneImpactSearcher returns
+        # external docids (strings). Pyserini's doc() expects internal Lucene docid, so we
+        # always resolve hits via corpus + id2idx instead of reading from index.
+        self.contain_doc = False
+        self._corpus_id2idx = None
+        self.corpus = load_corpus(self.corpus_path)
+        self._build_corpus_id2idx()
+        self.max_process_num = 8
+
+    def _build_corpus_id2idx(self):
+        """Build mapping from doc id to corpus position for lookup by external id."""
+        if self._corpus_id2idx is not None:
+            return
+        print("Building corpus id->index mapping (for lookup by passage id)...")
+        id2idx = {}
+        id_key = 'id'
+        for idx, doc in enumerate(tqdm(self.corpus, desc="Corpus id mapping", disable=len(self.corpus) < 10000)):
+            doc_id = doc.get(id_key) or doc.get('doc_id') or doc.get('passage_id')
+            if doc_id is not None:
+                id2idx[str(doc_id)] = idx
+        self._corpus_id2idx = id2idx
+        print(f"Built id mapping for {len(id2idx):,} documents")
+
+    def _check_contain_doc(self):
+        try:
+            return self.searcher.doc(0).raw() is not None
+        except Exception:
+            return False
+
     def _search(self, query: str, num: int = None, return_score: bool = False):
         if num is None:
             num = self.topk
-        
-        # Encode query to sparse vector
-        sparse_query = self._encode_splade_query(query)
-        
-        if not sparse_query:
-            # Empty query, return empty results
-            return ([], []) if return_score else []
-        
-        # Build impact query string: "token1^weight1 token2^weight2 ..."
-        query_tokens = [f"{token}^{weight:.4f}" for token, weight in sparse_query.items()]
-        impact_query = " ".join(query_tokens)
-        
-        # Search with impact query
-        hits = self.searcher.search(impact_query, k=num)
-        
+        hits = self.searcher.search(query, k=num)
         if len(hits) < 1:
-            if return_score:
-                return [], []
-            else:
-                return []
-        
+            return ([], []) if return_score else []
         scores = [hit.score for hit in hits]
         if len(hits) < num:
             warnings.warn('Not enough documents retrieved!')
         else:
             hits = hits[:num]
-        
         if self.contain_doc:
             raw_docs = [
                 json.loads(self.searcher.doc(hit.docid).raw())
@@ -419,13 +437,12 @@ class SPLADERetriever(BaseRetriever):
                     result['passage_id'] = raw_doc['passage_id']
                 results.append(result)
         else:
-            results = load_docs(self.corpus, [hit.docid for hit in hits])
-        
+            # LuceneImpactSearcher returns external docids (strings); need id2idx for lookup
+            results = load_docs(self.corpus, [hit.docid for hit in hits], id2idx=self._corpus_id2idx)
         if return_score:
             return results, scores
-        else:
-            return results
-    
+        return results
+
     def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
         results = []
         scores = []
@@ -435,8 +452,7 @@ class SPLADERetriever(BaseRetriever):
             scores.append(item_score)
         if return_score:
             return results, scores
-        else:
-            return results
+        return results
 
 class RerankRetriever(BaseRetriever):
     def __init__(self, config):
@@ -499,34 +515,42 @@ class RerankRetriever(BaseRetriever):
 class DenseRetriever(BaseRetriever):
     def __init__(self, config):
         super().__init__(config)
+        device = getattr(config, 'device', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        if isinstance(device, torch.device) and device.type == 'cuda':
+            device_id = device.index if device.index is not None else 0
+        else:
+            device_id = 0
+
         print('loading index ...')
         self.index = faiss.read_index(self.index_path)
         if config.faiss_gpu:
-            print("Using FAISS with GPU ...")
-            # --- Multi-GPUs: Only run with A100 (2 GPUs), H100 leads to an error
-            co = faiss.GpuMultipleClonerOptions()
-            co.useFloat16 = True
-            co.shard = True
-            self.index = faiss.index_cpu_to_all_gpus(self.index, co=co)
-
-            # --- Single-GPU
-            # device_id = torch.cuda.current_device()
-            # print(f'Using faiss_gpu on process {device_id}...')
-            # res = faiss.StandardGpuResources() # Get GPU resource for this device
-            # co = faiss.GpuClonerOptions()
-            # co.useFloat16 = True
-            # self.index = faiss.index_cpu_to_gpu(res, device_id, self.index, co)
+            # When one device is set (e.g. multi-GPU worker), use single-GPU FAISS.
+            # Otherwise use all GPUs (legacy behavior).
+            use_single_gpu = hasattr(config, '_faiss_single_gpu') and config._faiss_single_gpu
+            if use_single_gpu:
+                print(f"Using FAISS on GPU {device_id} ...")
+                res = faiss.StandardGpuResources()
+                co = faiss.GpuClonerOptions()
+                co.useFloat16 = True
+                self.index = faiss.index_cpu_to_gpu(res, device_id, self.index, co)
+            else:
+                print("Using FAISS with GPU (all GPUs) ...")
+                co = faiss.GpuMultipleClonerOptions()
+                co.useFloat16 = True
+                co.shard = True
+                self.index = faiss.index_cpu_to_all_gpus(self.index, co=co)
 
         print('loading corpus ...')
         self.corpus = load_corpus(self.corpus_path)
         print(self.corpus)
         print(self.corpus[0])
         self.encoder = Encoder(
-            model_name = config.retriever_name,
-            model_path = self.retrieval_model_path,
-            pooling_method = self.pooling_method,
-            max_length = config.retrieval_query_max_length,
-            use_fp16 = config.retrieval_use_fp16
+            model_name=config.retriever_name,
+            model_path=self.retrieval_model_path,
+            pooling_method=self.pooling_method,
+            max_length=config.retrieval_query_max_length,
+            use_fp16=config.retrieval_use_fp16,
+            device=device
         )
         self.topk = config. retrieval_topk
         self.batch_size = config.retrieval_batch_size

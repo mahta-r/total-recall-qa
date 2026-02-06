@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=25
-#SBATCH --partition=staging
-#SBATCH --time=10:00:00
-#SBATCH --mem=180GB
+#SBATCH --cpus-per-task=16
+#SBATCH --gres=gpu:1
+#SBATCH --partition=gpu_h100
+#SBATCH --time=21:00:00
+#SBATCH --mem=64GB
 #SBATCH --output=script_logging/slurm_%A.out
 
 
@@ -24,15 +25,13 @@ corpus_file=corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl
 save_dir=/projects/0/prjs0834/heydars/CORPUS_Mahta/indices
 retriever_name=spladepp
 # When set: index-only from existing vectors (no GPU needed). When commented out: encode + index.
-embedding_path=/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/spladepp_vectors/vectors.jsonl
+# embedding_path=/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/spladepp_vectors/vectors.jsonl
 
 # Fail fast if we expect index-only but vectors are missing
 if [ -n "$embedding_path" ] && [ ! -f "$embedding_path" ]; then
     echo "ERROR: embedding_path is set but file not found: $embedding_path"
     exit 1
 fi
-
-# With embedding_path set: indexing only (no encoding, no GPU). Otherwise: SPLADE++ encode + index (~15-18h for 57M docs).
 
 python $HOME/total-recall-rag/c2_corpus_creation/index_builder.py \
     --retrieval_method $retriever_name \
@@ -41,5 +40,9 @@ python $HOME/total-recall-rag/c2_corpus_creation/index_builder.py \
     --use_fp16 \
     --max_length 256 \
     --batch_size 512 \
-    --save_embedding \
-    --embedding_path $embedding_path
+    --save_embedding
+
+
+
+# Index-only (embedding_path set): remove --gres=gpu:1, use --time=04:00:00, --mem=128GB
+
