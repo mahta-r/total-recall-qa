@@ -7,8 +7,9 @@ import torch
 import warnings
 import datasets
 import numpy as np
+from pathlib import Path
 from tqdm import tqdm
-from typing import List
+from typing import List, Dict
 from sentence_transformers import CrossEncoder
 from pyserini.search.lucene import LuceneSearcher, LuceneImpactSearcher
 from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
@@ -110,6 +111,45 @@ def load_docs(corpus, doc_idxs, id2idx=None):
 
     # Fallback: try positional access
     return [corpus[int(i)] for i in doc_idxs]
+
+
+def _id2idx_cache_path(corpus_path: str) -> Path:
+    """Path to cached id->index mapping in the corpus directory (same basename, .json)."""
+    p = Path(corpus_path)
+    return p.parent / f"id2idx_{p.stem}.json"
+
+
+def load_or_build_id2idx(corpus, corpus_path: str, desc: str = "Corpus id mapping") -> Dict[str, int]:
+    """
+    Build mapping from passage id (string) to corpus index. On first run, save to
+    corpus_dir/id2idx_{corpus_stem}.json; on subsequent runs load from that file.
+    """
+    cache_path = _id2idx_cache_path(corpus_path)
+    if cache_path.exists():
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                id2idx = json.load(f)
+            # JSON keys are always str; values may be int or become int
+            id2idx = {k: int(v) for k, v in id2idx.items()}
+            print(f"Loaded id->index mapping from cache: {cache_path} ({len(id2idx):,} documents)")
+            return id2idx
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            print(f"Cache read failed ({e}); rebuilding id->index mapping...")
+    id2idx = {}
+    n = len(corpus)
+    for idx in tqdm(range(n), desc=desc, disable=n < 10000):
+        doc = corpus[idx]
+        doc_id = doc.get('id') or doc.get('passage_id') or doc.get('doc_id')
+        if doc_id is not None:
+            id2idx[str(doc_id)] = idx
+    try:
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(id2idx, f)
+        print(f"Built and saved id mapping for {len(id2idx):,} documents to {cache_path}")
+    except OSError as e:
+        print(f"Built id mapping for {len(id2idx):,} documents (could not save cache: {e})")
+    return id2idx
+
 
 class Encoder:
     def __init__(self, model_name, model_path, pooling_method, max_length, use_fp16, device=None):
@@ -224,6 +264,11 @@ class BaseRetriever:
             self.index_path = f"{config.index_dir}/bm25_index"
             self.pooling_method = None
             self.retrieval_model_path = "cross-encoder/ms-marco-MiniLM-L-6-v2" # "cross-encoder/ms-marco-MiniLM-L-6-v2", "cross-encoder/ms-marco-MiniLM-L12-v2"
+        elif config.retriever_name in ['oracle', 'precomputed']:
+            # No neural model or index - uses qrels or precomputed TREC run
+            self.index_path = None
+            self.pooling_method = None
+            self.retrieval_model_path = None
         elif config.retriever_name == 'spladepp':
             self.index_path = f"{config.index_dir}/spladepp_index"
             self.pooling_method = None
@@ -233,17 +278,161 @@ class BaseRetriever:
             self.retrieval_model_path = MODEL2PATH[config.retriever_name]
             self.pooling_method = MODEL2POOLING[config.retriever_name]
 
-    def _search(self, query: str, num: int, return_score: bool):
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
         raise NotImplementedError
 
-    def _batch_search(self, query_list: List[str], num: int, return_score: bool):
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
         raise NotImplementedError
 
-    def search(self, query: str, num: int = None, return_score: bool = False):
-        return self._search(query, num, return_score)
-    
+    def search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        return self._search(query, num, return_score, qid)
+
     def batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
         return self._batch_search(query_list, num, return_score)
+
+def load_trec_run(trec_run_path: str) -> dict:
+    """
+    Load a TREC-format run file into qid -> list of (passage_id, score) in rank order.
+    Format: query_id Q0 passage_id rank score run_id
+    """
+    run = {}
+    with open(trec_run_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                qid = parts[0]
+                pid = parts[2]
+                try:
+                    score = float(parts[4])
+                except ValueError:
+                    score = 0.0
+                if qid not in run:
+                    run[qid] = []
+                run[qid].append((pid, score))
+    return run
+
+
+class PrecomputedRetriever(BaseRetriever):
+    """
+    Retriever that returns passages from a precomputed TREC run file (e.g. from a prior
+    retrieval pipeline run). Used to avoid running retrieval again during generation.
+    """
+    def __init__(self, config, trec_run_path: str):
+        super().__init__(config)
+        self.trec_run_path = trec_run_path
+        self._run = load_trec_run(trec_run_path)
+        self.corpus = load_corpus(self.corpus_path)
+        self._id2idx = {}
+        self._build_id2idx()
+
+    def _build_id2idx(self):
+        """Build or load mapping from passage id (string) to corpus position (cached in corpus dir)."""
+        self._id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (precomputed retriever)"
+        )
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        if qid is None:
+            if return_score:
+                return [], []
+            return []
+        entries = self._run.get(qid, [])
+        # Already in rank order; take top num
+        passage_ids = [pid for pid, _ in entries[:num]]
+        if not passage_ids:
+            return ([], []) if return_score else []
+        raw_docs = load_docs(self.corpus, passage_ids, id2idx=self._id2idx)
+        scores = [s for _, s in entries[:len(raw_docs)]]
+        results = []
+        for raw_doc in raw_docs:
+            content = raw_doc.get('contents') or raw_doc.get('text', '')
+            result = {
+                'title': content.split("\n")[0].strip("\"") if content else '',
+                'text': "\n".join(content.split("\n")[1:]) if content else '',
+                'contents': content
+            }
+            for key in ('id', 'doc_id', 'passage_id'):
+                if key in raw_doc:
+                    result[key] = raw_doc[key]
+                    break
+            results.append(result)
+        if return_score:
+            return results, scores
+        return results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True, qid=None)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        return results
+
+class OracleRetriever(BaseRetriever):
+    """
+    Retriever that returns only gold (relevant) passages for each query.
+    Used for oracle upper-bound evaluation: only gold passages are given to the LLM.
+    Requires qrels (query_id -> list of passage_ids) and corpus to load passage content.
+    """
+    def __init__(self, config, qrels: dict):
+        super().__init__(config)
+        if not qrels:
+            raise ValueError("OracleRetriever requires qrels (query_id -> list of passage_ids)")
+        self.qrels = qrels
+        self.corpus = load_corpus(self.corpus_path)
+        self._id2idx = {}
+        self._build_id2idx()
+
+    def _build_id2idx(self):
+        """Build or load mapping from passage id (string) to corpus position (cached in corpus dir)."""
+        self._id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (oracle retriever)"
+        )
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        if qid is None:
+            if return_score:
+                return [], []
+            return []
+        gold_passage_ids = self.qrels.get(qid, [])
+        # Limit to top-k gold passages (same as retrieval_topk for generation)
+        gold_passage_ids = gold_passage_ids[:num]
+        if not gold_passage_ids:
+            return ([], []) if return_score else []
+        raw_docs = load_docs(self.corpus, gold_passage_ids, id2idx=self._id2idx)
+        results = []
+        for raw_doc in raw_docs:
+            content = raw_doc.get('contents') or raw_doc.get('text', '')
+            result = {
+                'title': content.split("\n")[0].strip("\"") if content else '',
+                'text': "\n".join(content.split("\n")[1:]) if content else '',
+                'contents': content
+            }
+            for key in ('id', 'doc_id', 'passage_id'):
+                if key in raw_doc:
+                    result[key] = raw_doc[key]
+                    break
+            results.append(result)
+        scores = [1.0] * len(results)
+        return (results, scores) if return_score else results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True, qid=None)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        return results
 
 class BM25Retriever(BaseRetriever):
     def __init__(self, config):
@@ -259,7 +448,7 @@ class BM25Retriever(BaseRetriever):
     def _check_contain_doc(self):
         return self.searcher.doc(0).raw() is not None
 
-    def _search(self, query: str, num: int = None, return_score: bool = False):
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
         if num is None:
             num = self.topk
         hits = self.searcher.search(query, num)
@@ -355,12 +544,13 @@ class _SPLADEQueryEncoderForImpact:
             return {}
         tokens = self.tokenizer.convert_ids_to_tokens(non_zero_indices.cpu().tolist())
         weights = logits[0][non_zero_indices].cpu().tolist()
-        # Quantize to int like Pyserini (LuceneImpactSearcher expects JInt)
+        # Quantize to int like index builder (only index terms with q >= 1 for compatibility)
         out = {}
         for token, w in zip(tokens, weights):
-            out[token] = int(round(float(w) / self.WEIGHT_RANGE * self.QUANT_RANGE))
+            q = int(round(float(w) / self.WEIGHT_RANGE * self.QUANT_RANGE))
+            if q >= 1:
+                out[token] = q
         return out
-
 
 class SPLADERetriever(BaseRetriever):
     """SPLADE++ retriever using Pyserini impact index with LuceneImpactSearcher."""
@@ -386,18 +576,12 @@ class SPLADERetriever(BaseRetriever):
         self.max_process_num = 8
 
     def _build_corpus_id2idx(self):
-        """Build mapping from doc id to corpus position for lookup by external id."""
+        """Build or load mapping from doc id to corpus position (cached in corpus dir)."""
         if self._corpus_id2idx is not None:
             return
-        print("Building corpus id->index mapping (for lookup by passage id)...")
-        id2idx = {}
-        id_key = 'id'
-        for idx, doc in enumerate(tqdm(self.corpus, desc="Corpus id mapping", disable=len(self.corpus) < 10000)):
-            doc_id = doc.get(id_key) or doc.get('doc_id') or doc.get('passage_id')
-            if doc_id is not None:
-                id2idx[str(doc_id)] = idx
-        self._corpus_id2idx = id2idx
-        print(f"Built id mapping for {len(id2idx):,} documents")
+        self._corpus_id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (SPLADE retriever)"
+        )
 
     def _check_contain_doc(self):
         try:
@@ -405,7 +589,7 @@ class SPLADERetriever(BaseRetriever):
         except Exception:
             return False
 
-    def _search(self, query: str, num: int = None, return_score: bool = False):
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
         if num is None:
             num = self.topk
         hits = self.searcher.search(query, k=num)
@@ -480,8 +664,8 @@ class RerankRetriever(BaseRetriever):
         reranked_docs = sorted(zip(scores, contents), key=lambda x: x[0], reverse=True)[:self.topk]
         scores, sorted_contents = zip(*reranked_docs)
         return list(sorted_contents), list(scores)
-    
-    def _search(self, query: str, num: int = None, return_score: bool = False):
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
         first_stage_num = 1000
         if num is None:
             num = self.topk
@@ -555,7 +739,7 @@ class DenseRetriever(BaseRetriever):
         self.topk = config. retrieval_topk
         self.batch_size = config.retrieval_batch_size
 
-    def _search(self, query: str, num: int = None, return_score: bool = False):
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
         if num is None:
             num = self.topk
         query_emb = self.encoder.encode(query)

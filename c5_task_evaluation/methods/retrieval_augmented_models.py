@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from utils.general_utils import passages2string
 from c5_task_evaluation.src.llm_generator import LLMGenerator_api, LLMGenerator_hf_local, StopOnSequence
-from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever, OracleRetriever, PrecomputedRetriever
 from c5_task_evaluation.prompts.prompt_templetes import (
     SYSTEM_PROMPT_NO_RETRIEVAL,
     SYSTEM_PROMPT_SINGLE_RETRIEVAL,
@@ -39,12 +39,20 @@ class BasicRAG:
         
         # --- Retrievers 
         if args.generation_model != "no_retrieval":
-            if args.retriever_name == 'bm25':
-                self.retriever = BM25Retriever(args)  
+            precomputed_path = getattr(args, 'precomputed_retrieval_path', None)
+            if precomputed_path:
+                self.retriever = PrecomputedRetriever(args, precomputed_path)
+            elif args.retriever_name == 'bm25':
+                self.retriever = BM25Retriever(args)
             elif args.retriever_name in ['rerank_l6', 'rerank_l12']:
                 self.retriever = RerankRetriever(args)
             elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
                 self.retriever = DenseRetriever(args)
+            elif args.retriever_name == 'oracle':
+                qrels = getattr(args, 'qrels', None)
+                if not qrels:
+                    raise ValueError("Oracle retriever requires args.qrels (load qrels when using --retriever oracle)")
+                self.retriever = OracleRetriever(args, qrels)
 
     # --- Information Extraction Functions
     def get_unique_docs(self, docs_lst:list):
@@ -53,7 +61,7 @@ class BasicRAG:
     def get_think(self, text):
         pattern = re.compile(r"<think>(.*?)</think>", re.DOTALL)
         matches = pattern.findall(text)
-        return matches[0] if matches else None
+        return matches[0].strip() if matches else ""
 
     def get_query(self, text):
         pattern = re.compile(r"<search>(.*?)</search>", re.DOTALL)
@@ -87,8 +95,8 @@ class SingleRetrieval(BasicRAG):
         super().__init__(device, args)
         self.user_prompt_template = "<information>{documents}</information>\n\nQuestion: {user_query}"
     
-    def inference(self, question, generation_temp=0.7):
-        search_docs = self.retriever.search(question)
+    def inference(self, question, generation_temp=0.7, qid=None):
+        search_docs = self.retriever.search(question, qid=qid)
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT_SINGLE_RETRIEVAL},
             {"role": "user", "content": self.user_prompt_template.format(
@@ -121,7 +129,7 @@ class ReSearch_Model(BasicRAG):
         match = re.search(r"\\boxed\{(.*?)\}", text)
         return match.group(1).strip() if match else None   
     
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
         input_prompt = question
         messages = [
             {'role': 'system', 'content': SYSTEM_PROMPT_RESEARCH_INST},
@@ -140,7 +148,7 @@ class ReSearch_Model(BasicRAG):
 
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query)
+                search_docs = self.retriever.search(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
                 search_docs, search_results = [], ''
@@ -168,7 +176,7 @@ class SearchR1_Model(BasicRAG):
         super().__init__(device, args)
         self.curr_step_template = '\n\n{output_text}<information>{search_results}</information>\n\n'
         
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
         input_prompt = PROMPT_SEARCHR1.format(question=question)
         messages = [{"role": "user", "content": input_prompt}]
         
@@ -184,7 +192,7 @@ class SearchR1_Model(BasicRAG):
         
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query)
+                search_docs = self.retriever.search(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
                 search_docs, search_results = [], ''
@@ -209,7 +217,7 @@ class StepSearch_Model(BasicRAG):
         super().__init__(device, args)
         self.curr_step_template = '\n\n{output_text}<information>{search_results}</information>\n\n'
     
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
         input_prompt = PROMPT_STEPSEARCH.format(question=question)
         messages = [{"role": "user", "content": input_prompt}]
         
@@ -225,7 +233,7 @@ class StepSearch_Model(BasicRAG):
         
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query)
+                search_docs = self.retriever.search(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
                 search_docs, search_results = [], ''
@@ -461,7 +469,8 @@ class ReAct_Model(BasicRAG):
         return obs
 
     def retriever_search(self, search_query):
-        search_docs = self.retriever.search(search_query)
+        qid = getattr(self, '_current_qid', None)
+        search_docs = self.retriever.search(search_query, qid=qid)
         self.page = ""
         for doc in search_docs:
             content = doc['contents']
@@ -519,7 +528,8 @@ class ReAct_Model(BasicRAG):
 
         return action_type, action_entity, docs, obs, done
 
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
+        self._current_qid = qid
         self.page = None  # current Wikipedia page
         self.lookup_keyword = None  # current lookup keyword
         self.lookup_list = None  # list of paragraphs containing current lookup keyword
@@ -643,7 +653,7 @@ class SearchO1_Model(BasicRAG):
         rid_output_text_ = self.get_search_results(rid_output_text)
         return rid_output_text_
 
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
         input_prompt = self.instruction + get_task_instruction_openqa(question)
         messages = [{"role": "user", "content": input_prompt}]
         
@@ -663,7 +673,7 @@ class SearchO1_Model(BasicRAG):
             tmp_think = self.get_reasoning_think(output_text).replace("\n", ' ').replace("\n\n", ' ') if self.get_reasoning_think(output_text) else ''
             tmp_query = self.get_search_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query)
+                search_docs = self.retriever.search(tmp_query, qid=qid)
                 docs_text = passages2string(search_docs)
             else:
                 search_docs, docs_text = [], ''
@@ -734,12 +744,12 @@ class SelfAsk_Model(BasicRAG):
         pred = pred.rstrip(".?!")
         return pred
 
-    def inference(self, question, generation_temp=0.7):
+    def inference(self, question, generation_temp=0.7, qid=None):
         reasoning_path, text = [], ""
         
         # Initial retrieval
         search_query = question
-        cur_search_docs = self.retriever.search(search_query)
+        cur_search_docs = self.retriever.search(search_query, qid=qid)
         user_input_prompt = self.user_prompt.format(
             documents = self.documents2string(cur_search_docs),
             question=question
@@ -765,7 +775,7 @@ class SelfAsk_Model(BasicRAG):
         
             intermediate_ans = self.extract_intermediate(output_text)
             search_query = self.extract_follow_up(output_text)
-            cur_search_docs = self.retriever.search(search_query) if search_query else []
+            cur_search_docs = self.retriever.search(search_query, qid=qid) if search_query else []
             tmp_docs = [doc for step in reasoning_path for doc in step['docs']] + cur_search_docs
             unq_tmp_doc = self.get_unique_docs(tmp_docs)
             

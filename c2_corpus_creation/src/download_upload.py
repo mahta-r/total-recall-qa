@@ -68,30 +68,15 @@ api = HfApi(token=HF_TOKEN)
 # )
 # print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
 
-# --- Contriever Index 
-# split -b 45G /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index /projects/0/prjs0834/heydars/INDICES/contriever_Flat.index.part_
-# REPO_ID = "HeydarS/contriever_index"
-# LOCAL_FOLDER = "/projects/0/prjs0834/heydars/INDICES"
-# PATH_IN_REPO = ""
-# api.create_repo(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     private=False,
-#     exist_ok=True
-# )
-# api.upload_folder(
-#     folder_path=LOCAL_FOLDER,
-#     path_in_repo=PATH_IN_REPO,
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     allow_patterns=["contriever_Flat.index.part_*"],
-#     commit_message="Upload sharded FAISS index parts (<50GB each)"
-# )
-# print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
-
-# --- E5 Index 
+# --- Contriever / E5 / BGE Index 
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_
 # split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index.part_
-REPO_ID = "HeydarS/enwiki_20251001_e5_index"
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index.part_
+# ---
+# ls -lh /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_*
+# rm /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_*
+
+REPO_ID = "HeydarS/enwiki_20251001_contriever_index"
 LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices"
 PATH_IN_REPO = ""
 api.create_repo(
@@ -105,7 +90,7 @@ api.upload_folder(
     path_in_repo=PATH_IN_REPO,
     repo_id=REPO_ID,
     repo_type="dataset",
-    allow_patterns=["e5_Flat.index.part_*"],
+    allow_patterns=["contriever_Flat.index.part_*"],
     commit_message="Upload sharded FAISS index parts (<50GB each)"
 )
 print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")

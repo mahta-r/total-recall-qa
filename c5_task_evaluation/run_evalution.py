@@ -300,8 +300,19 @@ def run_generation_evaluation(args):
     print(f"Device:      {args.device}")
     print()
 
+    # Load qrels when using oracle retriever (needed to look up gold passages)
+    if args.retriever_name == 'oracle':
+        if not Path(args.qrel_file).exists():
+            print(f"Error: Qrel file required for oracle retriever. Not found: {args.qrel_file}")
+            return 1
+        print("=== Loading QRels (for oracle retriever) ===")
+        args.qrels = load_qrels(args.qrel_file)
+        print(f"Loaded qrels for {len(args.qrels)} queries")
+    else:
+        args.qrels = getattr(args, 'qrels', None)
+
     # Load dataset
-    print("=== Loading Dataset ===")
+    print("\n=== Loading Dataset ===")
     query_ids, test_dataset = load_dataset(args.dataset_file)
     print(f"Total queries: {len(test_dataset)}")
 
@@ -419,9 +430,9 @@ def run_generation_evaluation(args):
                 if args.generation_method == 'no_retrieval':
                     reasoning_path, prediction = model.inference(query)
                 elif args.generation_method == 'single_retrieval':
-                    reasoning_path, prediction = model.inference(query)
+                    reasoning_path, prediction = model.inference(query, qid=qid)
                 else:
-                    reasoning_path, prediction = model.inference(query)
+                    reasoning_path, prediction = model.inference(query, qid=qid)
                 soft_matches = {}
                 for pct in tolerance_percentages:
                     match_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)
@@ -431,6 +442,7 @@ def run_generation_evaluation(args):
                 new_queries_processed += 1
                 gt_answer_cleaned = clean_gold_for_numeric(gt_answer, decimals=2)
                 prediction_cleaned = clean_prediction_for_numeric(prediction)
+                path_for_output = _reasoning_path_doc_ids_only(reasoning_path, _get_passage_id) if args.generation_method in ('single_retrieval', 'deep_research') else reasoning_path
                 result_item = {
                     "qid": qid,
                     "query": query,
@@ -440,10 +452,10 @@ def run_generation_evaluation(args):
                     "prediction_cleaned": prediction_cleaned,
                     "exact_match": float(1 if exact_match else 0),
                     "soft_matches": soft_matches,
-                    "reasoning_path": reasoning_path,
+                    "reasoning_path": path_for_output,
                 }
                 if args.generation_method == 'deep_research':
-                    result_item["reasoning_trajectory"] = reasoning_path
+                    result_item["reasoning_trajectory"] = path_for_output
                 if 'file_id' in sample:
                     result_item['file_id'] = sample['file_id']
                 if 'original_query' in sample:
@@ -502,6 +514,22 @@ def _get_passage_id(doc):
     if 'title' in doc:
         return str(doc['title']).strip()
     raise KeyError("Retrieved doc has no id field. Keys: %s" % list(doc.keys()))
+
+
+def _reasoning_path_doc_ids_only(reasoning_path, get_passage_id_fn):
+    """
+    Return a copy of reasoning_path where each step's 'docs' list is replaced by
+    a list of passage ids only (no document content). Used for single_retrieval
+    and deep_research per-query output to avoid storing full doc content.
+    """
+    out = []
+    for step in reasoning_path:
+        step_copy = dict(step)
+        if 'docs' in step_copy and step_copy['docs']:
+            step_copy['doc_ids'] = [get_passage_id_fn(d) for d in step_copy['docs']]
+            del step_copy['docs']
+        out.append(step_copy)
+    return out
 
 
 def _merge_rank_files(base_path, num_ranks, delete_rank_files=True, append=True):
@@ -609,11 +637,12 @@ def merge_rank_files_in_dir(output_dir):
 
 
 # CPU-only retriever: use multi-CPU workers (no GPU)
-CPU_RETRIEVERS = ('bm25',)
+CPU_RETRIEVERS = ('bm25', 'oracle')
 
 
 def _retrieval_worker(rank, device_id, args, items_subset, qrels, is_cpu_retriever=False):
     """Worker for multi-GPU or multi-CPU retrieval evaluation. Writes to args.trec_output_file.rank{N} and args.per_query_metrics_file.rank{N}."""
+    args.qrels = qrels
     if is_cpu_retriever:
         args.device = torch.device("cpu")
         args._faiss_single_gpu = False
@@ -648,7 +677,7 @@ def _retrieval_worker(rank, device_id, args, items_subset, qrels, is_cpu_retriev
                     print(f"Retrieval {worker_label} {device_id}: {current}/{n_items} | elapsed {_format_duration(elapsed)} | ETA ~{_format_duration(eta)}", flush=True)
                 query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
                 gold_passage_ids = qrels.get(qid, [])
-                retrieved_docs, retrieved_scores = retriever.search(query, return_score=True)
+                retrieved_docs, retrieved_scores = retriever.search(query, return_score=True, qid=qid)
                 retrieved_ids = [_get_passage_id(doc) for doc in retrieved_docs]
                 metrics = evaluate_entity_retrieval(retrieved_ids, gold_passage_ids, k_values)
                 for r, (doc, score) in enumerate(zip(retrieved_docs, retrieved_scores), start=1):
@@ -714,9 +743,9 @@ def _generation_worker(rank, device_id, args, items_subset):
                 if args.generation_method == 'no_retrieval':
                     reasoning_path, prediction = model.inference(query)
                 elif args.generation_method == 'single_retrieval':
-                    reasoning_path, prediction = model.inference(query)
+                    reasoning_path, prediction = model.inference(query, qid=qid)
                 else:
-                    reasoning_path, prediction = model.inference(query)
+                    reasoning_path, prediction = model.inference(query, qid=qid)
                 soft_matches = {}
                 for pct in tolerance_percentages:
                     match_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)
@@ -725,6 +754,7 @@ def _generation_worker(rank, device_id, args, items_subset):
                 exact_match = exact_result['exact_match']
                 gt_answer_cleaned = clean_gold_for_numeric(gt_answer, decimals=2)
                 prediction_cleaned = clean_prediction_for_numeric(prediction)
+                path_for_output = _reasoning_path_doc_ids_only(reasoning_path, _get_passage_id) if args.generation_method in ('single_retrieval', 'deep_research') else reasoning_path
                 result_item = {
                     "qid": qid,
                     "query": query,
@@ -734,10 +764,10 @@ def _generation_worker(rank, device_id, args, items_subset):
                     "prediction_cleaned": prediction_cleaned,
                     "exact_match": float(1 if exact_match else 0),
                     "soft_matches": soft_matches,
-                    "reasoning_path": reasoning_path,
+                    "reasoning_path": path_for_output,
                 }
                 if args.generation_method == 'deep_research':
-                    result_item["reasoning_trajectory"] = reasoning_path
+                    result_item["reasoning_trajectory"] = path_for_output
                 for key in ('file_id', 'original_query', 'aggregation_function'):
                     if key in sample:
                         result_item[key] = sample[key]
@@ -752,10 +782,10 @@ def _generation_worker(rank, device_id, args, items_subset):
 
 def initialize_retriever(args):
     """Initialize retriever for retrieval-only evaluation."""
-    from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever, SPLADERetriever
-    
+    from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever, SPLADERetriever, OracleRetriever
+
     print(f"\n=== Initializing Retriever: {args.retriever_name} ===")
-    
+
     if args.retriever_name == 'bm25':
         retriever = BM25Retriever(args)
     elif args.retriever_name == 'spladepp':
@@ -764,9 +794,14 @@ def initialize_retriever(args):
         retriever = RerankRetriever(args)
     elif args.retriever_name in ['contriever', 'dpr', 'e5', 'bge']:
         retriever = DenseRetriever(args)
+    elif args.retriever_name == 'oracle':
+        qrels = getattr(args, 'qrels', None)
+        if not qrels:
+            raise ValueError("Oracle retriever requires args.qrels (set by retrieval/generation pipeline)")
+        retriever = OracleRetriever(args, qrels)
     else:
         raise ValueError(f"Unknown retriever: {args.retriever_name}")
-    
+
     return retriever
 
 
@@ -800,7 +835,8 @@ def run_retrieval_evaluation(args):
     
     qrels = load_qrels(args.qrel_file)
     print(f"Loaded qrels for {len(qrels)} queries")
-    
+    args.qrels = qrels
+
     # Load dataset
     print("\n=== Loading Dataset ===")
     query_ids, test_dataset = load_dataset(args.dataset_file)
@@ -911,7 +947,7 @@ def run_retrieval_evaluation(args):
                         print(f"Retrieval: {current}/{n_single} ({100*current/n_single:.1f}%) | elapsed {_format_duration(elapsed)} | ETA ~{_format_duration(eta)}", flush=True)
                 query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
                 gold_passage_ids = qrels.get(qid, [])
-                retrieved_docs, retrieved_scores = retriever.search(query, return_score=True)
+                retrieved_docs, retrieved_scores = retriever.search(query, return_score=True, qid=qid)
                 retrieved_ids = [_get_passage_id(doc) for doc in retrieved_docs]
                 metrics = evaluate_entity_retrieval(retrieved_ids, gold_passage_ids, k_values)
                 new_queries_processed += 1
@@ -981,21 +1017,22 @@ def main():
     parser.add_argument('--pipeline', type=str, default='retrieval', choices=['retrieval', 'generation'], help='Pipeline type: retrieval (entity recall only) or generation (full RAG with LLM)')
 
     # Dataset arguments
-    parser.add_argument('--dataset', type=str, default="wikidata", choices=['qald10_quest', 'wikidata', 'synthetic_ecommerce'], help='Dataset to evaluate on (qald10_quest, wikidata, or synthetic_ecommerce)')
+    parser.add_argument('--dataset', type=str, default="qald10_quest", choices=['qald10_quest', 'wikidata', 'synthetic_ecommerce'], help='Dataset to evaluate on (qald10_quest, wikidata, or synthetic_ecommerce)')
     parser.add_argument('--subset', type=str, default='test', choices=['train', 'val', 'test'], help='Subset: train, val, or test')
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
     parser.add_argument('--qrel_file', type=str, default=None, help='Path to qrel file (for retrieval pipeline, overrides default)')
 
     # Generation arguments (only used when pipeline=generation)
-    parser.add_argument('--model', type=str, default='openai/gpt-5.2', choices=['openai/gpt-4o', 'openai/gpt-5.2', 'anthropic/claude-sonnet-4.5', 'google/gemini-2.5-flash', 'deepseek/deepseek-chat-v3-0324', 'qwen/qwen3-235b-a22b-2507'], help='Model for generation (default: openai/gpt-4o). Used only when pipeline=generation.')
-    parser.add_argument('--generation_method', type=str, default='no_retrieval', choices=['no_retrieval', 'single_retrieval', 'deep_research'], help='Generation method: no_retrieval, single_retrieval, or deep_research (default: no_retrieval). Used only when pipeline=generation.')
+    parser.add_argument('--model', type=str, default='openai/gpt-5.2', choices=['openai/gpt-4o', 'openai/gpt-5.2', 'anthropic/claude-sonnet-4.5', 'deepseek/deepseek-v3.2', 'qwen/qwen3-235b-a22b', 'qwen/qwen-2.5-7b-instruct'], help='Model for generation (default: openai/gpt-4o). Used only when pipeline=generation.')
+    parser.add_argument('--generation_method', type=str, default='single_retrieval', choices=['no_retrieval', 'single_retrieval', 'deep_research'], help='Generation method: no_retrieval, single_retrieval, or deep_research (default: no_retrieval). Used only when pipeline=generation.')
     parser.add_argument('--deep_research_model', type=str, default='react', choices=['self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Deep research model when generation_method=deep_research (default: react). Used only when pipeline=generation and generation_method=deep_research.')
 
     # Retriever arguments (used for pipeline=retrieval; also for pipeline=generation when generation_method is single_retrieval or deep_research)
-    parser.add_argument('--retriever', type=str, default='contriever', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'e5', 'bge'], help='Retriever to use (default: contriever)')
+    parser.add_argument('--retriever', type=str, default='spladepp', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'bge', 'e5', 'oracle'], help='Retriever to use (default: contriever)')
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices', choices=['corpus_datasets/corpus', '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
-    parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
+    parser.add_argument('--retrieval_topk', type=int, default=50, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
+    parser.add_argument('--retrieval_results_file', type=str, default=None, help='Optional path to TREC-format retrieval results (e.g. evaluation_results.txt). If provided and file exists, use it instead of running retrieval. If not provided, will check run_output/{run}/{subset_name}/retrieval_{retriever}/evaluation_results.txt. If no file is found, retrieval is run as usual.')
     parser.add_argument('--retrieval_eval_ks', type=int, nargs='+', default=[3, 10, 100, 1000], help='K values for retrieval evaluation (entity recall@k). Retrieval pipeline retrieves max(eval_ks) and reports these k’s (default: 1 3 10 100)')
     parser.add_argument('--splade_max_length', type=int, default=256, help='Max token length for SPLADE query encoding; must match index build (default: 256)')
     parser.add_argument('--faiss_gpu', action='store_true', default=False, help='Use GPU for FAISS computation')
@@ -1047,7 +1084,7 @@ def main():
         args.retrieval_topk = max(args.retrieval_eval_ks)
 
     # Set model source
-    if args.model_name_or_path in ["openai/gpt-4o", "openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "deepseek/deepseek-chat-v3-0324", "qwen/qwen3-235b-a22b-2507"]:
+    if args.model_name_or_path in ["openai/gpt-4o", "openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "deepseek/deepseek-v3.2", "qwen/qwen3-235b-a22b", "qwen/qwen-2.5-7b-instruct"]:
         args.model_source = 'api'
     else:
         args.model_source = 'hf_local'
@@ -1101,6 +1138,22 @@ def main():
     args.bm25_k1 = 0.9
     args.bm25_b = 0.4
 
+    # Precomputed retrieval (generation with single_retrieval or deep_research): use file if available to avoid running retrieval
+    if args.pipeline == 'generation' and args.generation_method in ('single_retrieval', 'deep_research'):
+        candidate = None
+        if getattr(args, 'retrieval_results_file', None) and Path(args.retrieval_results_file).exists():
+            candidate = Path(args.retrieval_results_file).resolve()
+        if candidate is None:
+            default_path = f"run_output/{args.run}/{args.subset_name}/retrieval_{args.retriever_name}/evaluation_results.txt"
+            if Path(default_path).exists():
+                candidate = Path(default_path).resolve()
+        if candidate is not None:
+            args.precomputed_retrieval_path = str(candidate)
+            print(f"Using precomputed retrieval from: {args.precomputed_retrieval_path}")
+        else:
+            args.precomputed_retrieval_path = None
+            print("No precomputed retrieval file found; will run retrieval.")
+
     # Set seed
     set_seed(args.seed)
 
@@ -1153,4 +1206,4 @@ if __name__ == "__main__":
 # EXAMPLE USAGE
 # ============================================================================
 
-# python c5_task_evaluation/run_evalution.py --limit 5--num_workers 8
+# python c5_task_evaluation/run_evalution.py --limit 400 --num_workers 10

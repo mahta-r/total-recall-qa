@@ -41,7 +41,7 @@ Return your answer as a JSON object with a single field "converted_query".
 """
 
 SYSTEM_PROMPT_NO_RETRIEVAL = 'Answer the given question. You must conduct reasoning inside <think> and </think>. Then you must provide the answer inside <answer> and </answer>. Provide only SHORT form answers, NOT complete sentence, without any additional text or explanation.'
-SYSTEM_PROMPT_SINGLE_RETRIEVAL = 'Answer the given question. The retrieved information is inserted into <information> </information>. You must conduct reasoning inside <think> and </think>. Then you must provide the answer inside <answer> and </answer>. Provide only SHORT form answers, NOT complete sentence, without any additional text or explanation.'
+SYSTEM_PROMPT_SINGLE_RETRIEVAL = 'You are tasked to answer the given question. To do this, first you MUST conduct reasoning inside <think> and </think>. Then you MUST provide the answer inside <answer> and </answer>. The retrieved information is inserted into <information> </information>. Provide only SHORT form answers, NOT complete sentence, without any additional text or explanation.'
 
 
 SYSTEM_PROMPT_RESEARCH_BASE = """A conversation between User and Assistant.
