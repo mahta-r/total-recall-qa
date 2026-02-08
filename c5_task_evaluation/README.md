@@ -7,6 +7,19 @@ Runs evaluation on QA datasets with two pipelines:
 - **Retrieval:** entity recall@k only (no LLM). Uses retriever + index; `retrieval_eval_ks` defines k values.
 - **Generation:** full RAG or LLM-only. Uses `generation_method` and optionally `deep_research_model`.
 
+**Corpus and indices:** You can download the corpus and retrieval indices from [Hugging Face (HeydarS)](https://huggingface.co/HeydarS):
+
+| Resource | Link |
+|----------|------|
+| Corpus | [HeydarS/enwiki_20251001_infoboxconv_rewritten](https://huggingface.co/datasets/HeydarS/enwiki_20251001_infoboxconv_rewritten) |
+| BM25 index | [HeydarS/enwiki_20251001_bm25_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_bm25_index) |
+| SPLADEPP index | [HeydarS/enwiki_20251001_spladepp_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_spladepp_index) |
+| BGE index | [HeydarS/enwiki_20251001_bge_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_bge_index) |
+| Contriever index | [HeydarS/enwiki_20251001_contriever_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_contriever_index) |
+| E5 index | [HeydarS/enwiki_20251001_e5_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_e5_index) |
+
+Point `--corpus_path` and `--index_dir` to the downloaded paths.
+
 **Input variables**
 
 | Variable | Description |
