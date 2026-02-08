@@ -44,21 +44,67 @@ Point `--corpus_path` and `--index_dir` to the downloaded paths.
 | `--faiss_gpu` | Use GPU for FAISS. |
 | `--devices` | Comma-separated GPU IDs (e.g. `0,1,2,3`). |
 
-**Script (run from project root):** `scripts/evaluation/run_evaluation.sh` — set `pipeline`, `dataset`, `subset`, `retriever`, `model`, `generation_method`, `deep_research_model`, `run` in the script then run (e.g. via Slurm).
+**Oracle retriever:** `--retriever oracle` is an upper-bound retriever: for each query it returns only the gold (relevant) passage IDs from the qrels, then looks up their contents from the corpus. No index is used. Requires `--qrel_file` and `--corpus_path`. Use it to measure generation quality when retrieval is perfect (e.g. to compare with real retrievers like E5).
 
 **Examples**
 
-Retrieval (entity recall@3,10,100,1000):
+All examples use one flag per line. Run from project root.
+
+**1. Retrieval only** (entity recall@3,10,100,1000):
 
 ```bash
-python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset wikidata --subset test --retriever e5 --retrieval_eval_ks 3 10 100 1000 --run run_1
+python c5_task_evaluation/run_evalution.py \
+  --pipeline retrieval \
+  --dataset wikidata \
+  --subset test \
+  --retriever e5 \
+  --retrieval_eval_ks 3 10 100 1000 \
+  --run run_1
 ```
 
-Generation (deep research with ReAct + e5):
+**2. Generation, no retrieval** (LLM only, GPT-5.2):
 
 ```bash
-python c5_task_evaluation/run_evalution.py --pipeline generation --dataset wikidata --subset test --model Qwen/Qwen2.5-7B-Instruct --generation_method deep_research --deep_research_model react --retriever e5 --retrieval_topk 3 --run run_1
+python c5_task_evaluation/run_evalution.py \
+  --pipeline generation \
+  --dataset wikidata \
+  --subset test \
+  --model openai/gpt-5.2 \
+  --generation_method no_retrieval \
+  --run run_1
 ```
+
+**3. Single-step retrieval + generation** (E5 + GPT-5.2):
+
+```bash
+python c5_task_evaluation/run_evalution.py \
+  --pipeline generation \
+  --dataset wikidata \
+  --subset test \
+  --model openai/gpt-5.2 \
+  --generation_method single_retrieval \
+  --retriever e5 \
+  --retrieval_topk 3 \
+  --run run_1
+```
+
+**4. Deep research (search_r1):** Interleaved retrieval + generation over multiple steps. You get **retrieval eval** and **generation eval**. Retrieval eval is computed by merging, per query, all step-level ranked lists into one list (interleave with dedup by doc ID), then computing entity recall@k on that merged list. Generation eval is the usual exact/soft match on the final answer.
+
+```bash
+python c5_task_evaluation/run_evalution.py \
+  --pipeline generation \
+  --dataset wikidata \
+  --subset test \
+  --model openai/gpt-5.2 \
+  --generation_method deep_research \
+  --deep_research_model search_r1 \
+  --retriever e5 \
+  --retrieval_topk 3 \
+  --retrieval_eval_ks 3 10 100 1000 \
+  --run run_1
+```
+
+**Script (run from project root):** `scripts/evaluation/run_evaluation.sh` — set `pipeline`, `dataset`, `subset`, `retriever`, `model`, `generation_method`, `deep_research_model`, `run` in the script then run (e.g. via Slurm).
 
 ---
 
