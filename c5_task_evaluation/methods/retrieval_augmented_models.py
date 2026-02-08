@@ -56,7 +56,25 @@ class BasicRAG:
 
     # --- Information Extraction Functions
     def get_unique_docs(self, docs_lst:list):
-        return list({doc['id']: doc for doc in docs_lst}.values()) 
+        return list({doc['id']: doc for doc in docs_lst}.values())
+
+    def _search_for_step(self, query, qid=None):
+        """
+        For deep_research: retrieve up to max(retrieval_eval_ks), return (docs_for_llm, ranked_list).
+        docs_for_llm = first retrieval_topk (for prompt); ranked_list = [(doc, score), ...] for evaluation.
+        For other methods: return (search_docs, None).
+        """
+        if getattr(self.args, 'generation_method', None) != 'deep_research':
+            docs = self.retriever.search(query, qid=qid)
+            return docs, None
+        eval_k = max(self.args.retrieval_eval_ks) if getattr(self.args, 'retrieval_eval_ks', None) else 1000
+        topk = getattr(self.args, 'retrieval_topk', 3)
+        docs, scores = self.retriever.search(query, num=eval_k, return_score=True, qid=qid)
+        if not docs:
+            return [], []
+        ranked_list = list(zip(docs, scores))
+        docs_for_llm = docs[:topk]
+        return docs_for_llm, ranked_list 
     
     def get_think(self, text):
         pattern = re.compile(r"<think>(.*?)</think>", re.DOTALL)
@@ -137,7 +155,7 @@ class ReSearch_Model(BasicRAG):
         ]
         
         reasoning_path = []
-        while True:
+        for step_idx in range(self.args.max_iter):
             output_text, output_ = self.generator.generate(
                 messages,
                 self.generator.rar_stopping_criteria,
@@ -148,16 +166,14 @@ class ReSearch_Model(BasicRAG):
 
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query, qid=qid)
+                search_docs, ranked_list = self._search_for_step(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
-                search_docs, search_results = [], ''
-                
-            reasoning_path.append({
-                'think': self.get_think(output_text),
-                'search_query': tmp_query,
-                'docs': search_docs
-            })
+                search_docs, ranked_list, search_results = [], None, ''
+            step_entry = {'think': self.get_think(output_text), 'search_query': tmp_query, 'docs': search_docs}
+            if ranked_list is not None:
+                step_entry['ranked_list'] = ranked_list
+            reasoning_path.append(step_entry)
             search_text = self.curr_step_template.format(output_text=output_text, search_results=search_results)
             input_prompt += search_text
             messages = [
@@ -181,7 +197,7 @@ class SearchR1_Model(BasicRAG):
         messages = [{"role": "user", "content": input_prompt}]
         
         reasoning_path = []
-        while True:
+        for step_idx in range(self.args.max_iter):
             output_text, output_ = self.generator.generate(
                 messages,
                 self.generator.rar_stopping_criteria,
@@ -192,16 +208,14 @@ class SearchR1_Model(BasicRAG):
         
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query, qid=qid)
+                search_docs, ranked_list = self._search_for_step(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
-                search_docs, search_results = [], ''
-
-            reasoning_path.append({
-                'think': self.get_think(output_text),
-                'search_query': tmp_query,
-                'docs': search_docs
-            })
+                search_docs, ranked_list, search_results = [], None, ''
+            step_entry = {'think': self.get_think(output_text), 'search_query': tmp_query, 'docs': search_docs}
+            if ranked_list is not None:
+                step_entry['ranked_list'] = ranked_list
+            reasoning_path.append(step_entry)
             search_text = self.curr_step_template.format(output_text=output_text, search_results=search_results)
             input_prompt += search_text
             messages = [{"role": "user", "content": input_prompt}]
@@ -222,7 +236,7 @@ class StepSearch_Model(BasicRAG):
         messages = [{"role": "user", "content": input_prompt}]
         
         reasoning_path = []
-        while True:
+        for step_idx in range(self.args.max_iter):
             output_text, output_ = self.generator.generate(
                 messages,
                 self.generator.rar_stopping_criteria,
@@ -233,16 +247,14 @@ class StepSearch_Model(BasicRAG):
         
             tmp_query = self.get_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query, qid=qid)
+                search_docs, ranked_list = self._search_for_step(tmp_query, qid=qid)
                 search_results = passages2string(search_docs)
             else:
-                search_docs, search_results = [], ''
-
-            reasoning_path.append({
-                'think': self.get_think(output_text),
-                'search_query': tmp_query,
-                'docs': search_docs
-            })
+                search_docs, ranked_list, search_results = [], None, ''
+            step_entry = {'think': self.get_think(output_text), 'search_query': tmp_query, 'docs': search_docs}
+            if ranked_list is not None:
+                step_entry['ranked_list'] = ranked_list
+            reasoning_path.append(step_entry)
             search_text = self.curr_step_template.format(output_text=output_text, search_results=search_results)
             input_prompt += search_text
             messages = [{"role": "user", "content": input_prompt}]
@@ -470,7 +482,7 @@ class ReAct_Model(BasicRAG):
 
     def retriever_search(self, search_query):
         qid = getattr(self, '_current_qid', None)
-        search_docs = self.retriever.search(search_query, qid=qid)
+        search_docs, ranked_list = self._search_for_step(search_query, qid=qid)
         self.page = ""
         for doc in search_docs:
             content = doc['contents']
@@ -480,7 +492,7 @@ class ReAct_Model(BasicRAG):
         
         self.lookup_keyword = self.lookup_list = self.lookup_cnt = None
         
-        return search_docs
+        return search_docs, ranked_list
 
     # For lookup action
     def construct_lookup_list(self, keyword):
@@ -501,11 +513,11 @@ class ReAct_Model(BasicRAG):
         return parts
 
     def get_observation(self, action_text):
-        done, docs, obs = False, None, None
+        done, docs, ranked_list, obs = False, None, None, None
         
         action_type, action_entity = self.extract_action_type_entity(action_text)
         if action_type == 'search':
-            docs = self.retriever_search(action_entity)
+            docs, ranked_list = self.retriever_search(action_entity)
             obs = passages2string(docs)
         elif action_type =='lookup':
             keyword = action_entity
@@ -526,7 +538,7 @@ class ReAct_Model(BasicRAG):
         else:
             obs = "Invalid action: {}".format(action_text)
 
-        return action_type, action_entity, docs, obs, done
+        return action_type, action_entity, docs, ranked_list, obs, done
 
     def inference(self, question, generation_temp=0.7, qid=None):
         self._current_qid = qid
@@ -569,11 +581,14 @@ class ReAct_Model(BasicRAG):
             action_text = self.extract_action_text(action_text)
             
             if action_text: # if the action text is valid
-                action_type, action_entity, docs, obs, done = self.get_observation(action_text)
+                action_type, action_entity, docs, ranked_list, obs, done = self.get_observation(action_text)
                 obs = obs.replace('\\n', ' ').strip() if obs else None
                 
                 if action_type == 'search':
-                    reasoning_path.append({'think': thought, 'action_type': action_type, 'search_query': action_entity, 'docs': docs})
+                    step_entry = {'think': thought, 'action_type': action_type, 'search_query': action_entity, 'docs': docs}
+                    if ranked_list is not None:
+                        step_entry['ranked_list'] = ranked_list
+                    reasoning_path.append(step_entry)
                 elif action_type == 'lookup':
                     reasoning_path.append({'think': thought, 'action_type': action_type, 'entity': action_entity, 'observation': obs})
                 elif action_type == 'finish':
@@ -615,10 +630,10 @@ class SearchO1_Model(BasicRAG):
         self.END_SEARCH_QUERY = "<|end_search_query|>"
         self.BEGIN_SEARCH_RESULT = "<|begin_search_result|>"
         self.END_SEARCH_RESULT = "<|end_search_result|>"
-        self.MAX_SEARCH_LIMIT = 10
         self.with_reason_in_documents = True
-        # 
-        self.instruction = get_multiqa_search_o1_instruction(self.MAX_SEARCH_LIMIT)
+        # max_iter from args (default 10) for instruction and loop limit
+        self.max_iter = getattr(args, 'max_iter', 10)
+        self.instruction = get_multiqa_search_o1_instruction(self.max_iter)
         # 
         self.answer_template = '\\boxed{answer}'
         self.current_step_template = '\n{think}\n<|begin_search_query|>{search_query}<|end_search_query|>\n<|begin_search_result|>{search_result}<|end_search_result|>\n'
@@ -658,7 +673,7 @@ class SearchO1_Model(BasicRAG):
         messages = [{"role": "user", "content": input_prompt}]
         
         reasoning_path = []
-        for idx in range(self.MAX_SEARCH_LIMIT):
+        for idx in range(self.args.max_iter):
             # -- One step generation
             output_text, output = self.generator.generate(
                 messages,
@@ -666,20 +681,21 @@ class SearchO1_Model(BasicRAG):
                 temperature=generation_temp
             )
             
-            if (output[-1].item() in self.generator.curr_eos) or (idx+1 == self.MAX_SEARCH_LIMIT):
+            if (output[-1].item() in self.generator.curr_eos) or (idx+1 == self.args.max_iter):
                 break # Don't perform another retrieval or prompt construction
             
             # -- Extract info
             tmp_think = self.get_reasoning_think(output_text).replace("\n", ' ').replace("\n\n", ' ') if self.get_reasoning_think(output_text) else ''
             tmp_query = self.get_search_query(output_text)
             if tmp_query:
-                search_docs = self.retriever.search(tmp_query, qid=qid)
+                search_docs, ranked_list = self._search_for_step(tmp_query, qid=qid)
                 docs_text = passages2string(search_docs)
             else:
-                search_docs, docs_text = [], ''
-
-            # -- Save in the path
-            reasoning_path.append({'think': tmp_think, 'search_query': tmp_query, 'docs': search_docs})
+                search_docs, ranked_list, docs_text = [], None, ''
+            step_entry = {'think': tmp_think, 'search_query': tmp_query, 'docs': search_docs}
+            if ranked_list is not None:
+                step_entry['ranked_list'] = ranked_list
+            reasoning_path.append(step_entry)
             
             # -- Reason-in-docs
             if self.with_reason_in_documents:
@@ -749,7 +765,7 @@ class SelfAsk_Model(BasicRAG):
         
         # Initial retrieval
         search_query = question
-        cur_search_docs = self.retriever.search(search_query, qid=qid)
+        cur_search_docs, ranked_list_0 = self._search_for_step(search_query, qid=qid)
         user_input_prompt = self.user_prompt.format(
             documents = self.documents2string(cur_search_docs),
             question=question
@@ -758,7 +774,10 @@ class SelfAsk_Model(BasicRAG):
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_input_prompt}
         ]
-        reasoning_path.append({'think': '', 'search_query': search_query, 'docs': cur_search_docs})
+        step_entry = {'think': '', 'search_query': search_query, 'docs': cur_search_docs}
+        if ranked_list_0 is not None:
+            step_entry['ranked_list'] = ranked_list_0
+        reasoning_path.append(step_entry)
 
         for idx in range(self.args.max_iter):
             output_text, output = self.generator.generate(
@@ -775,15 +794,16 @@ class SelfAsk_Model(BasicRAG):
         
             intermediate_ans = self.extract_intermediate(output_text)
             search_query = self.extract_follow_up(output_text)
-            cur_search_docs = self.retriever.search(search_query, qid=qid) if search_query else []
+            if search_query:
+                cur_search_docs, ranked_list = self._search_for_step(search_query, qid=qid)
+            else:
+                cur_search_docs, ranked_list = [], None
             tmp_docs = [doc for step in reasoning_path for doc in step['docs']] + cur_search_docs
             unq_tmp_doc = self.get_unique_docs(tmp_docs)
-            
-            reasoning_path.append({
-                'think': intermediate_ans,
-                'search_query': search_query,
-                'docs': cur_search_docs
-            })
+            step_entry = {'think': intermediate_ans, 'search_query': search_query, 'docs': cur_search_docs}
+            if ranked_list is not None:
+                step_entry['ranked_list'] = ranked_list
+            reasoning_path.append(step_entry)
             
             if idx == 0:
                 text += f"Follow up: {search_query}\nIntermediate answer: "

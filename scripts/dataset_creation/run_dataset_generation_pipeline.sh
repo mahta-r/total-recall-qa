@@ -21,7 +21,7 @@ echo "======================================"
 echo ""
 
 # Set OpenAI API key
-export OPENAI_API_KEY='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'
+export OPENAI_API_KEY=''
 
 # Navigate to project directory
 cd /gpfs/home6/hsoudani/total-recall-rag

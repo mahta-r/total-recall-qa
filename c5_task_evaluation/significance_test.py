@@ -16,9 +16,9 @@ Usage (retrieval):
 
 Usage (generation):
     python c5_task_evaluation/significance_test.py \
-        run_output/run_1/qald10_quest_test/generation_gpt-4o_single_retrieval_bm25/evaluation_results_per_query_metrics.jsonl \
-        run_output/run_1/qald10_quest_test/generation_gpt-4o_single_retrieval_contriever/evaluation_results_per_query_metrics.jsonl \
-        --metric exact_match --names bm25 contriever
+        run_output/run_1/qald10_quest_test/generation_gpt-5.2_single_retrieval_e5/evaluation_results_per_query_metrics.jsonl \
+        run_output/run_1/qald10_quest_test/generation_gpt-5.2_single_retrieval_oracle/evaluation_results_per_query_metrics.jsonl \
+        --metric exact_match --names e5 oracle
 """
 
 import argparse

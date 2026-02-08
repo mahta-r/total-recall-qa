@@ -48,36 +48,9 @@ api = HfApi(token=HF_TOKEN)
 # )
 # print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main/{PATH_IN_REPO}")
 
-# --- BM25 index
-# REPO_ID = "HeydarS/enwiki_20251001_bm25_index"
-# LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bm25_index"
-# PATH_IN_REPO = ""
-# api.create_repo(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     private=False,
-#     exist_ok=True
-# )
-# api.upload_folder(
-#     repo_id=REPO_ID,
-#     repo_type="dataset",
-#     folder_path=LOCAL_FOLDER,
-#     path_in_repo=PATH_IN_REPO,
-#     commit_message="Add BM25 index folder",
-#     ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
-# )
-# print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
-
-# --- Contriever / E5 / BGE Index 
-# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_
-# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index.part_
-# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index.part_
-# ---
-# ls -lh /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_*
-# rm /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_*
-
-REPO_ID = "HeydarS/enwiki_20251001_contriever_index"
-LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices"
+# --- BM25 / SPLADE++ indices
+REPO_ID = "HeydarS/enwiki_20251001_spladepp_index"
+LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices/spladepp_index"
 PATH_IN_REPO = ""
 api.create_repo(
     repo_id=REPO_ID,
@@ -86,14 +59,41 @@ api.create_repo(
     exist_ok=True
 )
 api.upload_folder(
-    folder_path=LOCAL_FOLDER,
-    path_in_repo=PATH_IN_REPO,
     repo_id=REPO_ID,
     repo_type="dataset",
-    allow_patterns=["contriever_Flat.index.part_*"],
-    commit_message="Upload sharded FAISS index parts (<50GB each)"
+    folder_path=LOCAL_FOLDER,
+    path_in_repo=PATH_IN_REPO,
+    commit_message="Add SPLADE++ index folder",
+    ignore_patterns=["*.lock", "*.tmp", "*/.DS_Store"] # Common index junk to skip:
 )
-print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
+print(f"Folder uploaded to: https://huggingface.co/datasets/{REPO_ID}/tree/main/{PATH_IN_REPO}")
+
+# --- Contriever / E5 / BGE Indices 
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/contriever_Flat.index.part_
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/e5_Flat.index.part_
+# split -b 45G /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index.part_
+# ---
+# ls -lh /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index.part_*
+# rm /projects/0/prjs0834/heydars/CORPUS_Mahta/indices/bge_Flat.index.part_*
+
+# REPO_ID = "HeydarS/enwiki_20251001_bge_index"
+# LOCAL_FOLDER = "/projects/0/prjs0834/heydars/CORPUS_Mahta/indices"
+# PATH_IN_REPO = ""
+# api.create_repo(
+#     repo_id=REPO_ID,
+#     repo_type="dataset",
+#     private=False,
+#     exist_ok=True
+# )
+# api.upload_folder(
+#     folder_path=LOCAL_FOLDER,
+#     path_in_repo=PATH_IN_REPO,
+#     repo_id=REPO_ID,
+#     repo_type="dataset",
+#     allow_patterns=["bge_Flat.index.part_*"],
+#     commit_message="Upload sharded FAISS index parts (<50GB each)"
+# )
+# print(f"Uploaded to: https://huggingface.co/datasets/{REPO_ID}/blob/main")
 
 
 

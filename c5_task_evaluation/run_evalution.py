@@ -16,7 +16,8 @@ Generation methods (valid only when pipeline=generation):
 - deep_research: Interleaved retrieval + generation; requires --deep_research_model
 
 Deep research models (when generation_method=deep_research):
-  self_ask, react, search_o1, research, search_r1, step_search
+  - research, search_r1, step_search: each uses a fixed HuggingFace model (downloaded from HF).
+  - self_ask, react, search_o1: use the --model argument (API or HF path).
 
 Multi-GPU: use --devices "0,1,2,3" to split queries across GPUs (data parallelism) for both pipelines. On CPU, use --num_workers N for parallel retrieval (BM25) or parallel generation (e.g. API-based models).
 
@@ -38,10 +39,10 @@ Usage:
 Generation output layout (run_output/{run}/{dataset_subset}/):
   - no_retrieval:       generation_{model}_no_retrieval/
   - single_retrieval:   generation_{model}_single_retrieval_{retriever}/
-  - deep_research:      generation_{model}_deep_research_{deep_research_model}/
+  - deep_research:      generation_deep_research_{deep_research_model}/
 
 Generation writes: evaluation_results_per_query_metrics.jsonl (per-query + metrics for significance_test)
-and evaluation_results_metrics.json (aggregated). Deep research runs also store reasoning_trajectory per query.
+and evaluation_results_metrics.json (aggregated). Deep research runs include reasoning_path (doc IDs) per query.
 """
 
 import os
@@ -300,14 +301,18 @@ def run_generation_evaluation(args):
     print(f"Device:      {args.device}")
     print()
 
-    # Load qrels when using oracle retriever (needed to look up gold passages)
-    if args.retriever_name == 'oracle':
+    # Load qrels when using oracle retriever or for deep_research retrieval evaluation
+    if args.retriever_name == 'oracle' or args.generation_method == 'deep_research':
         if not Path(args.qrel_file).exists():
-            print(f"Error: Qrel file required for oracle retriever. Not found: {args.qrel_file}")
-            return 1
-        print("=== Loading QRels (for oracle retriever) ===")
-        args.qrels = load_qrels(args.qrel_file)
-        print(f"Loaded qrels for {len(args.qrels)} queries")
+            if args.retriever_name == 'oracle':
+                print(f"Error: Qrel file required for oracle retriever. Not found: {args.qrel_file}")
+                return 1
+            print(f"Warning: Qrel file not found for deep_research retrieval eval: {args.qrel_file}")
+            args.qrels = {}
+        else:
+            print("=== Loading QRels ===")
+            args.qrels = load_qrels(args.qrel_file)
+            print(f"Loaded qrels for {len(args.qrels)} queries")
     else:
         args.qrels = getattr(args, 'qrels', None)
 
@@ -402,6 +407,11 @@ def run_generation_evaluation(args):
             except Exception:
                 pass
         _merge_rank_files(args.output_file, worker_count, append=True)
+        if getattr(args, 'trec_output_file', None):
+            if args.generation_method == 'deep_research':
+                _merge_trec_rank_files_sorted(args.trec_output_file, worker_count)
+            else:
+                _merge_rank_files(args.trec_output_file, worker_count, append=True)
         new_queries_processed = len(filtered_dataset_items)
     else:
         # Single-GPU path
@@ -411,59 +421,72 @@ def run_generation_evaluation(args):
         n_single = len(filtered_dataset_items)
         use_tqdm = sys.stdout.isatty()
         start_time_single = time.time()
-        with open(args.output_file, 'a') as res_f:
-            for i, (qid, sample) in enumerate(tqdm(filtered_dataset_items, desc="Generation", position=0, leave=True, disable=not use_tqdm, mininterval=5, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")):
-                if not use_tqdm:
-                    current = i + 1
-                    if current % 50 == 0 or current == 1 or current == n_single:
-                        elapsed = time.time() - start_time_single
-                        eta = (n_single - current) * (elapsed / current) if current > 0 else 0
-                        print(f"Generation: {current}/{n_single} ({100*current/n_single:.1f}%) | elapsed {_format_duration(elapsed)} | ETA ~{_format_duration(eta)}", flush=True)
-                query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
-                if 'total_recall_answer' in sample:
-                    gt_answer = str(sample['total_recall_answer'])
-                elif 'answer' in sample:
-                    answer = sample['answer']
-                    gt_answer = str(answer.get('value', '')) if isinstance(answer, dict) else str(answer)
-                else:
-                    gt_answer = ''
-                if args.generation_method == 'no_retrieval':
-                    reasoning_path, prediction = model.inference(query)
-                elif args.generation_method == 'single_retrieval':
-                    reasoning_path, prediction = model.inference(query, qid=qid)
-                else:
-                    reasoning_path, prediction = model.inference(query, qid=qid)
-                soft_matches = {}
-                for pct in tolerance_percentages:
-                    match_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)
-                    soft_matches[pct] = match_result['soft_match']
-                exact_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=None)
-                exact_match = exact_result['exact_match']
-                new_queries_processed += 1
-                gt_answer_cleaned = clean_gold_for_numeric(gt_answer, decimals=2)
-                prediction_cleaned = clean_prediction_for_numeric(prediction)
-                path_for_output = _reasoning_path_doc_ids_only(reasoning_path, _get_passage_id) if args.generation_method in ('single_retrieval', 'deep_research') else reasoning_path
-                result_item = {
-                    "qid": qid,
-                    "query": query,
-                    "gt_answer": gt_answer,
-                    "gt_answer_cleaned": gt_answer_cleaned,
-                    "prediction": prediction,
-                    "prediction_cleaned": prediction_cleaned,
-                    "exact_match": float(1 if exact_match else 0),
-                    "soft_matches": soft_matches,
-                    "reasoning_path": path_for_output,
-                }
-                if args.generation_method == 'deep_research':
-                    result_item["reasoning_trajectory"] = path_for_output
-                if 'file_id' in sample:
-                    result_item['file_id'] = sample['file_id']
-                if 'original_query' in sample:
-                    result_item['original_query'] = sample['original_query']
-                if 'aggregation_function' in sample:
-                    result_item['aggregation_function'] = sample['aggregation_function']
-                res_f.write(json.dumps(result_item) + '\n')
-                res_f.flush()
+        trec_lines_all = []  # for deep_research: (qid, pid, rank, score, run_id), write sorted by (qid, rank)
+        try:
+            with open(args.output_file, 'a') as res_f:
+                for i, (qid, sample) in enumerate(tqdm(filtered_dataset_items, desc="Generation", position=0, leave=True, disable=not use_tqdm, mininterval=5, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")):
+                    if not use_tqdm:
+                        current = i + 1
+                        if current % 50 == 0 or current == 1 or current == n_single:
+                            elapsed = time.time() - start_time_single
+                            eta = (n_single - current) * (elapsed / current) if current > 0 else 0
+                            print(f"Generation: {current}/{n_single} ({100*current/n_single:.1f}%) | elapsed {_format_duration(elapsed)} | ETA ~{_format_duration(eta)}", flush=True)
+                    query = sample.get('total_recall_query', sample.get('query', sample.get('question', '')))
+                    if 'total_recall_answer' in sample:
+                        gt_answer = str(sample['total_recall_answer'])
+                    elif 'answer' in sample:
+                        answer = sample['answer']
+                        gt_answer = str(answer.get('value', '')) if isinstance(answer, dict) else str(answer)
+                    else:
+                        gt_answer = ''
+                    if args.generation_method == 'no_retrieval':
+                        reasoning_path, prediction = model.inference(query)
+                    elif args.generation_method == 'single_retrieval':
+                        reasoning_path, prediction = model.inference(query, qid=qid)
+                    else:
+                        reasoning_path, prediction = model.inference(query, qid=qid)
+                    soft_matches = {}
+                    for pct in tolerance_percentages:
+                        match_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=pct)
+                        soft_matches[pct] = match_result['soft_match']
+                    exact_result = soft_exact_match(prediction, gt_answer, decimals=3, tolerance_pct=None)
+                    exact_match = exact_result['exact_match']
+                    new_queries_processed += 1
+                    gt_answer_cleaned = clean_gold_for_numeric(gt_answer, decimals=2)
+                    prediction_cleaned = clean_prediction_for_numeric(prediction)
+                    path_for_output = _reasoning_path_doc_ids_only(reasoning_path, _get_passage_id) if args.generation_method in ('single_retrieval', 'deep_research') else reasoning_path
+                    result_item = {
+                        "qid": qid,
+                        "query": query,
+                        "gt_answer": gt_answer,
+                        "gt_answer_cleaned": gt_answer_cleaned,
+                        "prediction": prediction,
+                        "prediction_cleaned": prediction_cleaned,
+                        "exact_match": float(1 if exact_match else 0),
+                        "soft_matches": soft_matches,
+                        "reasoning_path": path_for_output,
+                    }
+                    if args.generation_method == 'deep_research':
+                        _, retrieval_metrics, trec_lines = _deep_research_interleave_and_metrics(qid, reasoning_path, args, _get_passage_id)
+                        trec_lines_all.extend(trec_lines)
+                        for k, v in retrieval_metrics.items():
+                            if k.startswith('entity_recall'):
+                                result_item[k] = v
+                    if 'file_id' in sample:
+                        result_item['file_id'] = sample['file_id']
+                    if 'original_query' in sample:
+                        result_item['original_query'] = sample['original_query']
+                    if 'aggregation_function' in sample:
+                        result_item['aggregation_function'] = sample['aggregation_function']
+                    res_f.write(json.dumps(result_item) + '\n')
+                    res_f.flush()
+        finally:
+            if getattr(args, 'trec_output_file', None) and trec_lines_all:
+                # Write TREC file sorted by (qid, rank) so column 4 is incremental 1,2,3,... per query
+                trec_lines_all.sort(key=lambda x: (x[0], x[2]))  # (qid, rank)
+                with open(args.trec_output_file, 'a') as trec_f:
+                    for (qid, pid, r, score, run_id) in trec_lines_all:
+                        trec_f.write(f"{qid} Q0 {pid} {r} {score:.4f} {run_id}\n")
 
     if new_queries_processed == 0:
         print("\nNo new queries processed in this run.")
@@ -489,6 +512,14 @@ def run_generation_evaluation(args):
             "exact_match": aggregated_metrics['exact_match'],
             "soft_exact_match": aggregated_metrics['soft_exact_match']
         }
+        # For deep_research, add retrieval evaluation (entity recall) to the same metrics file
+        if args.generation_method == 'deep_research':
+            k_values = sorted(set(getattr(args, 'retrieval_eval_ks', [3, 10, 100, 1000])))
+            agg_ret = aggregate_retrieval_metrics_from_file(args.output_file, k_values)
+            if agg_ret:
+                metrics_summary["entity_recall"] = agg_ret["entity_recall"]
+                for k in k_values:
+                    metrics_summary[f"entity_recall@{k}"] = agg_ret["entity_recall_by_k"][k]
 
         with open(args.metrics_file, 'w') as f:
             json.dump(metrics_summary, f, indent=2)
@@ -497,6 +528,8 @@ def run_generation_evaluation(args):
         print("No evaluation results available yet.")
 
     print(f"\nResults saved to: {args.output_file}")
+    if getattr(args, 'trec_output_file', None):
+        print(f"TREC run file (sorted by qid then rank, run_id=retriever_sqN_rankK): {args.trec_output_file}")
     return 0
 
 
@@ -528,8 +561,117 @@ def _reasoning_path_doc_ids_only(reasoning_path, get_passage_id_fn):
         if 'docs' in step_copy and step_copy['docs']:
             step_copy['doc_ids'] = [get_passage_id_fn(d) for d in step_copy['docs']]
             del step_copy['docs']
+        if 'ranked_list' in step_copy:
+            del step_copy['ranked_list']
         out.append(step_copy)
     return out
+
+
+def _interleave_rank_lists_with_dedup(step_ranked_lists, get_passage_id_fn):
+    """
+    Interleave per-step ranked lists: first rank of all steps, then second rank of all steps, ...
+    Deduplicate by passage id: only the first occurrence (highest rank) is kept.
+
+    Example (5 steps): final order is
+      qs1_rank1, qs2_rank1, qs3_rank1, qs4_rank1, qs5_rank1,
+      qs1_rank2, qs2_rank2, qs3_rank2, qs4_rank2, qs5_rank2, ...
+    Duplicate passage ids are skipped (first occurrence wins).
+
+    Returns list of (doc_id, score, subquery_num, rank_in_subquery) for TREC and evaluation.
+    subquery_num and rank_in_subquery are 1-based.
+    """
+    seen = set()
+    out = []
+    step_lists = [list(step) for step in step_ranked_lists]
+    max_len = max(len(s) for s in step_lists) if step_lists else 0
+    for r in range(max_len):
+        for subquery_num, slist in enumerate(step_lists, start=1):
+            if r >= len(slist):
+                continue
+            doc, score = slist[r]
+            pid = get_passage_id_fn(doc)
+            if pid in seen:
+                continue
+            seen.add(pid)
+            rank_in_subquery = r + 1  # 1-based rank within that subquery
+            out.append((pid, score, subquery_num, rank_in_subquery))
+    return out
+
+
+def _step_to_ranked_list(step, get_passage_id_fn):
+    """
+    Get a step's ranked list for interleaving. Uses 'ranked_list' if present (live inference),
+    otherwise builds from 'doc_ids' with placeholder score (e.g. when reasoning_path is from stored jsonl).
+    Returns list of (doc, score) or None if step has no retrieval data.
+    """
+    if step.get('ranked_list'):
+        return list(step['ranked_list'])
+    if step.get('doc_ids'):
+        return [({"id": str(pid)}, 1.0) for pid in step['doc_ids']]
+    return None
+
+
+def _deep_research_interleave_and_metrics(qid, reasoning_path, args, get_passage_id_fn, trec_file=None):
+    """
+    For deep_research: collect per-step ranked_lists, interleave with dedup,
+    compute entity recall at eval_ks. Returns (interleaved_list, metrics_dict, trec_lines).
+    trec_lines: capped at max(retrieval_eval_ks) per query; sorted by (qid, rank) so column 4 is 1,2,...,max_k.
+    run_id uses sqN = step index (1-based). Steps with ranked_list or doc_ids are included (no limit on step count).
+    """
+    step_lists = []
+    for s in reasoning_path:
+        rl = _step_to_ranked_list(s, get_passage_id_fn)
+        if rl:
+            step_lists.append(rl)
+    if not step_lists:
+        return [], {}, []
+    interleaved = _interleave_rank_lists_with_dedup(step_lists, get_passage_id_fn)
+    max_k = max(getattr(args, 'retrieval_eval_ks', [3, 10, 100, 1000]))
+    interleaved_capped = interleaved[:max_k]
+    retriever_name = getattr(args, 'retriever_name', 'retriever')
+    trec_lines = []
+    for r, (pid, score, subquery_num, rank_in_subquery) in enumerate(interleaved_capped, start=1):
+        run_id = f"{retriever_name}_sq{subquery_num}_rank{rank_in_subquery}"
+        trec_lines.append((qid, str(pid), r, score, run_id))
+    metrics = {}
+    qrels = getattr(args, 'qrels', None)
+    if qrels and qid in qrels:
+        retrieved_ids = [x[0] for x in interleaved]
+        k_values = sorted(set(getattr(args, 'retrieval_eval_ks', [3, 10, 100, 1000])))
+        metrics = evaluate_entity_retrieval(retrieved_ids, qrels[qid], k_values)
+    return interleaved, metrics, trec_lines
+
+
+def _parse_trec_line(line):
+    """Parse TREC line 'qid Q0 docid rank score run_id' -> (qid, rank, line). rank as int for sorting."""
+    parts = line.strip().split()
+    if len(parts) >= 4:
+        try:
+            r = int(parts[3])
+            return (parts[0], r, line)
+        except ValueError:
+            pass
+    return (None, 0, line)
+
+
+def _merge_trec_rank_files_sorted(base_path, num_ranks, delete_rank_files=True):
+    """Merge .rank0, .rank1, ... into base_path, sorted by (qid, rank) so column 4 is 1,2,3,... per query."""
+    all_lines = []
+    for rank in range(num_ranks):
+        rpath = f"{base_path}.rank{rank}"
+        if os.path.exists(rpath):
+            with open(rpath, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        all_lines.append(_parse_trec_line(line))
+            if delete_rank_files:
+                os.remove(rpath)
+    if not all_lines:
+        return
+    all_lines.sort(key=lambda x: (x[0], x[1]))  # (qid, rank)
+    with open(base_path, 'w') as out_f:
+        for _, _, line in all_lines:
+            out_f.write(line)
 
 
 def _merge_rank_files(base_path, num_ranks, delete_rank_files=True, append=True):
@@ -639,7 +781,6 @@ def merge_rank_files_in_dir(output_dir):
 # CPU-only retriever: use multi-CPU workers (no GPU)
 CPU_RETRIEVERS = ('bm25', 'oracle')
 
-
 def _retrieval_worker(rank, device_id, args, items_subset, qrels, is_cpu_retriever=False):
     """Worker for multi-GPU or multi-CPU retrieval evaluation. Writes to args.trec_output_file.rank{N} and args.per_query_metrics_file.rank{N}."""
     args.qrels = qrels
@@ -711,6 +852,8 @@ def _generation_worker(rank, device_id, args, items_subset):
     """Worker for multi-GPU generation evaluation. Writes to args.output_file.rank{N}."""
     args.device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
     args.output_file = f"{args.output_file}.rank{rank}"
+    if getattr(args, 'trec_output_file', None):
+        args.trec_output_file = f"{args.trec_output_file}.rank{rank}"
     model = initialize_model(args)
     tolerance_percentages = [1.0, 5.0, 10.0, 20.0, 50.0, 90.0]
     n_items = len(items_subset)
@@ -719,8 +862,9 @@ def _generation_worker(rank, device_id, args, items_subset):
     progress_file = progress_dir / f".progress_gen_{rank}"
     start_time = time.time()
     start_ts = int(start_time)
-    with open(args.output_file, 'w') as res_f:
-        try:
+    trec_lines_all = []
+    try:
+        with open(args.output_file, 'w') as res_f:
             for i, (qid, sample) in enumerate(tqdm(items_subset, desc=f"Generation GPU {device_id}", position=0, leave=True, disable=not use_tqdm, mininterval=10, smoothing=0.1)):
                 current = i + 1
                 if current % 5 == 0 or current == 1 or current == n_items:
@@ -767,17 +911,26 @@ def _generation_worker(rank, device_id, args, items_subset):
                     "reasoning_path": path_for_output,
                 }
                 if args.generation_method == 'deep_research':
-                    result_item["reasoning_trajectory"] = path_for_output
+                    _, retrieval_metrics, trec_lines = _deep_research_interleave_and_metrics(qid, reasoning_path, args, _get_passage_id)
+                    trec_lines_all.extend(trec_lines)
+                    for k, v in retrieval_metrics.items():
+                        if k.startswith('entity_recall'):
+                            result_item[k] = v
                 for key in ('file_id', 'original_query', 'aggregation_function'):
                     if key in sample:
                         result_item[key] = sample[key]
                 res_f.write(json.dumps(result_item) + '\n')
                 res_f.flush()
-        finally:
-            try:
-                progress_file.unlink(missing_ok=True)
-            except Exception:
-                pass
+        try:
+            progress_file.unlink(missing_ok=True)
+        except Exception:
+            pass
+    finally:
+        if getattr(args, 'trec_output_file', None) and trec_lines_all:
+            trec_lines_all.sort(key=lambda x: (x[0], x[2]))  # (qid, rank) so column 4 is 1,2,3,... per query
+            with open(args.trec_output_file, 'w') as trec_f:
+                for (qid, pid, r, score, run_id) in trec_lines_all:
+                    trec_f.write(f"{qid} Q0 {pid} {r} {score:.4f} {run_id}\n")
 
 
 def initialize_retriever(args):
@@ -1014,31 +1167,31 @@ def main():
     parser = argparse.ArgumentParser(description='Run evaluation pipeline on QA datasets')
 
     # Pipeline selection
-    parser.add_argument('--pipeline', type=str, default='retrieval', choices=['retrieval', 'generation'], help='Pipeline type: retrieval (entity recall only) or generation (full RAG with LLM)')
+    parser.add_argument('--pipeline', type=str, default='generation', choices=['retrieval', 'generation'], help='Pipeline type: retrieval (entity recall only) or generation (full RAG with LLM)')
 
     # Dataset arguments
-    parser.add_argument('--dataset', type=str, default="qald10_quest", choices=['qald10_quest', 'wikidata', 'synthetic_ecommerce'], help='Dataset to evaluate on (qald10_quest, wikidata, or synthetic_ecommerce)')
+    parser.add_argument('--dataset', type=str, default="wikidata", choices=['qald10_quest', 'wikidata', 'synthetic_ecommerce'], help='Dataset to evaluate on (qald10_quest, wikidata, or synthetic_ecommerce)')
     parser.add_argument('--subset', type=str, default='test', choices=['train', 'val', 'test'], help='Subset: train, val, or test')
     parser.add_argument('--dataset_file', type=str, default=None, help='Path to dataset file (overrides default)')
     parser.add_argument('--qrel_file', type=str, default=None, help='Path to qrel file (for retrieval pipeline, overrides default)')
 
     # Generation arguments (only used when pipeline=generation)
-    parser.add_argument('--model', type=str, default='openai/gpt-5.2', choices=['openai/gpt-4o', 'openai/gpt-5.2', 'anthropic/claude-sonnet-4.5', 'deepseek/deepseek-v3.2', 'qwen/qwen3-235b-a22b', 'qwen/qwen-2.5-7b-instruct'], help='Model for generation (default: openai/gpt-4o). Used only when pipeline=generation.')
-    parser.add_argument('--generation_method', type=str, default='single_retrieval', choices=['no_retrieval', 'single_retrieval', 'deep_research'], help='Generation method: no_retrieval, single_retrieval, or deep_research (default: no_retrieval). Used only when pipeline=generation.')
+    parser.add_argument('--model', type=str, default='Qwen/Qwen2.5-7B-Instruct', choices=['openai/gpt-4o', 'openai/gpt-5.2', 'anthropic/claude-sonnet-4.5', 'deepseek/deepseek-v3.2', 'qwen/qwen3-235b-a22b', 'Qwen/Qwen2.5-7B-Instruct'], help='Model for generation (default: openai/gpt-4o). Used only when pipeline=generation.')
+    parser.add_argument('--generation_method', type=str, default='deep_research', choices=['no_retrieval', 'single_retrieval', 'deep_research'], help='Generation method: no_retrieval, single_retrieval, or deep_research (default: no_retrieval). Used only when pipeline=generation.')
     parser.add_argument('--deep_research_model', type=str, default='react', choices=['self_ask', 'react', 'search_o1', 'research', 'search_r1', 'step_search'], help='Deep research model when generation_method=deep_research (default: react). Used only when pipeline=generation and generation_method=deep_research.')
 
     # Retriever arguments (used for pipeline=retrieval; also for pipeline=generation when generation_method is single_retrieval or deep_research)
-    parser.add_argument('--retriever', type=str, default='spladepp', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'bge', 'e5', 'oracle'], help='Retriever to use (default: contriever)')
+    parser.add_argument('--retriever', type=str, default='e5', choices=['bm25', 'spladepp', 'rerank_l6', 'rerank_l12', 'contriever', 'dpr', 'bge', 'e5', 'oracle'], help='Retriever to use (default: contriever)')
     parser.add_argument('--index_dir', type=str, default='/projects/0/prjs0834/heydars/CORPUS_Mahta/indices', help='Directory containing retrieval indices', choices=['corpus_datasets/corpus', '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl', help='Path to corpus file')
-    parser.add_argument('--retrieval_topk', type=int, default=50, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
-    parser.add_argument('--retrieval_results_file', type=str, default=None, help='Optional path to TREC-format retrieval results (e.g. evaluation_results.txt). If provided and file exists, use it instead of running retrieval. If not provided, will check run_output/{run}/{subset_name}/retrieval_{retriever}/evaluation_results.txt. If no file is found, retrieval is run as usual.')
+    parser.add_argument('--retrieval_topk', type=int, default=3, help='Number of passages passed to the LLM when using single_retrieval or deep_research (generation pipeline only). Not used for retrieval pipeline (default: 3)')
+    parser.add_argument('--retrieval_results_file', type=str, default=None, help='Optional path to TREC-format retrieval results. Used only for single_retrieval (one query per example). If provided and file exists, use it instead of running retrieval. If not provided, will check run_output/{run}/{subset_name}/retrieval_{retriever}/evaluation_results.txt. Ignored for deep_research (retrieval is always run per step).')
     parser.add_argument('--retrieval_eval_ks', type=int, nargs='+', default=[3, 10, 100, 1000], help='K values for retrieval evaluation (entity recall@k). Retrieval pipeline retrieves max(eval_ks) and reports these k’s (default: 1 3 10 100)')
     parser.add_argument('--splade_max_length', type=int, default=256, help='Max token length for SPLADE query encoding; must match index build (default: 256)')
     parser.add_argument('--faiss_gpu', action='store_true', default=False, help='Use GPU for FAISS computation')
 
     # Other arguments
-    parser.add_argument('--max_iter', type=int, default=10, help='Maximum iterations for multi-step models (default: 10)')
+    parser.add_argument('--max_iter', type=int, default=20, help='Maximum iterations for multi-step models (default: 10)')
     parser.add_argument('--device', type=int, default=0, help='CUDA device ID when using single GPU (default: 0)')
     parser.add_argument('--devices', type=str, default=None, help='Comma-separated GPU IDs (e.g. "0,1,2,3"). If not set, all available GPUs are used automatically. Set to "0" to force single-GPU.')
     parser.add_argument('--num_workers', type=int, default=None, help='Number of CPU workers for parallel runs: retrieval with BM25 (CPU-only), or generation on CPU (e.g. API models). Enables multi-process parallelism. Default: 1 for generation; for retrieval BM25 same as devices or 1.')
@@ -1067,6 +1220,18 @@ def main():
     # Set model_name_or_path for compatibility
     args.model_name_or_path = args.model
 
+    # Deep research: research/search_r1/step_search use fixed HF models (downloaded from HF); self_ask/react/search_o1 use --model
+    DEEP_RESEARCH_HF_MODELS = {
+        "research": "gentrl/ReSearch-Qwen-7B-Instruct",
+        "search_r1": "PeterJinGo/SearchR1-nq_hotpotqa_train-qwen2.5-7b-em-ppo-v0.3",
+        "step_search": "Zill1/StepSearch-7B-Instruct",
+    }
+    if args.pipeline == 'generation' and args.generation_method == 'deep_research':
+        dm = args.deep_research_model
+        if dm in DEEP_RESEARCH_HF_MODELS:
+            args.model_name_or_path = DEEP_RESEARCH_HF_MODELS[dm]
+            args.model_source = 'hf_local'
+
     # Set generation_model for compatibility with model classes (no_retrieval, single_retrieval, or deep_research model name)
     if args.pipeline == 'generation':
         if args.generation_method == 'deep_research':
@@ -1083,11 +1248,12 @@ def main():
     if args.pipeline == 'retrieval':
         args.retrieval_topk = max(args.retrieval_eval_ks)
 
-    # Set model source
-    if args.model_name_or_path in ["openai/gpt-4o", "openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "deepseek/deepseek-v3.2", "qwen/qwen3-235b-a22b", "qwen/qwen-2.5-7b-instruct"]:
-        args.model_source = 'api'
-    else:
-        args.model_source = 'hf_local'
+    # Set model source (only if not already set by deep_research HF override above)
+    if not (args.pipeline == 'generation' and args.generation_method == 'deep_research' and args.deep_research_model in DEEP_RESEARCH_HF_MODELS):
+        if args.model_name_or_path in ["openai/gpt-4o", "openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "deepseek/deepseek-v3.2", "qwen/qwen3-235b-a22b"]:
+            args.model_source = 'api'
+        else:
+            args.model_source = 'hf_local'
 
     # Set device and device_ids for multi-GPU (auto-detect all GPUs when --devices not given)
     if getattr(args, 'devices', None):
@@ -1115,7 +1281,7 @@ def main():
             elif args.generation_method == 'single_retrieval':
                 args.output_dir = f"run_output/{args.run}/{args.subset_name}/generation_{model_short}_{args.generation_method}_{args.retriever_name}"
             elif args.generation_method == 'deep_research':
-                args.output_dir = f"run_output/{args.run}/{args.subset_name}/generation_{model_short}_{args.generation_method}_{args.deep_research_model}"
+                args.output_dir = f"run_output/{args.run}/{args.subset_name}/generation_deep_research_{args.deep_research_model}"
             else:
                 args.output_dir = f"run_output/{args.run}/{args.subset_name}/generation_{model_short}_{args.generation_method}"
 
@@ -1129,6 +1295,8 @@ def main():
         # Per-query results (used for aggregation and significance testing)
         args.output_file = f"{args.output_dir}/evaluation_results_per_query_metrics.jsonl"
         args.metrics_file = f"{args.output_dir}/evaluation_results_metrics.json"
+        if args.generation_method == 'deep_research':
+            args.trec_output_file = f"{args.output_dir}/evaluation_results.txt"
 
     # Additional retriever args for compatibility
     args.retrieval_query_max_length = 64
@@ -1138,8 +1306,8 @@ def main():
     args.bm25_k1 = 0.9
     args.bm25_b = 0.4
 
-    # Precomputed retrieval (generation with single_retrieval or deep_research): use file if available to avoid running retrieval
-    if args.pipeline == 'generation' and args.generation_method in ('single_retrieval', 'deep_research'):
+    # Precomputed retrieval: only for single_retrieval (one query per example). Deep research must run retrieval per step with the model's search queries.
+    if args.pipeline == 'generation' and args.generation_method == 'single_retrieval':
         candidate = None
         if getattr(args, 'retrieval_results_file', None) and Path(args.retrieval_results_file).exists():
             candidate = Path(args.retrieval_results_file).resolve()
@@ -1153,6 +1321,8 @@ def main():
         else:
             args.precomputed_retrieval_path = None
             print("No precomputed retrieval file found; will run retrieval.")
+    elif args.pipeline == 'generation' and args.generation_method == 'deep_research':
+        args.precomputed_retrieval_path = None  # always run retrieval per step
 
     # Set seed
     set_seed(args.seed)
@@ -1206,4 +1376,4 @@ if __name__ == "__main__":
 # EXAMPLE USAGE
 # ============================================================================
 
-# python c5_task_evaluation/run_evalution.py --limit 400 --num_workers 10
+# python c5_task_evaluation/run_evalution.py --limit 10 --num_workers 10
