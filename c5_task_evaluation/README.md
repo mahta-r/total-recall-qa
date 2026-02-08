@@ -1,58 +1,85 @@
-# Task Evaluation (c5)
+# Task evaluation (c5)
+
+## `run_evalution.py`
 
 Runs evaluation on QA datasets with two pipelines:
 
-- **Retrieval**: entity recall@k only (no LLM). Uses retriever args; `retrieval_eval_ks` defines k values.
-- **Generation**: full RAG (or LLM-only). Uses `generation_method` and optionally `deep_research_model`.
+- **Retrieval:** entity recall@k only (no LLM). Uses retriever + index; `retrieval_eval_ks` defines k values.
+- **Generation:** full RAG or LLM-only. Uses `generation_method` and optionally `deep_research_model`.
+
+**Input variables**
+
+| Variable | Description |
+|----------|-------------|
+| `--pipeline` | `retrieval` or `generation`. |
+| `--dataset` | `qald10_quest`, `wikidata`, or `synthetic_ecommerce`. |
+| `--subset` | `train`, `val`, or `test`. |
+| `--dataset_file` | Override dataset JSONL path. |
+| `--qrel_file` | Override qrel path (retrieval). |
+| `--retriever` | `bm25`, `spladepp`, `contriever`, `dpr`, `e5`, `bge`, `rerank_l6`, `rerank_l12`, `oracle`. |
+| `--index_dir` | Directory containing retrieval indices. |
+| `--corpus_path` | Corpus JSONL (for BM25/oracle or lookups). |
+| `--retrieval_eval_ks` | K values for recall@k (e.g. `3 10 100 1000`). |
+| `--retrieval_topk` | Passages passed to LLM (generation; single_retrieval / deep_research). |
+| `--retrieval_results_file` | Optional TREC retrieval results; if set and exists, skip retrieval (single_retrieval). |
+| `--model` | Generation model (e.g. `Qwen/Qwen2.5-7B-Instruct`). Used when `pipeline=generation`. |
+| `--generation_method` | `no_retrieval`, `single_retrieval`, or `deep_research`. |
+| `--deep_research_model` | When deep_research: `self_ask`, `react`, `search_o1`, `research`, `search_r1`, `step_search`. |
+| `--run` | Run ID for output paths. |
+| `--output_dir` | Override output directory. |
+| `--limit` | Max samples (for testing). |
+| `--faiss_gpu` | Use GPU for FAISS. |
+| `--devices` | Comma-separated GPU IDs (e.g. `0,1,2,3`). |
+
+**Script (run from project root):** `scripts/evaluation/run_evaluation.sh` — set `pipeline`, `dataset`, `subset`, `retriever`, `model`, `generation_method`, `deep_research_model`, `run` in the script then run (e.g. via Slurm).
+
+**Examples**
+
+Retrieval (entity recall@3,10,100,1000):
+
+```bash
+python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset wikidata --subset test --retriever e5 --retrieval_eval_ks 3 10 100 1000 --run run_1
+```
+
+Generation (deep research with ReAct + e5):
+
+```bash
+python c5_task_evaluation/run_evalution.py --pipeline generation --dataset wikidata --subset test --model Qwen/Qwen2.5-7B-Instruct --generation_method deep_research --deep_research_model react --retriever e5 --retrieval_topk 3 --run run_1
+```
 
 ---
 
-## Main input variables
+## `significance_test.py`
 
-| Argument | Description | Default |
-|----------|-------------|---------|
-| `--pipeline` | `retrieval` or `generation` | `retrieval` |
-| `--dataset` | `heydar`, `mahta`, or `zahra` | `heydar` |
-| `--subset` | `val` or `test` | `test` |
-| `--run` | Run ID for output paths | `run_1` |
-| `--retriever` | `bm25`, `spladepp`, `contriever`, `dpr`, `e5`, `bge`, `rerank_l6`, `rerank_l12` | `bm25` |
-| `--retrieval_eval_ks` | K values for recall@k (retrieval pipeline) | `1 3 10 100` |
-| `--retrieval_topk` | Passages to LLM (generation only) | `3` |
-| `--model` | Generation model (e.g. `openai/gpt-4o`) | `openai/gpt-4o` |
-| `--generation_method` | `no_retrieval`, `single_retrieval`, `deep_research` | `no_retrieval` |
-| `--deep_research_model` | When `generation_method=deep_research`: `self_ask`, `react`, `search_o1`, `research`, `search_r1`, `step_search` | `react` |
-| `--index_dir` | Directory with retrieval indices | (project default) |
-| `--dataset_file` | Override dataset JSONL path | auto from dataset/subset |
-| `--qrel_file` | Override qrel path (retrieval) | auto from dataset/subset |
-| `--output_dir` | Override output directory | auto from run/subset/retriever or model |
-| `--limit` | Max samples (for testing) | None |
+Compares two systems using per-query metrics: paired Wilcoxon signed-rank test and optional bootstrap 95% CI for the difference. Use after runs that write `evaluation_results_per_query_metrics.jsonl`.
 
----
+**Input variables**
 
-## Examples
+| Variable | Description |
+|----------|-------------|
+| `metrics_a` | Path to first system’s `evaluation_results_per_query_metrics.jsonl`. |
+| `metrics_b` | Path to second system’s `evaluation_results_per_query_metrics.jsonl`. |
+| `--metric` | Metric to compare (e.g. `entity_recall@10`, `entity_recall@100`, `exact_match`, `soft_match_5.0`). Default: `entity_recall@10`. |
+| `--names` | Two display names for the systems (e.g. `bm25 spladepp`). |
+| `--alpha` | Significance level (default: 0.05). |
+| `--bootstrap` | Bootstrap sample count for CI (0 to disable). Default: 10000. |
 
-**Retrieval (entity recall@1,3,10,100):**
+**Examples**
+
+Retrieval (bm25 vs spladepp on entity_recall@10):
+
 ```bash
-python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --retrieval_eval_ks 1 3 10 100
-python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset val --retriever contriever
+python c5_task_evaluation/significance_test.py \
+  run_output/run_1/qald10_quest_test/retrieval_bm25/evaluation_results_per_query_metrics.jsonl \
+  run_output/run_1/qald10_quest_test/retrieval_spladepp/evaluation_results_per_query_metrics.jsonl \
+  --metric entity_recall@10 --names bm25 spladepp
 ```
 
-**Generation — LLM only:**
-```bash
-python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --generation_method no_retrieval
-```
+Generation (exact_match: e5 vs oracle):
 
-**Generation — single retrieval + LLM:**
 ```bash
-python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset test --model openai/gpt-4o --generation_method single_retrieval --retriever contriever --retrieval_topk 5
-```
-
-**Generation — deep research (e.g. ReAct):**
-```bash
-python c5_task_evaluation/run_evalution.py --pipeline generation --dataset heydar --subset val --model openai/gpt-4o --generation_method deep_research --deep_research_model react --retriever contriever
-```
-
-**Quick test (few samples):**
-```bash
-python c5_task_evaluation/run_evalution.py --pipeline retrieval --dataset heydar --subset test --retriever bm25 --limit 5
+python c5_task_evaluation/significance_test.py \
+  run_output/run_1/qald10_quest_test/generation_gpt-5.2_single_retrieval_e5/evaluation_results_per_query_metrics.jsonl \
+  run_output/run_1/qald10_quest_test/generation_gpt-5.2_single_retrieval_oracle/evaluation_results_per_query_metrics.jsonl \
+  --metric exact_match --names e5 oracle
 ```
