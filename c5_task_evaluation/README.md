@@ -48,8 +48,6 @@ Point `--corpus_path` and `--index_dir` to the downloaded paths.
 
 **Examples**
 
-All examples use one flag per line. Run from project root.
-
 **1. Retrieval only** (entity recall@3,10,100,1000):
 
 ```bash
@@ -88,7 +86,7 @@ python c5_task_evaluation/run_evalution.py \
   --run run_1
 ```
 
-**4. Deep research (search_r1):** Interleaved retrieval + generation over multiple steps. You get **retrieval eval** and **generation eval**. Retrieval eval is computed by merging, per query, all step-level ranked lists into one list (interleave with dedup by doc ID), then computing entity recall@k on that merged list. Generation eval is the usual exact/soft match on the final answer.
+**4. Deep research (search_r1):**
 
 ```bash
 python c5_task_evaluation/run_evalution.py \
@@ -103,6 +101,8 @@ python c5_task_evaluation/run_evalution.py \
   --retrieval_eval_ks 3 10 100 1000 \
   --run run_1
 ```
+
+We evaluate both the intermediate retrieval and the final answer generation. The retrieval eval is done by interleaving the ranked lists of subqueries (one merged list per query, dedup by doc ID), then computing entity recall@k on that merged list. Generation eval is exact/soft match on the final answer.
 
 **Script (run from project root):** `scripts/evaluation/run_evaluation.sh` — set `pipeline`, `dataset`, `subset`, `retriever`, `model`, `generation_method`, `deep_research_model`, `run` in the script then run (e.g. via Slurm).
 
