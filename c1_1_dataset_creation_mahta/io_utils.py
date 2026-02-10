@@ -8,7 +8,9 @@ def encode_datetime(obj):
             "__type__": "datetime",
             "value": obj.isoformat()
         }
-    raise TypeError
+    else:
+        print(type(obj), obj)
+        raise TypeError
 
 
 def decode_datetime(obj):

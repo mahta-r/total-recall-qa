@@ -5,7 +5,7 @@ import math
 
 from io_utils import encode_datetime
 from wikidata.prop_utils import NO_AGGREGATION_PROPS, NO_CONNECTING_PROPS, UNUSABLE_PROPS
-from wikidata.resources.prop_operation_mapping import OPERATION_FREQUENCY, PROP_OP_MAPPING
+from wikidata.prop_operation_mapping import OPERATION_FREQUENCY, PROP_OP_MAPPING
 from wikidata.operation_utils import is_valid_for_values
 from wikidata.operation_utils import numerical_filter, coordinates_filter, temporal_filter, items_filter
 from wikidata.operation_utils import numerical_aggregation, coordinates_aggregation, temporal_aggregation, items_aggregation

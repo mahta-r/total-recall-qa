@@ -120,7 +120,7 @@ def numerical_aggregation(
         while ratio == 0 or ratio < min_ratio or ratio > max_ratio:
             x_entity_value = rand.choice(input_entity_values)
             x = float(x_entity_value['value_node']['value'])
-            count = np.sum(arr < x)
+            count = int(np.sum(arr < x))
             ratio = count / len(arr)
             min_ratio -= 0.01
             max_ratio += 0.01
@@ -133,7 +133,7 @@ def numerical_aggregation(
         while ratio == 0 or ratio < min_ratio or ratio > max_ratio:
             x_entity_value = rand.choice(input_entity_values)
             x = float(x_entity_value['value_node']['value'])
-            count = np.sum(arr > x)
+            count = int(np.sum(arr > x))
             ratio = count / len(arr)
             min_ratio -= 0.01
             max_ratio += 0.01

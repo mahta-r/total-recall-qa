@@ -138,7 +138,7 @@ class QrelGenerator:
             self.queries_missing_wikipages.append(candidate_id)
             return
 
-        candidate_num, aggregation_class_id, aggregation_prop_id = candidate_id.split('_')
+        candidate_num, aggregation_class_id, prop_combo_id = candidate_id.split('_')
 
         if aggregation_class_id not in self.results:
             self.results[aggregation_class_id] = {}
@@ -367,9 +367,6 @@ class QrelGenerator:
             f"{'- '*40}"
         )
         candidate_logger.info(passage_log)
-        # candidate_logger.info("PROMPT:\n" + input_instance)
-        # candidate_logger.info("RESPONSE:\n" + response + "\n")
-        # candidate_logger.info("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -")
 
         if response not in ["YES-SAME", "YES-DIFFERENT", "NO-RELATED", "NO-UNRELATED"]:
             if "YES-SAME".lower() in response.lower():
