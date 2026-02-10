@@ -96,6 +96,7 @@ Desktop.ini
 
 # data and notebooks 
 data/
+logs/
 notebooks/
 archive/
 jobs/
