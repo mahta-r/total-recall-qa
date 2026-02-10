@@ -5,8 +5,8 @@ import torch
 import transformers
 from typing import List, Dict, Tuple
 
-from c4_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
-from c4_task_evaluation.src.llm_generator import LLMGenerator_api, LLMGenerator_hf_local
+from c5_task_evaluation.src.retrieval_models_local import BM25Retriever, RerankRetriever, DenseRetriever
+from c5_task_evaluation.src.llm_generator import LLMGenerator_api, LLMGenerator_hf_local
 
 
 class BaseRetriever:

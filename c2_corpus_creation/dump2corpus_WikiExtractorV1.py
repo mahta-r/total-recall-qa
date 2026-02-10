@@ -4,7 +4,6 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import io
 import os
 import re
@@ -47,7 +46,7 @@ def download_raw_dump(input_url: str, output_path: str, chunk_size: int = 8192):
 
 
 # Import chunking and passage conversion functions
-from chunk_to_passages import chunk_docs_by_words, read_jsonl_line
+from chunk_to_passages import chunk_docs_by_words
 
 
 if __name__ == "__main__":

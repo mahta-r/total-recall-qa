@@ -1,0 +1,790 @@
+# ===========================
+# === Src: https://github.com/PeterGriffinJin/Search-R1/blob/main/search_r1/search/retrieval_server.py
+# ===========================
+import json
+import faiss
+import torch
+import warnings
+import datasets
+import numpy as np
+from pathlib import Path
+from tqdm import tqdm
+from typing import List, Dict
+from sentence_transformers import CrossEncoder
+from pyserini.search.lucene import LuceneSearcher, LuceneImpactSearcher
+from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
+from transformers import DPRQuestionEncoder, DPRQuestionEncoderTokenizerFast
+
+
+MODEL2PATH = {
+    "contriever": "facebook/contriever-msmarco",
+    "dpr": "facebook/dpr-question_encoder-single-nq-base",
+    "e5": "intfloat/e5-base-v2",
+    "bge": "BAAI/bge-large-en-v1.5",
+    "reasonir": 'reasonir/ReasonIR-8B',
+    "spladepp": "naver/splade-cocondenser-ensembledistil"
+}
+
+MODEL2POOLING = {
+    "contriever": "mean",
+    "dpr": "pooler",
+    "e5": "mean",
+    "bge": "cls",
+    "reasonir": 'mean',
+    "spladepp": None
+}
+
+def load_model(retrieval_method, model_path: str, use_fp16: bool = False, device=None):
+    if retrieval_method == 'dpr':
+        tokenizer = DPRQuestionEncoderTokenizerFast.from_pretrained(model_path)
+        model = DPRQuestionEncoder.from_pretrained(model_path)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True, trust_remote_code=True)
+        model = AutoModel.from_pretrained(model_path, trust_remote_code=True)
+    
+    model.eval()
+    if device is not None:
+        model = model.to(device)
+    else:
+        model = model.cuda()
+    if use_fp16: 
+        model = model.half()
+        
+    return model, tokenizer
+
+def pooling(
+    pooler_output,
+    last_hidden_state,
+    attention_mask = None,
+    pooling_method = "mean"
+):
+    if pooling_method == "mean":
+        last_hidden = last_hidden_state.masked_fill(~attention_mask[..., None].bool(), 0.0)
+        return last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
+    elif pooling_method == "cls":
+        return last_hidden_state[:, 0]
+    elif pooling_method == "pooler":
+        return pooler_output
+    else:
+        raise NotImplementedError("Pooling method not implemented!")
+
+def load_corpus(corpus_path: str):
+    corpus = datasets.load_dataset(
+        'json', 
+        data_files=corpus_path,
+        split="train",
+        num_proc=4
+    )
+    return corpus
+
+# def load_docs(corpus, doc_idxs):
+#     results = [corpus[str(idx)] for idx in doc_idxs]
+#     # results = [corpus[idx] for idx in doc_idxs]
+#     return results
+
+def load_docs(corpus, doc_idxs, id2idx=None):
+    """
+    Load documents by index or by id.
+    doc_idxs: list of int (corpus position) or str (external doc id like '46967975-0012').
+    id2idx: optional dict mapping doc id -> corpus position. Required when doc_idxs are strings.
+    """
+    # Handle string ids (e.g. from LuceneImpactSearcher returning external docids)
+    if doc_idxs and isinstance(doc_idxs[0], str):
+        if id2idx is None:
+            raise ValueError("doc_idxs are strings (external ids) but id2idx mapping not provided")
+        doc_idxs = [id2idx.get(i) for i in doc_idxs]
+        doc_idxs = [x for x in doc_idxs if x is not None]
+    else:
+        doc_idxs = [int(i) for i in doc_idxs]
+
+    # pandas DataFrame: select rows by position
+    if hasattr(corpus, "iloc"):
+        return corpus.iloc[doc_idxs]
+
+    # HuggingFace Dataset or list-like
+    if isinstance(corpus, list):
+        return [corpus[i] for i in doc_idxs]
+
+    # dict keyed by integer ids
+    if isinstance(corpus, dict):
+        return [corpus[i] for i in doc_idxs]
+
+    # Fallback: try positional access
+    return [corpus[int(i)] for i in doc_idxs]
+
+
+def _id2idx_cache_path(corpus_path: str) -> Path:
+    """Path to cached id->index mapping in the corpus directory (same basename, .json)."""
+    p = Path(corpus_path)
+    return p.parent / f"id2idx_{p.stem}.json"
+
+
+def load_or_build_id2idx(corpus, corpus_path: str, desc: str = "Corpus id mapping") -> Dict[str, int]:
+    """
+    Build mapping from passage id (string) to corpus index. On first run, save to
+    corpus_dir/id2idx_{corpus_stem}.json; on subsequent runs load from that file.
+    """
+    cache_path = _id2idx_cache_path(corpus_path)
+    if cache_path.exists():
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                id2idx = json.load(f)
+            # JSON keys are always str; values may be int or become int
+            id2idx = {k: int(v) for k, v in id2idx.items()}
+            print(f"Loaded id->index mapping from cache: {cache_path} ({len(id2idx):,} documents)")
+            return id2idx
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            print(f"Cache read failed ({e}); rebuilding id->index mapping...")
+    id2idx = {}
+    n = len(corpus)
+    for idx in tqdm(range(n), desc=desc, disable=n < 10000):
+        doc = corpus[idx]
+        doc_id = doc.get('id') or doc.get('passage_id') or doc.get('doc_id')
+        if doc_id is not None:
+            id2idx[str(doc_id)] = idx
+    try:
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(id2idx, f)
+        print(f"Built and saved id mapping for {len(id2idx):,} documents to {cache_path}")
+    except OSError as e:
+        print(f"Built id mapping for {len(id2idx):,} documents (could not save cache: {e})")
+    return id2idx
+
+
+class Encoder:
+    def __init__(self, model_name, model_path, pooling_method, max_length, use_fp16, device=None):
+        self.model_name = model_name
+        self.model_path = model_path
+        self.pooling_method = pooling_method
+        self.max_length = max_length
+        self.use_fp16 = use_fp16
+        self.device = device if device is not None else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.model, self.tokenizer = load_model(
+            retrieval_method=self.model_name,
+            model_path=self.model_path,
+            use_fp16=self.use_fp16,
+            device=self.device
+        )
+        self.model.eval()
+
+    @torch.no_grad()
+    def encode(self, query_list: List[str], is_query=True) -> np.ndarray:
+        name = self.model_name.lower()
+
+        if isinstance(query_list, str):
+            query_list = [query_list]
+
+        if "e5" in name:
+            if is_query:
+                query_list = [f"query: {query}" for query in query_list]
+            else:
+                query_list = [f"passage: {query}" for query in query_list]
+        if "bge" in name:
+            if is_query:
+                query_list = [f"Represent this sentence for searching relevant passages: {query}" for query in query_list]
+        # DPR/Contriever: no prefixes
+
+        inputs = self.tokenizer(
+            query_list,
+            max_length=self.max_length,
+            padding=True,
+            truncation=True,
+            return_tensors="pt"
+        )
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        # ----- forward + pooling -----
+        model_cls = type(self.model).__name__
+
+        if "t5" in model_cls.lower():
+            # T5-based retrieval model: take first token of decoder output
+            decoder_input_ids = torch.zeros(
+                (inputs['input_ids'].shape[0], 1), dtype=torch.long
+            ).to(inputs['input_ids'].device)
+            output = self.model(**inputs, decoder_input_ids=decoder_input_ids, return_dict=True)
+            query_emb = output.last_hidden_state[:, 0, :]
+        
+        elif "reasonir" in model_cls.lower() or "reasonir" in name:
+            output = self.model(**inputs, return_dict=True)
+            query_emb = pooling(
+                None,
+                output.last_hidden_state,
+                inputs['attention_mask'],
+                self.pooling_method
+            )
+            query_emb = torch.nn.functional.normalize(query_emb, dim=-1)
+        
+        elif "dpr" in name or "dpr" in model_cls.lower(): 
+            output = self.model(**inputs, return_dict=True)
+            query_emb = pooling(
+                output.pooler_output,
+                None,
+                None,
+                self.pooling_method
+            )
+            # do NOT normalize for DPR   
+        
+        elif "contriever" in name or "contriever" in model_cls.lower():
+            output = self.model(**inputs, return_dict=True)
+            query_emb = pooling(
+                None,
+                output.last_hidden_state,
+                inputs['attention_mask'],
+                self.pooling_method
+            )
+            query_emb = torch.nn.functional.normalize(query_emb, dim=-1)
+        
+        else:
+            output = self.model(**inputs, return_dict=True)
+            query_emb = pooling(
+                output.pooler_output,
+                output.last_hidden_state,
+                inputs['attention_mask'],
+                self.pooling_method
+            )
+            query_emb = torch.nn.functional.normalize(query_emb, dim=-1)
+
+        query_emb = query_emb.detach().cpu().numpy()
+        query_emb = query_emb.astype(np.float32, order="C")
+        
+        del inputs, output
+        torch.cuda.empty_cache()
+
+        return query_emb
+
+class BaseRetriever:
+    def __init__(self, config):
+        self.config = config
+        self.retriever_name = config.retriever_name
+        self.corpus_path = config.corpus_path
+        self.topk = config.retrieval_topk
+        self._docid_to_doc = None
+        if config.retriever_name in ['bm25', 'rerank_l6', 'rerank_l12']:
+            self.index_path = f"{config.index_dir}/bm25_index"
+            self.pooling_method = None
+            self.retrieval_model_path = "cross-encoder/ms-marco-MiniLM-L-6-v2" # "cross-encoder/ms-marco-MiniLM-L-6-v2", "cross-encoder/ms-marco-MiniLM-L12-v2"
+        elif config.retriever_name in ['oracle', 'precomputed']:
+            # No neural model or index - uses qrels or precomputed TREC run
+            self.index_path = None
+            self.pooling_method = None
+            self.retrieval_model_path = None
+        elif config.retriever_name == 'spladepp':
+            self.index_path = f"{config.index_dir}/spladepp_index"
+            self.pooling_method = None
+            self.retrieval_model_path = MODEL2PATH[config.retriever_name]
+        else:
+            self.index_path = f"{config.index_dir}/{config.retriever_name}_Flat.index"
+            self.retrieval_model_path = MODEL2PATH[config.retriever_name]
+            self.pooling_method = MODEL2POOLING[config.retriever_name]
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        raise NotImplementedError
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        raise NotImplementedError
+
+    def search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        return self._search(query, num, return_score, qid)
+
+    def batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        return self._batch_search(query_list, num, return_score)
+
+def load_trec_run(trec_run_path: str) -> dict:
+    """
+    Load a TREC-format run file into qid -> list of (passage_id, score) in rank order.
+    Format: query_id Q0 passage_id rank score run_id
+    """
+    run = {}
+    with open(trec_run_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                qid = parts[0]
+                pid = parts[2]
+                try:
+                    score = float(parts[4])
+                except ValueError:
+                    score = 0.0
+                if qid not in run:
+                    run[qid] = []
+                run[qid].append((pid, score))
+    return run
+
+
+class PrecomputedRetriever(BaseRetriever):
+    """
+    Retriever that returns passages from a precomputed TREC run file (e.g. from a prior
+    retrieval pipeline run). Used to avoid running retrieval again during generation.
+    """
+    def __init__(self, config, trec_run_path: str):
+        super().__init__(config)
+        self.trec_run_path = trec_run_path
+        self._run = load_trec_run(trec_run_path)
+        self.corpus = load_corpus(self.corpus_path)
+        self._id2idx = {}
+        self._build_id2idx()
+
+    def _build_id2idx(self):
+        """Build or load mapping from passage id (string) to corpus position (cached in corpus dir)."""
+        self._id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (precomputed retriever)"
+        )
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        if qid is None:
+            if return_score:
+                return [], []
+            return []
+        entries = self._run.get(qid, [])
+        # Already in rank order; take top num
+        passage_ids = [pid for pid, _ in entries[:num]]
+        if not passage_ids:
+            return ([], []) if return_score else []
+        raw_docs = load_docs(self.corpus, passage_ids, id2idx=self._id2idx)
+        scores = [s for _, s in entries[:len(raw_docs)]]
+        results = []
+        for raw_doc in raw_docs:
+            content = raw_doc.get('contents') or raw_doc.get('text', '')
+            result = {
+                'title': content.split("\n")[0].strip("\"") if content else '',
+                'text': "\n".join(content.split("\n")[1:]) if content else '',
+                'contents': content
+            }
+            for key in ('id', 'doc_id', 'passage_id'):
+                if key in raw_doc:
+                    result[key] = raw_doc[key]
+                    break
+            results.append(result)
+        if return_score:
+            return results, scores
+        return results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True, qid=None)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        return results
+
+class OracleRetriever(BaseRetriever):
+    """
+    Retriever that returns only gold (relevant) passages for each query.
+    Used for oracle upper-bound evaluation: only gold passages are given to the LLM.
+    Requires qrels (query_id -> list of passage_ids) and corpus to load passage content.
+    """
+    def __init__(self, config, qrels: dict):
+        super().__init__(config)
+        if not qrels:
+            raise ValueError("OracleRetriever requires qrels (query_id -> list of passage_ids)")
+        self.qrels = qrels
+        self.corpus = load_corpus(self.corpus_path)
+        self._id2idx = {}
+        self._build_id2idx()
+
+    def _build_id2idx(self):
+        """Build or load mapping from passage id (string) to corpus position (cached in corpus dir)."""
+        self._id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (oracle retriever)"
+        )
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        if qid is None:
+            if return_score:
+                return [], []
+            return []
+        gold_passage_ids = self.qrels.get(qid, [])
+        # Limit to top-k gold passages (same as retrieval_topk for generation)
+        gold_passage_ids = gold_passage_ids[:num]
+        if not gold_passage_ids:
+            return ([], []) if return_score else []
+        raw_docs = load_docs(self.corpus, gold_passage_ids, id2idx=self._id2idx)
+        results = []
+        for raw_doc in raw_docs:
+            content = raw_doc.get('contents') or raw_doc.get('text', '')
+            result = {
+                'title': content.split("\n")[0].strip("\"") if content else '',
+                'text': "\n".join(content.split("\n")[1:]) if content else '',
+                'contents': content
+            }
+            for key in ('id', 'doc_id', 'passage_id'):
+                if key in raw_doc:
+                    result[key] = raw_doc[key]
+                    break
+            results.append(result)
+        scores = [1.0] * len(results)
+        return (results, scores) if return_score else results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True, qid=None)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        return results
+
+class BM25Retriever(BaseRetriever):
+    def __init__(self, config):
+        super().__init__(config)
+        self.searcher = LuceneSearcher(self.index_path)
+        self.searcher.set_bm25(config.bm25_k1, config.bm25_b)
+        
+        self.contain_doc = self._check_contain_doc()
+        if not self.contain_doc:
+            self.corpus = load_corpus(self.corpus_path)
+        self.max_process_num = 8
+    
+    def _check_contain_doc(self):
+        return self.searcher.doc(0).raw() is not None
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        hits = self.searcher.search(query, num)
+        if len(hits) < 1:
+            if return_score:
+                return [], []
+            else:
+                return []
+        scores = [hit.score for hit in hits]
+        if len(hits) < num:
+            warnings.warn('Not enough documents retrieved!')
+        else:
+            hits = hits[:num]
+
+        if self.contain_doc:
+            raw_docs = [
+                json.loads(self.searcher.doc(hit.docid).raw())
+                for hit in hits
+            ]
+            results = []
+            for raw_doc in raw_docs:
+                content = raw_doc.get('contents', '')
+                result = {
+                    'title': content.split("\n")[0].strip("\"") if content else '',
+                    'text': "\n".join(content.split("\n")[1:]) if content else '',
+                    'contents': content
+                }
+                if 'id' in raw_doc:
+                    result['id'] = raw_doc['id']
+                elif 'doc_id' in raw_doc:
+                    result['doc_id'] = raw_doc['doc_id']
+                elif 'passage_id' in raw_doc:
+                    result['passage_id'] = raw_doc['passage_id']
+                results.append(result)
+        else:
+            results = load_docs(self.corpus, [hit.docid for hit in hits])
+
+        if return_score:
+            return results, scores
+        else:
+            return results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        else:
+            return results
+
+class _SPLADEQueryEncoderForImpact:
+    """Query encoder for LuceneImpactSearcher: encode(query) -> Dict[str, int] (token -> quantized weight)."""
+    # Same quantization as Pyserini SpladeQueryEncoder for index compatibility
+    WEIGHT_RANGE = 5
+    QUANT_RANGE = 256
+
+    def __init__(self, model_path: str, device, max_length: int = 256, use_fp16: bool = False):
+        self.device = device
+        self.max_length = max_length
+        print(f"Loading SPLADE model for impact queries: {model_path}")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        # SPLADE uses MLM head logits (official naver/splade), not encoder hidden states
+        self.model = AutoModelForMaskedLM.from_pretrained(model_path)
+        self.model.eval()
+        self.model = self.model.to(device)
+        if use_fp16:
+            self.model = self.model.half()
+
+    @torch.no_grad()
+    def encode(self, query: str):
+        """Return Dict[str, int] for LuceneImpactSearcher (token -> quantized weight)."""
+        inputs = self.tokenizer(
+            query,
+            max_length=self.max_length,
+            padding=True,
+            truncation=True,
+            return_tensors='pt'
+        )
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        outputs = self.model(**inputs)
+        # logits: [1, seq_len, vocab_size] from AutoModelForMaskedLM (same as naver/splade)
+        mlm_logits = outputs.logits
+        relu_log = torch.log(1 + torch.relu(mlm_logits))
+        mask_expanded = inputs['attention_mask'].unsqueeze(-1).expand_as(relu_log)
+        relu_log = relu_log * mask_expanded
+        logits = torch.max(relu_log, dim=1)[0]  # [1, vocab_size]
+        non_zero_indices = torch.nonzero(logits[0] > 0, as_tuple=True)[0]
+        if len(non_zero_indices) == 0:
+            return {}
+        tokens = self.tokenizer.convert_ids_to_tokens(non_zero_indices.cpu().tolist())
+        weights = logits[0][non_zero_indices].cpu().tolist()
+        # Quantize to int like index builder (only index terms with q >= 1 for compatibility)
+        out = {}
+        for token, w in zip(tokens, weights):
+            q = int(round(float(w) / self.WEIGHT_RANGE * self.QUANT_RANGE))
+            if q >= 1:
+                out[token] = q
+        return out
+
+class SPLADERetriever(BaseRetriever):
+    """SPLADE++ retriever using Pyserini impact index with LuceneImpactSearcher."""
+    def __init__(self, config):
+        super().__init__(config)
+        device = getattr(config, 'device', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        splade_max_length = getattr(config, 'splade_max_length', 256)
+        use_fp16 = getattr(config, 'retrieval_use_fp16', False)
+        query_encoder = _SPLADEQueryEncoderForImpact(
+            self.retrieval_model_path, device, max_length=splade_max_length, use_fp16=use_fp16
+        )
+        # Impact index must be searched with LuceneImpactSearcher, not LuceneSearcher (BM25)
+        self.searcher = LuceneImpactSearcher(
+            self.index_path, query_encoder=query_encoder, min_idf=0, encoder_type='pytorch'
+        )
+        # SPLADE impact index stores docs with empty 'contents'; LuceneImpactSearcher returns
+        # external docids (strings). Pyserini's doc() expects internal Lucene docid, so we
+        # always resolve hits via corpus + id2idx instead of reading from index.
+        self.contain_doc = False
+        self._corpus_id2idx = None
+        self.corpus = load_corpus(self.corpus_path)
+        self._build_corpus_id2idx()
+        self.max_process_num = 8
+
+    def _build_corpus_id2idx(self):
+        """Build or load mapping from doc id to corpus position (cached in corpus dir)."""
+        if self._corpus_id2idx is not None:
+            return
+        self._corpus_id2idx = load_or_build_id2idx(
+            self.corpus, self.corpus_path, desc="Corpus id mapping (SPLADE retriever)"
+        )
+
+    def _check_contain_doc(self):
+        try:
+            return self.searcher.doc(0).raw() is not None
+        except Exception:
+            return False
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        hits = self.searcher.search(query, k=num)
+        if len(hits) < 1:
+            return ([], []) if return_score else []
+        scores = [hit.score for hit in hits]
+        if len(hits) < num:
+            warnings.warn('Not enough documents retrieved!')
+        else:
+            hits = hits[:num]
+        if self.contain_doc:
+            raw_docs = [
+                json.loads(self.searcher.doc(hit.docid).raw())
+                for hit in hits
+            ]
+            results = []
+            for raw_doc in raw_docs:
+                content = raw_doc.get('contents', '')
+                result = {
+                    'title': content.split("\n")[0].strip("\"") if content else '',
+                    'text': "\n".join(content.split("\n")[1:]) if content else '',
+                    'contents': content
+                }
+                if 'id' in raw_doc:
+                    result['id'] = raw_doc['id']
+                elif 'doc_id' in raw_doc:
+                    result['doc_id'] = raw_doc['doc_id']
+                elif 'passage_id' in raw_doc:
+                    result['passage_id'] = raw_doc['passage_id']
+                results.append(result)
+        else:
+            # LuceneImpactSearcher returns external docids (strings); need id2idx for lookup
+            results = load_docs(self.corpus, [hit.docid for hit in hits], id2idx=self._corpus_id2idx)
+        if return_score:
+            return results, scores
+        return results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        results = []
+        scores = []
+        for query in query_list:
+            item_result, item_score = self._search(query, num, True)
+            results.append(item_result)
+            scores.append(item_score)
+        if return_score:
+            return results, scores
+        return results
+
+class RerankRetriever(BaseRetriever):
+    def __init__(self, config):
+        super().__init__(config)
+        # Frist-stage
+        self.searcher = LuceneSearcher(self.index_path)
+        self.searcher.set_bm25(config.bm25_k1, config.bm25_b)
+        self.contain_doc = self._check_contain_doc()
+        if not self.contain_doc:
+            self.corpus = load_corpus(self.corpus_path)
+        self.max_process_num = 8
+    
+        # Second-stage
+        self.cross_encoder = CrossEncoder(self.retrieval_model_path, max_length=config.retrieval_query_max_length)
+    
+    def set_topk(self, new_k):
+        self.topk = new_k
+      
+    def _check_contain_doc(self):
+        return self.searcher.doc(0).raw() is not None
+    
+    def _rerank_documents(self, query, contents):
+        query_doc_pairs = [(query, doc['contents']) for doc in contents]
+        scores = self.cross_encoder.predict(query_doc_pairs)        
+        reranked_docs = sorted(zip(scores, contents), key=lambda x: x[0], reverse=True)[:self.topk]
+        scores, sorted_contents = zip(*reranked_docs)
+        return list(sorted_contents), list(scores)
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        first_stage_num = 1000
+        if num is None:
+            num = self.topk
+            
+        # First-stage
+        hits = self.searcher.search(query, first_stage_num)
+        if len(hits) < 1:
+            return ([], []) if return_score else []
+        
+        if len(hits) < first_stage_num:
+            warnings.warn('Not enough documents retrieved for first-stage!')
+        else:
+            hits = hits[:first_stage_num]
+        
+        if self.contain_doc:
+            # all_contents = [json.loads(self.searcher.doc(hit.docid).raw())['contents'] for hit in hits]
+            all_contents = [json.loads(self.searcher.doc(hit.docid).raw()) for hit in hits]
+        else:
+            docids = [hit.docid for hit in hits]
+            all_contents = load_docs(self.corpus, docids)
+        
+        # Second-stage
+        if len(all_contents) > 0:
+            results, scores = self._rerank_documents(query, all_contents)
+        
+        return (results, scores) if return_score else results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        pass
+
+class DenseRetriever(BaseRetriever):
+    def __init__(self, config):
+        super().__init__(config)
+        device = getattr(config, 'device', torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+        if isinstance(device, torch.device) and device.type == 'cuda':
+            device_id = device.index if device.index is not None else 0
+        else:
+            device_id = 0
+
+        print('loading index ...')
+        self.index = faiss.read_index(self.index_path)
+        if config.faiss_gpu:
+            # When one device is set (e.g. multi-GPU worker), use single-GPU FAISS.
+            # Otherwise use all GPUs (legacy behavior).
+            use_single_gpu = hasattr(config, '_faiss_single_gpu') and config._faiss_single_gpu
+            if use_single_gpu:
+                print(f"Using FAISS on GPU {device_id} ...")
+                res = faiss.StandardGpuResources()
+                co = faiss.GpuClonerOptions()
+                co.useFloat16 = True
+                self.index = faiss.index_cpu_to_gpu(res, device_id, self.index, co)
+            else:
+                print("Using FAISS with GPU (all GPUs) ...")
+                co = faiss.GpuMultipleClonerOptions()
+                co.useFloat16 = True
+                co.shard = True
+                self.index = faiss.index_cpu_to_all_gpus(self.index, co=co)
+
+        print('loading corpus ...')
+        self.corpus = load_corpus(self.corpus_path)
+        print(self.corpus)
+        print(self.corpus[0])
+        self.encoder = Encoder(
+            model_name=config.retriever_name,
+            model_path=self.retrieval_model_path,
+            pooling_method=self.pooling_method,
+            max_length=config.retrieval_query_max_length,
+            use_fp16=config.retrieval_use_fp16,
+            device=device
+        )
+        self.topk = config. retrieval_topk
+        self.batch_size = config.retrieval_batch_size
+
+    def _search(self, query: str, num: int = None, return_score: bool = False, qid: str = None):
+        if num is None:
+            num = self.topk
+        query_emb = self.encoder.encode(query)
+        scores, idxs = self.index.search(query_emb, k=num)
+        idxs = idxs[0].tolist()
+        scores = scores[0].tolist()
+        
+        results = load_docs(self.corpus, idxs)
+        return (results, scores) if return_score else results
+        
+        # results = load_docs(self.corpus, idxs)
+        # if return_score:
+        #     return results, scores.tolist()
+        # else:
+        #     return results
+
+    def _batch_search(self, query_list: List[str], num: int = None, return_score: bool = False):
+        if isinstance(query_list, str):
+            query_list = [query_list]
+        if num is None:
+            num = self.topk
+        
+        results = []
+        scores = []
+        for start_idx in tqdm(range(0, len(query_list), self.batch_size), desc='Retrieval process: '):
+            query_batch = query_list[start_idx:start_idx + self.batch_size]
+            batch_emb = self.encoder.encode(query_batch)
+            batch_scores, batch_idxs = self.index.search(batch_emb, k=num)
+            batch_scores = batch_scores.tolist()
+            batch_idxs = batch_idxs.tolist()
+
+            # load_docs is not vectorized, but is a python list approach
+            flat_idxs = sum(batch_idxs, [])
+            batch_results = load_docs(self.corpus, flat_idxs)
+            # chunk them back
+            batch_results = [batch_results[i*num : (i+1)*num] for i in range(len(batch_idxs))]
+            
+            results.extend(batch_results)
+            scores.extend(batch_scores)
+            
+            del batch_emb, batch_scores, batch_idxs, query_batch, flat_idxs, batch_results
+            torch.cuda.empty_cache()
+            
+        if return_score:
+            return results, scores
+        else:
+            return results
+

@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import List, Dict, Optional, Set
 from tqdm import tqdm
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# Add project root to path for imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 # Import utility functions
 from c1_1_dataset_creation_mahta.io_utils import read_jsonl_from_file, read_json_from_file
@@ -219,19 +219,28 @@ def calculate_coverage(
             'entities_with_passages': 0,
             'coverage_percentage': 0.0,
             'covered_entities': set(),
-            'entities_without_wikipedia': entities_without_wikipedia
+            'entities_without_wikipedia': entities_without_wikipedia,
+            'total_queries': len(queries),
+            'queries_with_full_coverage': 0,
+            'query_coverage_percentage': 0.0,
+            'valid_query_indices': []
         }
 
+    # Query IDs that have at least one row in the qrel file (for strict validity)
+    query_ids_with_qrel_rows: Set[str] = set()
     with open(qrel_file_path, 'r', encoding='utf-8') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 4:
+                query_id = parts[0]
                 passage_id = parts[2]
                 relevance = int(parts[3])
                 if relevance > 0:
                     relevant_passage_ids.add(passage_id)
+                    query_ids_with_qrel_rows.add(query_id)
 
     print(f"Found {len(relevant_passage_ids)} relevant passages in qrel file")
+    print(f"Queries with at least one qrel row: {len(query_ids_with_qrel_rows)}")
 
     # Extract page IDs from relevant passage IDs
     relevant_page_ids = set()
@@ -251,8 +260,9 @@ def calculate_coverage(
     # Calculate query-level coverage: how many queries have all entities covered
     queries_with_full_coverage = 0
     total_queries = len(queries)
+    valid_query_indices: List[int] = []
 
-    for query_obj in queries:
+    for idx, query_obj in enumerate(queries):
         # Extract entities for this query
         if 'property' in query_obj and isinstance(query_obj['property'], dict):
             entities_values = query_obj['property'].get('entities_values', [])
@@ -273,8 +283,13 @@ def calculate_coverage(
                     all_covered = False
                     break
 
-        if all_covered:
+        # Valid only if all entities covered AND this query has at least one qrel row.
+        # Otherwise a query with 0 rows can "pass" because its entities' pages are covered by other queries' rows.
+        qid = query_obj.get('qid', '')
+        has_qrel_rows = qid in query_ids_with_qrel_rows
+        if all_covered and has_qrel_rows:
             queries_with_full_coverage += 1
+            valid_query_indices.append(idx)
 
     query_coverage_percentage = (queries_with_full_coverage / total_queries * 100) if total_queries > 0 else 0.0
 
@@ -291,7 +306,8 @@ def calculate_coverage(
         'entities_without_wikipedia': entities_without_wikipedia,
         'total_queries': total_queries,
         'queries_with_full_coverage': queries_with_full_coverage,
-        'query_coverage_percentage': query_coverage_percentage
+        'query_coverage_percentage': query_coverage_percentage,
+        'valid_query_indices': valid_query_indices
     }
 
     # Print results

@@ -15,11 +15,11 @@ export HF_DATASETS_CACHE=/projects/0/prjs0834/heydars/.cache/huggingface
 export HF_HOME=/projects/0/prjs0834/heydars/.cache/huggingface
 
 ### === Set variables ==========================
-corpus_file=corpus_datasets/corpus/enwiki_20251001_infoboxconv.jsonl
+corpus_file=corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl
 save_dir=/projects/0/prjs0834/heydars/CORPUS_Mahta/indices
 retriever_name=bm25
 
-python $HOME/total-recall-rag/c2_corpus_creation/src/index_builder.py \
+python $HOME/total-recall-rag/c2_corpus_creation/index_builder.py \
     --retrieval_method $retriever_name \
     --corpus_path $corpus_file \
     --save_dir $save_dir
