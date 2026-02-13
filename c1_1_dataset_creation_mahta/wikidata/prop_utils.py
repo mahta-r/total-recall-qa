@@ -36,9 +36,9 @@ UNUSABLE_PROPS = [
     "P463", # member of -- organization, club or musical group to which the subject belongs
     "P1830", # owner of -- entities owned by the subject
     "P1344", # participant in -- event in which a person, organization or creative work was/is a participant
-    "P530", # diplomatic relation -- diplomatic relations of the country
+    # "P530", # diplomatic relation -- diplomatic relations of the country
     "P2341", # indigenous to -- place or ethnic group where a language, art genre, cultural tradition or expression, cooking style or food, or biological species or variety is found (or was originally found)
-    "P832", # public holiday -- official public holiday that occurs in this place in its honor, usually a non-working day
+    # "P832", # public holiday -- official public holiday that occurs in this place in its honor, usually a non-working day
     "P485", # archives at -- the institution holding the subject's archives
     "P1313", # office held by head of government -- political office that is fulfilled by the head of the government of this item
     "P8402", # open data portal -- platform with publicly accessible data of an organization
@@ -51,7 +51,7 @@ UNUSABLE_PROPS = [
     "P1365", # replaces -- person, state or item replaced. Use "structure replaces" (P1398) for structures. Use "follows" (P155) if the previous item was not replaced or predecessor and successor are identical
     "P1376", # capital of -- country, state, department, canton or other administrative division of which the municipality is the governmental seat
     "P706", # located in/on physical feature -- located on the specified (geo)physical feature. Should not be used when the value is only political/administrative (P131) or a mountain range (P4552). Use P206 for things in/on bodies of water. 
-    "P138", # named after -- entity or event that inspired the subject's name, or namesake (in at least one language). Qualifier "applies to name" (P5168) can be used to indicate which one
+    # "P138", # named after -- entity or event that inspired the subject's name, or namesake (in at least one language). Qualifier "applies to name" (P5168) can be used to indicate which one
 ]
 
 NO_AGGREGATION_PROPS = [

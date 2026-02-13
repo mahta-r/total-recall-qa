@@ -82,6 +82,7 @@ COMPATIBLE_PROP_OPS = [
       "P2233", # P2233 -- semi-major axis of an orbit -- semi-major axis of a stable orbit (Astronomy)
       "P2243", # P2243 -- apoapsis -- distance, at which a celestial body is the farthest to the object it orbits
       "P2244", # P2244 -- periapsis -- distance, at which a celestial body is the closest to the object it orbits
+      "P2873", # P2873 -- time in space -- time in space by an astronaut or cosmonaut
       
       # ----------------- Mathematical Scalars -----------------
       "P1164", # P1164 -- group cardinality -- number of elements in a finite group in mathematics
@@ -167,6 +168,26 @@ COMPATIBLE_PROP_OPS = [
       # "COUNT_HAS_X", "COUNT_NOT_HAS_X", "COUNT_HAS_ANY_X", "COUNT_NOT_HAS_ANY_X"
     ],
     PROPERTIES: [
+      # ----------------- People / Roles / Relations -----------------
+      "P5096", # P5096 -- member of the crew of -- person who has been a member of a crew associated with the vessel or spacecraft
+      "P1029", # P1029 -- crew member -- person that participated operating or serving aboard this vehicle
+      "P35",   # P35 -- head of state -- official with the highest formal authority in a country/state
+
+      # ----------------- Vehicles / Missions -----------------
+      "P1876", # P1876 -- vessel -- vessel involved in this mission, navigation or event
+
+      # ----------------- Locations -----------------
+      "P20",   # P20 -- place of death -- most specific known death location of a person, animal or fictional character
+
+      # ----------------- Linguistic Properties -----------------
+      "P103",  # P103 -- native language -- language learned from early childhood
+      "P1412", # P1412 -- languages spoken, written or signed -- languages a person or people uses
+      "P734",  # P734 -- family name -- part of full name of person
+      "P3161", # P3161 -- has grammatical mood -- grammatical mood used in a language
+
+      # ----------------- Classification / Risk -----------------
+      "P9235", # P9235 -- seismic classification -- seismic risk zone of an administrative entity
+
       "P17",   # P17 -- country -- sovereign state that this item is in (not to be used for human beings)
       "P30",   # P30 -- continent -- continent of which the subject is a part
       "P36",   # P36 -- capital -- seat of government of a country, province, state or other type of administrative territorial entity
@@ -199,6 +220,10 @@ COMPATIBLE_PROP_OPS = [
       "P5109", # P5109 -- has grammatical gender -- specific form of noun class system of a language. Use qualifier "statement is subject of" (P805) to link to language specific item if present
       "P1427", # P1427 -- start point -- starting place of this journey, flight, voyage, trek, migration etc.
       "P81",   # P81 -- connecting line -- railway line(s) subject is directly connected to
+      "P814",  # P814 -- IUCN protected areas category -- protected areas category by the World Commission on Protected Areas. Used with dedicated items for each category.
+      "P2989", # P2989 -- has grammatical case -- case used in this language
+      "P450",  # P450 -- astronaut mission -- space mission that the subject is or has been a member of (do not include future missions)
+      
     ]
   }
 ]

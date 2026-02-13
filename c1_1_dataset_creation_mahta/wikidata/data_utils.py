@@ -47,6 +47,8 @@ UNIT_FACTORS = {
     ("Q712226", "Q35852"): 100.0,              # square kilometre → hectare
     ("Q25343", "Q712226"): 1e-6,               # square metre → square kilometre
     ("Q712226", "Q25343"): 1e6,                # square kilometre → square metre
+    ("Q712226", "Q81292"): 247.105381,         # square kilometre → acre
+    ("Q81292", "Q712226"): 0.00404685642,      # acre → square kilometre
 
     # --- elevation (length) ---
     ("Q3710", "Q11573"): 0.3048,               # foot → metre
@@ -55,6 +57,8 @@ UNIT_FACTORS = {
     # --- mass ---
     ("Q2655272", "Q11570"): 1e18,              # exagram → kilogram
     ("Q11570", "Q2655272"): 1e-18,             # kilogram → exagram
+    ("Q48013", "Q41803"): 28.349523125,        # ounce → gram
+    ("Q41803", "Q48013"): 0.03527396195,       # gram → ounce
 
     # --- mean age ---
     ("Q199", "Q577"): 1,                       # 1 → year

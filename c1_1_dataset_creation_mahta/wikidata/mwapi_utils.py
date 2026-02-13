@@ -1,6 +1,6 @@
 import requests
 import time
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from io_utils import read_jsonl_from_file, read_json_from_file, write_json_to_file
 
@@ -11,10 +11,10 @@ USER_AGENT = "TotalRecallRAG/0.1 (contact: email@example.edu)"
 
 
 
-def safe_get(url, params, headers, session=None, max_retries=5):
+def safe_get(url, params=None, headers=None, session=None, max_retries=5):
     backoff = 2
 
-    if session:
+    if session and headers:
         session.headers.update(headers)
 
     for attempt in range(max_retries):
@@ -84,6 +84,96 @@ def fetch_pageid(wikipedia_url, session):
     assert int(pageid) > 0, f"Page not found for {wikipedia_url}"
     
     return pageid
+
+import datetime
+# from datetime import datetime, timedelta
+from datetime import timedelta
+
+PAGEVIEWS_API = "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article"
+
+def fetch_pageviews_last_30_days(wikipedia_url, session):
+    # title = unquote(wikipedia_url.split("/wiki/")[-1])
+    raw_title = wikipedia_url.split("/wiki/")[-1]
+    title = quote(unquote(raw_title), safe="")
+
+    headers = {
+        "User-Agent": USER_AGENT
+    }
+    
+    end_date = datetime.datetime.now(datetime.timezone.utc)
+    start_date = end_date - timedelta(days=30)
+    # datetime.utcnow()
+
+    start = start_date.strftime("%Y%m%d")
+    end = end_date.strftime("%Y%m%d")
+
+    url = (
+        f"{PAGEVIEWS_API}/"
+        f"en.wikipedia/all-access/user/"
+        f"{title}/"
+        f"daily/{start}/{end}"
+    )
+
+    resp = safe_get(url, headers=headers, session=session)
+
+    if not resp.text.strip():
+        raise RuntimeError("Empty response body from Pageviews API")
+
+    result = resp.json()
+
+    items = result.get("items", [])
+    if not items:
+        raise RuntimeError(f"No pageview data for {wikipedia_url}")
+
+    total_views = sum(
+        item.get("views", 0)
+        for item in items
+        if isinstance(item.get("views", None), int)
+    )
+
+    assert total_views >= 0, f"Invalid pageview count for {wikipedia_url}"
+
+    return total_views
+
+
+def fetch_pageviews_last_year(wikipedia_url, session, from_date):
+    raw_title = wikipedia_url.split("/wiki/")[-1]
+    title = quote(unquote(raw_title), safe="")
+
+    headers = {
+        "User-Agent": USER_AGENT
+    }
+
+    end_date = from_date
+    start_date = end_date - timedelta(days=365)
+
+    start = start_date.strftime("%Y%m%d")
+    end = end_date.strftime("%Y%m%d")
+
+    url = (
+        f"{PAGEVIEWS_API}/"
+        f"en.wikipedia/all-access/user/"
+        f"{title}/"
+        f"monthly/{start}/{end}"
+    )
+
+    resp = safe_get(url, headers=headers, session=session)
+
+    if not resp.text.strip():
+        raise RuntimeError("Empty response body from Pageviews API")
+
+    if resp.status_code == 404:
+        raise RuntimeError(f"No pageview data for {wikipedia_url}")
+
+    result = resp.json()
+    items = result.get("items", [])
+
+    if not items:
+        raise RuntimeError(f"No pageview data for {wikipedia_url}")
+
+    return sum(item.get("views", 0) for item in items)
+
+
 
 
 

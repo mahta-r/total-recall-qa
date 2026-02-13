@@ -267,4 +267,17 @@ if __name__ == "__main__":
         --log-file data/data_creation_runs/V4/queries/logs/query_generation.log \
         --model gpt-5.2 \
         --temperature 0.5
+
+
+
+    python -m query_generation.generate_queries \
+        --candidates-path data/data_creation_runs/V5_validation/query_generation_candidates_validation_combined.json \
+        --qrel-results-path data/data_creation_runs/V5_validation/qrels/qrel_results.jsonl \
+        --generations-out data/data_creation_runs/V5_validation/queries/generations.jsonl \
+        --queries-out data/data_creation_runs/V5_validation/queries/queries.jsonl \
+        --qrels-out data/data_creation_runs/V5_validation/queries/qrels.json \
+        --trec-qrels-out data/data_creation_runs/V5_validation/queries/trec_qrels.txt \
+        --log-file data/data_creation_runs/V5_validation/queries/logs/query_generation.log \
+        --model gpt-5.2 \
+        --temperature 0.5
     """
