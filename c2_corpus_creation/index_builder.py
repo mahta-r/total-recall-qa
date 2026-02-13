@@ -630,7 +630,7 @@ def main():
     parser = argparse.ArgumentParser(description = "Creating index...")
 
     # Basic parameters
-    parser.add_argument('--retrieval_method', type=str, default='spladepp', choices=['spladepp', 'spladepp', 'contriever', 'dpr', 'e5', 'bge'])
+    parser.add_argument('--retrieval_method', type=str, default='spladepp', choices=['spladepp', 'spladepp', 'contriever', 'dpr', 'e5', 'bge', 'bm25'])
     parser.add_argument('--corpus_path', type=str, default='corpus_datasets/corpus/enwiki_20251001_infoboxconv_rewritten.jsonl')
     parser.add_argument('--save_dir', default= '/projects/0/prjs0834/heydars/CORPUS_Mahta/indices',type=str)
     
