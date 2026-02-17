@@ -1,0 +1,900 @@
+{"id": "491_HU", "question": "How many cool-mist humidifiers that use either an evaporative filter or a permanent filter have a run time that is not 8–16 hours?", "answer": 28, "datatype": "Count"}
+{"id": "626_MPH", "question": "How many non-wireless, non-metal microphones designed for broadcasting are there?", "answer": 15, "datatype": "Count"}
+{"id": "993_sui", "question": "How many Away suitcase sets larger than a 3-piece set come with a warranty?", "answer": 20, "datatype": "Count"}
+{"id": "895_Scr", "question": "How many ergonomic screwdrivers with a voltage of at least 8 volts have a handle color that is not red?", "answer": 14, "datatype": "Count"}
+{"id": "629_Mic", "question": "What percentage of research microscopes with stereo lighting are made by AmScope?", "answer": 16.0, "datatype": "String"}
+{"id": "1021_TBC", "question": "What is the median internal storage, in gigabytes, among tablet computers with a screen size over 5 inches, battery life of 6 hours or less, a front camera resolution other than 1.2 MP, and no expandable storage?", "answer": 32.0, "datatype": "Quantity"}
+{"id": "748_CO", "question": "How many cold-pressed grade palm, soybean, or coconut cooking oils are there that use either cold-pressed or stone-pressed extraction methods?", "answer": 6, "datatype": "Count"}
+{"id": "387_Dr", "question": "What percentage of non-gas dryers priced at $828.54 or less are steam dryers?", "answer": 27.272727272727273, "datatype": "String"}
+{"id": "653_MX", "question": "What percentage of mixers with 3 speed settings are made by KitchenAid?", "answer": 29.032258064516128, "datatype": "String"}
+{"id": "1128_Vac", "question": "What percentage of Shark vacuums weighing under 5 pounds have a listed motor type that is brushless?", "answer": 40.0, "datatype": "String"}
+{"id": "1026_TBC", "question": "What is the most common internal storage size in GB among tablet computers with microSD expandable storage up to 1 TB, a screen size under 8 inches, that are not 4G LTE models, and that do not have face recognition security features?", "answer": 128.0, "datatype": "Quantity"}
+{"id": "730_MG", "question": "How many mugs intended for hot chocolate or cold beverages that can be personalized with custom text come in a travel-style, tapered, or square shape?", "answer": 13, "datatype": "Count"}
+{"id": "1209_Web", "question": "What percentage of Aukey, Logitech, or Sony webcams that are compatible with macOS or Windows have a video resolution of 1080p?", "answer": 24.137931034482758, "datatype": "String"}
+{"id": "1218_Web", "question": "What percentage of webcams with a clip-on mount, desktop stand, or tripod compatibility and a 70°, 90°, or 100° field of view are made by HP?", "answer": 11.538461538461538, "datatype": "String"}
+{"id": "833_PL", "question": "What percentage of minimalist plates that are not microwave-safe are made by Noritake?", "answer": 10.344827586206897, "datatype": "String"}
+{"id": "1156_DCV", "question": "What percentage of geometric centerpiece vases are art vases?", "answer": 40.0, "datatype": "String"}
+{"id": "316_DIS", "question": "What is the average capacity (in place settings) of dishwashers that are under 24 inches wide, are rated Energy Star Certified, A+, or A++, and have a noise level of at least 55 dBA?", "answer": 7.75, "datatype": "Quantity"}
+{"id": "872_RG", "question": "How many cream-colored flatweave rugs are there that are not made by Rug Artisan?", "answer": 39, "datatype": "Count"}
+{"id": "630_Mic", "question": "What percentage of Celestron, Leica, or Motic microscopes that are not powered by a rechargeable battery have a stereo zoom light type?", "answer": 26.0, "datatype": "String"}
+{"id": "1042_TE", "question": "What percentage of low-caffeine chamomile teas and infusions are from the brand Tazo?", "answer": 20.0, "datatype": "String"}
+{"id": "674_MT", "question": "How many computer monitors without HDR1000 support, with either a fixed stand or pivot stand, and with no built-in speakers are there?", "answer": 12, "datatype": "Count"}
+{"id": "33_BCKP", "question": "What percentage of Eastpak backpacks made of vacquetta material are hiking backpacks?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "951_SK", "question": "What percentage of unlined velvet skirts are made by Uniqlo?", "answer": 16.216216216216218, "datatype": "String"}
+{"id": "901_SED", "question": "How many non-organic geranium seeds from either Ferry-Morse or Johnny's Selected Seeds are there?", "answer": 10, "datatype": "Count"}
+{"id": "1076_TPH", "question": "What percentage of battery-powered USB telephones are two-line models?", "answer": 15.0, "datatype": "String"}
+{"id": "1096_TV", "question": "How many non-Philips flat-screen televisions that are at least 4.5 inches deep and are not 720p HDTVs are there?", "answer": 38, "datatype": "Count"}
+{"id": "923_Sho", "question": "How many New Balance shorts with a regular or relaxed fit, made from materials other than nylon, and featuring a floral, camo, or plaid pattern are there?", "answer": 10, "datatype": "Count"}
+{"id": "686_MOT", "question": "How many motherboards support more than 16 GB of maximum RAM, have 2 or fewer memory slots, and do not support onboard graphics?", "answer": 32, "datatype": "Count"}
+{"id": "919_Sho", "question": "How many casual moisture-wicking shorts have a waist type that is not buttoned?", "answer": 4, "datatype": "Count"}
+{"id": "1141_DCV", "question": "How many non-cylindrical, non-handmade vases intended for dried flowers, artificial flowers, or event decoration are there?", "answer": 14, "datatype": "Count"}
+{"id": "738_MG", "question": "How many mugs that are not for winter use, are intended for either hot chocolate or cold beverages, and offer either no personalization or custom text personalization are there?", "answer": 41, "datatype": "Count"}
+{"id": "472_HD", "question": "What percentage of hard drives with software encryption support and standard shock resistance are made by Toshiba?", "answer": 26.923076923076923, "datatype": "String"}
+{"id": "422_FP", "question": "What percentage of food processors with at least 750 watts of power and a cord length of at least 1.2 meters are made by Kenwood?", "answer": 10.0, "datatype": "String"}
+{"id": "837_PL", "question": "How many plates made in the USA or Italy are not dishwasher-safe and are not oven-safe?", "answer": 13, "datatype": "Count"}
+{"id": "935_Sho", "question": "How many beige, purple, or gray shorts from The North Face or Fila have a closure type other than a drawstring?", "answer": 25, "datatype": "Count"}
+{"id": "302_PC", "question": "What is the lowest price among RGB desktop computers with an AMD Radeon graphics processor that run Chromebox?", "answer": 586.74, "datatype": "Quantity"}
+{"id": "1208_Web", "question": "What percentage of webcams with a desktop stand mount and no privacy shutter have a video resolution of 640x480?", "answer": 50.0, "datatype": "String"}
+{"id": "1134_Vac", "question": "How many NiMH-battery vacuums use either sensor-based or random navigation and charge via self-docking, wall mount, or direct plug?", "answer": 5, "datatype": "Count"}
+{"id": "856_RiC", "question": "What percentage of digital rice cookers that have a porridge, sushi rice, or slow-cook function are made of plastic?", "answer": 40.0, "datatype": "String"}
+{"id": "67_BFd", "question": "What percentage of nectar-form bird foods with honey or fruit blend flavor are hummingbird type?", "answer": 29.41176470588235, "datatype": "String"}
+{"id": "711_M3", "question": "What percentage of Philips MP3 players with no expandable memory that list or mention FM radio have FM radio set to No?", "answer": 40.0, "datatype": "String"}
+{"id": "902_SED", "question": "How many full-sun seeds for summer or winter planting have a germination time other than 1–2 weeks?", "answer": 31, "datatype": "Count"}
+{"id": "988_sui", "question": "What percentage of Delsey suitcases sold as sets larger than a 4-piece set have 8-wheel spinner mobility?", "answer": 37.83783783783784, "datatype": "String"}
+{"id": "82_BL", "question": "What percentage of green, red, or orange blenders that don’t have a plastic jar are made by Philips?", "answer": 21.428571428571427, "datatype": "String"}
+{"id": "634_Mic", "question": "What percentage of microscopes that support a USB camera and are powered by USB, a rechargeable battery, or AC power are research microscopes?", "answer": 12.5, "datatype": "String"}
+{"id": "982_sui", "question": "What is the minimum capacity, in liters, among suitcases with a brushed or glossy finish that are not 4-wheel spinners and have either a standard combination lock or a TSA key lock?", "answer": 25.0, "datatype": "Quantity"}
+{"id": "202_CaF", "question": "How many non-organic Iams wet cat food products are there?", "answer": 15, "datatype": "Count"}
+{"id": "977_Socks", "question": "How many summer socks in a crew, knee-high, or over-the-knee style have a heel type other than a regular heel?", "answer": 36, "datatype": "Count"}
+{"id": "166_DGCM", "question": "What percentage of digital cameras priced above $4,806.88 are DSLRs?", "answer": 10.0, "datatype": "String"}
+{"id": "732_MG", "question": "How many Generic-brand camping-style mugs that are not for Christmas can you find?", "answer": 16, "datatype": "Count"}
+{"id": "971_Socks", "question": "What percentage of blue outdoor or work socks are mid-calf style?", "answer": 17.073170731707318, "datatype": "String"}
+{"id": "914_SED", "question": "How many organic or organically grown lily, zinnia, or amaryllis seeds for spring, fall, or winter planting are there from manufacturers other than Johnny's Selected Seeds?", "answer": 11, "datatype": "Count"}
+{"id": "764_SFP", "question": "How many cast iron or pre-seasoned cast iron skillets and frying pans with either a ceramic nonstick coating or no coating at all do not have a double-handle design?", "answer": 15, "datatype": "Count"}
+{"id": "296_PC", "question": "What is the maximum processor speed in GHz among desktop computers made in Mexico that come in RGB, white, or black and have a monitor resolution of 1440x900, 4K display, or Retina 5K?", "answer": 4.3, "datatype": "Quantity"}
+{"id": "1111_Toa", "question": "What percentage of toasters without a bagel function that have either auto shut-off, LED indicators, or smart functions use a long slot type?", "answer": 28.571428571428573, "datatype": "String"}
+{"id": "751_CO", "question": "How many mild-flavored cooking oils are extra virgin, virgin, or cold pressed and are not unrefined?", "answer": 5, "datatype": "Count"}
+{"id": "194_CN", "question": "How many diamond-shaped candles that aren’t brown are made by Capri Blue, LAFCO, or WoodWick?", "answer": 12, "datatype": "Count"}
+{"id": "765_SFP", "question": "What percentage of medium-weight or heavyweight electric-compatible skillets and frying pans are from the brand Unknown?", "answer": 15.151515151515152, "datatype": "String"}
+{"id": "731_MG", "question": "How many mugs from Ember, Starbucks, or Hydro Flask have a standard handle, do not include a lid, and are not brown?", "answer": 16, "datatype": "Count"}
+{"id": "831_PL", "question": "How many non-square, non-eco-friendly plates that are not bread-and-butter plates and are not oven-safe are there?", "answer": 27, "datatype": "Count"}
+{"id": "582_CL", "question": "How many non-zoom camera lenses have a minimum aperture of at least f/32 and a maximum aperture of f/2.0 or smaller?", "answer": 31, "datatype": "Count"}
+{"id": "725_MG", "question": "How many non-yellow Generic or Starbucks mugs are not dishwasher-safe and do not include a lid?", "answer": 23, "datatype": "Count"}
+{"id": "985_sui", "question": "What percentage of suitcases with fixed handles that are not waterproof are made by Tumi?", "answer": 19.047619047619047, "datatype": "String"}
+{"id": "56_BDSH", "question": "How many Target bed sheet sets with a flannel, percale, or sateen weave include either 2 pillowcases, 1 fitted sheet, or 1 duvet cover?", "answer": 15, "datatype": "Count"}
+{"id": "12_ALB", "question": "What percentage of non-vegan alcoholic beverages from Brazil are made by the brand Rémy Martin?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "339_DGF", "question": "How many organic dog food products from the EU are not for large-breed dogs?", "answer": 10, "datatype": "Count"}
+{"id": "776_SFP", "question": "What percentage of non-round multi-color or white skillets and frying pans are from the brand Unknown?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "463_HD", "question": "What is the maximum storage capacity in gigabytes among non-portable surveillance hard drives that do not have a high noise level?", "answer": 20480.0, "datatype": "Quantity"}
+{"id": "406_FLS", "question": "How many camo-colored headlamps (not flashlights) have a brightness of 800 lumens or less?", "answer": 36, "datatype": "Count"}
+{"id": "1202_WCH", "question": "How many sports watches with an alarm and a mineral-glass display that are not targeted at men are there?", "answer": 45, "datatype": "Count"}
+{"id": "382_Dr", "question": "What percentage of LG dryers with smart features have an electric power source?", "answer": 33.333333333333336, "datatype": "String"}
+{"id": "150_CAB", "question": "How many silver cabinet knobs and handles that are not heavy and have a satin, matte, or oil-rubbed finish are there?", "answer": 7, "datatype": "Count"}
+{"id": "109_BCK", "question": "How many non-encyclopedia books by an author named Editor in Spanish, Portuguese, or Korean are in the self-help, autobiography, or fantasy genres?", "answer": 32, "datatype": "Count"}
+{"id": "581_CL", "question": "What percentage of Samyang camera lenses with a Nikon Z mount have APS-C lens format coverage?", "answer": 27.272727272727273, "datatype": "String"}
+{"id": "797_PNT", "question": "What percentage of striped formal pants have a relaxed fit?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "526_Jui", "question": "What percentage of masticating, cold press, or centrifugal juicers made of aluminum or glass have a manual power type?", "answer": 63.1578947368421, "datatype": "String"}
+{"id": "874_RG", "question": "How many rough-textured rugs that are either square or oval are intended for use somewhere other than the living room?", "answer": 31, "datatype": "Count"}
+{"id": "1184_WM", "question": "What percentage of IFB or Haier washing machines with a capacity of at least 10 kg are semi-automatic?", "answer": 36.0, "datatype": "String"}
+{"id": "322_DIS", "question": "What is the minimum width, in inches, among dishwashers that run on 120 volts or less and have a depth of at least 23.5 inches?", "answer": 18.0, "datatype": "Quantity"}
+{"id": "392_Dr", "question": "What percentage of Haier dryers with an energy rating of A, A+, or C are gas-powered?", "answer": 66.66666666666667, "datatype": "String"}
+{"id": "586_CL", "question": "How many weather-sealed camera lenses for either Canon EF-S or Nikon Z mounts are not compatible with in-body image stabilization?", "answer": 13, "datatype": "Count"}
+{"id": "204_CaF", "question": "How many grain-free cat foods for all life stages, in dry, canned, or wet form, have a main ingredient other than turkey?", "answer": 44, "datatype": "Count"}
+{"id": "351_DGF", "question": "How many dog foods are not grain-free, do not contain chondroitin, and are not formulated for a low-fat special diet?", "answer": 39, "datatype": "Count"}
+{"id": "524_Jui", "question": "What percentage of juicers that are not for leafy greens and that have pulp control are masticating juicers?", "answer": 10.81081081081081, "datatype": "String"}
+{"id": "793_PNT", "question": "How many relaxed-fit pants for toddlers or adults, suitable for winter, spring, or summer, are not ultra high rise?", "answer": 45, "datatype": "Count"}
+{"id": "19_ALB", "question": "How many liqueurs that are either non-vintage or from the 2010s or 2020s are in the IPA, wheat beer, or stout sub-type?", "answer": 6, "datatype": "Count"}
+{"id": "306_PC", "question": "How many black, red, or blue desktop computers have a 12-core processor, a processor speed of 1.3 GHz or less, and cost no more than 2720.6?", "answer": 39, "datatype": "Count"}
+{"id": "123_BO", "question": "How many microwave-safe bowls that are oven-safe and come in sets smaller than a 12-piece set are there?", "answer": 21, "datatype": "Count"}
+{"id": "68_BFd", "question": "How many adult-bird foods for parrots, hummingbirds, or parakeets are made with nectar, safflower seeds, or fruits?", "answer": 11, "datatype": "Count"}
+{"id": "882_Scr", "question": "What is the median number of pieces, in pieces, among non-insulated screwdrivers with tips made of either tungsten carbide or magnetic steel?", "answer": 7.5, "datatype": "Quantity"}
+{"id": "57_BDSH", "question": "What percentage of star-patterned bed sheets are made by the brand Pinzon?", "answer": 13.157894736842104, "datatype": "String"}
+{"id": "13_ALB", "question": "What percentage of carbonated alcoholic beverages packaged in either plastic bottles or kegs have the brand listed as Unknown?", "answer": 12.5, "datatype": "String"}
+{"id": "1180_WM", "question": "What is the minimum capacity, in kilograms, among washing machines with app control that have either a low or high noise level?", "answer": 5.0, "datatype": "Quantity"}
+{"id": "888_Scr", "question": "What percentage of non-insulated screwdriver sets with fewer than 3 pieces are Torx screwdrivers?", "answer": 15.217391304347826, "datatype": "String"}
+{"id": "1031_TBC", "question": "What is the minimum screen size, in inches, among tablet computers with a 2 MP or 8 MP front camera, not running iPadOS, with less than 32 GB of internal storage, and with PIN security?", "answer": 5.0, "datatype": "Quantity"}
+{"id": "288_CuB", "question": "What percentage of extra-thick multi-purpose cutting boards are made of wood?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "5_ALB", "question": "What percentage of alcoholic beverages with 1–3% ABV that are not cask-finished are made by Carlsberg?", "answer": 6.382978723404255, "datatype": "String"}
+{"id": "851_RiC", "question": "What percentage of induction-heating rice cookers priced at $130.73 or more are made by Cuckoo?", "answer": 13.636363636363637, "datatype": "String"}
+{"id": "542_KN", "question": "What is the average price in US dollars of silver kitchen knives with stainless steel blades and stainless steel handles?", "answer": 246.765, "datatype": "Quantity"}
+{"id": "1067_TPH", "question": "How many speakerphone telephones that are not two-line models, are not intended for small business use, and offer call transfer, call forwarding, or call hold are there?", "answer": 6, "datatype": "Count"}
+{"id": "830_PL", "question": "What percentage of oven-safe plates made in Italy are charger plates?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "590_LL", "question": "How many Defiant, Emtek, or Schlage locks and latches with a 3-inch or custom backset are made of a material other than aluminum?", "answer": 28, "datatype": "Count"}
+{"id": "298_PC", "question": "How many desktop computers running Mac OS or Chromebase have a graphics processor of either NVIDIA GeForce or ATI FirePro, a processor speed of 1.3 GHz or less, and a price of at least 2083.45?", "answer": 40, "datatype": "Count"}
+{"id": "1106_Toa", "question": "What percentage of toasters that have a cancel function and a defrost function are made by Hamilton Beach?", "answer": 20.0, "datatype": "String"}
+{"id": "1001_SUNG", "question": "What percentage of Maui Jim sunglasses with transparent frames have tortoise amber lenses?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "885_Scr", "question": "How many non-ergonomic Robertson or flathead screwdrivers are priced at $96.02 or less?", "answer": 7, "datatype": "Count"}
+{"id": "991_sui", "question": "What percentage of suitcases with mesh pockets and a non-textured finish are made of nylon?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "712_M3", "question": "What percentage of gold MP3 players support the MP3 format?", "answer": 20.0, "datatype": "String"}
+{"id": "243_CFE", "question": "How many sugar-free Excelsa coffee products are available in either a dark roast blend, house blend, or espresso blend?", "answer": 16, "datatype": "Count"}
+{"id": "181_CN", "question": "How many pink candles priced at least $21.61 that are heart-shaped, cone-shaped, or octagonal and do not use a cotton-paper blend wick are there?", "answer": 4, "datatype": "Count"}
+{"id": "363_DRS", "question": "How many wine-colored dresses made of silk, cotton, or velvet are not maxi length?", "answer": 19, "datatype": "Count"}
+{"id": "655_MX", "question": "How many aluminum or stainless-steel mixers that feature a flat beater, a stainless-steel bowl, or a hand-mixer design are not made by Hamilton Beach?", "answer": 12, "datatype": "Count"}
+{"id": "1127_Vac", "question": "What percentage of drum vacuums that do not use a multi-stage filtration system are made by Tineco?", "answer": 11.363636363636363, "datatype": "String"}
+{"id": "50_BDSH", "question": "How many Pinzon or Bed Bath & Beyond bed sheet sets that say to tumble dry or do not bleach do not include 1 pillow sham?", "answer": 26, "datatype": "Count"}
+{"id": "1074_TPH", "question": "How many Cisco telephones with 4 handsets are there that are not four-line models?", "answer": 10, "datatype": "Count"}
+{"id": "1094_TV", "question": "How many televisions with an energy rating of C cost less than $7,048.99, are not LED, and are not in Sony’s KDL technology line?", "answer": 20, "datatype": "Count"}
+{"id": "680_MOT", "question": "What is the average maximum RAM capacity, in gigabytes, among FM2-socket motherboards that have USB 3.1 ports?", "answer": 15.823529411764707, "datatype": "Quantity"}
+{"id": "1061_TPH", "question": "How many telephones have a display that is not a color LCD, do not support HD voice, and have either a long-range or short-range wireless range?", "answer": 16, "datatype": "Count"}
+{"id": "633_Mic", "question": "What percentage of microscopes with a mechanical stage and a non-metal body are digital microscopes?", "answer": 15.0, "datatype": "String"}
+{"id": "214_CaF", "question": "How many Hill's Science Diet cat foods are both grain-free and organic?", "answer": 11, "datatype": "Count"}
+{"id": "282_CuB", "question": "What percentage of grooved cutting boards that are not thin are from the brand Unknown?", "answer": 10.638297872340425, "datatype": "String"}
+{"id": "250_CFE", "question": "How many high-caffeine coffees are instant, ground, or stick coffee and have a grind size of either medium or whole bean?", "answer": 30, "datatype": "Count"}
+{"id": "428_FP", "question": "What percentage of aluminum food processors that do not have stainless-steel blender blades are made by Hamilton Beach?", "answer": 12.903225806451612, "datatype": "String"}
+{"id": "699_M3", "question": "What is the most common storage capacity in gigabytes among MP3 players that support WMA and do not use a lithium-ion battery?", "answer": 32.0, "datatype": "Quantity"}
+{"id": "421_FP", "question": "What is the median food processor capacity, in cups, among food processors whose beater material is not coated steel and whose dough hook material is not stainless steel?", "answer": 12.0, "datatype": "Quantity"}
+{"id": "263_CRT", "question": "How many Bed Bath & Beyond curtains and drapes that are custom length or standard (63–84 inches) or long (84–108 inches) are not intended for the kitchen?", "answer": 49, "datatype": "Count"}
+{"id": "808_PHO", "question": "What is the minimum rear camera resolution in megapixels among Droid mobile phones that have at least 1 GB of RAM, cost at least $1359.12, and weigh more than 92 grams?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "608_LL", "question": "How many Defiant, Baldwin, or Emtek cylinder locks, padlocks, or electronic locks made of brass or zinc alloy are compatible with doors other than composite doors?", "answer": 11, "datatype": "Count"}
+{"id": "652_MX", "question": "What percentage of mixers with a capacity of at least 12 cups that do not have 10 speed settings are made by Kenwood?", "answer": 10.344827586206897, "datatype": "String"}
+{"id": "820_PL", "question": "What is the smallest plate size, in inches, among round plates from Villeroy & Boch, Noritake, or Amazon Basics?", "answer": 6.0, "datatype": "Quantity"}
+{"id": "824_PL", "question": "How many modern Amazon Basics plates are there that are not made in China?", "answer": 4, "datatype": "Count"}
+{"id": "891_Scr", "question": "How many non-ergonomic screwdriver sets with 7 pieces or fewer have a magnetic tip?", "answer": 22, "datatype": "Count"}
+{"id": "806_PHO", "question": "What is the minimum RAM, in gigabytes, among Sony 5G mobile phones priced at $1,210.31 or less?", "answer": 0.5, "datatype": "Quantity"}
+{"id": "493_HU", "question": "What percentage of battery-powered humidifiers with either no smart features or Wi‑Fi produce warm mist?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "768_SFP", "question": "What percentage of skillets and frying pans with riveted stainless steel, stainless steel, or phenolic handles that include a glass lid are made by Calphalon?", "answer": 15.555555555555555, "datatype": "String"}
+{"id": "1103_Toa", "question": "What percentage of toasters that are not blue and are not made of glass are 4-slice toasters?", "answer": 47.82608695652174, "datatype": "String"}
+{"id": "1140_DCV", "question": "How many tabletop, floor, or centerpiece vases that are not small are under 10 inches tall?", "answer": 16, "datatype": "Count"}
+{"id": "88_BL", "question": "What percentage of blenders with a capacity of 1.5 cups or less are made by Philips?", "answer": 10.344827586206897, "datatype": "String"}
+{"id": "696_MOT", "question": "How many ATX motherboards with no WiFi support, using a non-AMD chipset, have 4 or fewer memory slots?", "answer": 16, "datatype": "Count"}
+{"id": "538_KN", "question": "How many professional kitchen knives intended as a housewarming gift, anniversary gift, or wedding cake knife are not marked as hand-wash-only?", "answer": 11, "datatype": "Count"}
+{"id": "18_ALB", "question": "How many alcoholic beverages with a citrus or bitter flavor profile are not stainless-steel aged and are not intended for gifting?", "answer": 24, "datatype": "Count"}
+{"id": "35_BCKP", "question": "What percentage of camping backpacks that are not water-resistant are made by Under Armour?", "answer": 10.0, "datatype": "String"}
+{"id": "155_DGCM", "question": "What is the minimum resolution, in megapixels, among weather-sealed digital cameras with an ISO range of 100-3200, Auto, or 100-12800?", "answer": 5.0, "datatype": "Quantity"}
+{"id": "1005_SUNG", "question": "How many acetate-frame sunglasses with gray polarized, night vision, or gold amber lenses have a circular frame (circular frame or circular) or a maverick silhouette?", "answer": 32, "datatype": "Count"}
+{"id": "372_DRS", "question": "What percentage of green dresses made of silk, tulle, or polyester are from the brand Valentino?", "answer": 6.0606060606060606, "datatype": "String"}
+{"id": "330_DIS", "question": "What percentage of dishwashers with a capacity of at least 14 place settings and a voltage higher than 220 volts are made by KitchenAid?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "1150_DCV", "question": "What percentage of clay vases in multicolor, amber, or opaque that have a special occasion listed are marked for Christmas?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "723_MG", "question": "What is the median capacity, in ounces, of stainless steel mugs with custom text personalization that are not intended for coffee?", "answer": 15.0, "datatype": "Quantity"}
+{"id": "1000_SUNG", "question": "What percentage of sunglasses with amber polarized gradient lenses have a round metal frame silhouette?", "answer": 11.363636363636363, "datatype": "String"}
+{"id": "863_RG", "question": "What percentage of non-eco-friendly white rugs have a braided construction?", "answer": 37.5, "datatype": "String"}
+{"id": "1064_TPH", "question": "How many medium-range wireless telephones that are either rack-mountable or wall-mountable and are either VoIP or Skype-compatible are there?", "answer": 8, "datatype": "Count"}
+{"id": "577_CL", "question": "How many weather-sealed camera lenses that are not full-frame and have a minimum aperture of f/16 or lower are there?", "answer": 21, "datatype": "Count"}
+{"id": "929_Sho", "question": "How many above-the-knee shorts with either side pockets or back pockets and a drawstring or zippered waist are there?", "answer": 39, "datatype": "Count"}
+{"id": "825_PL", "question": "What percentage of eco-friendly oval or round plates are made of melamine?", "answer": 15.909090909090908, "datatype": "String"}
+{"id": "757_CO", "question": "What percentage of mustard, sunflower, or canola cooking oils with a very high smoke point are from the brand Figaro?", "answer": 10.638297872340425, "datatype": "String"}
+{"id": "787_PNT", "question": "How many formal or loungewear pants are available in short, extra-long, or knee-length styles that are not lightweight and are stretchy (not non-stretch)?", "answer": 16, "datatype": "Count"}
+{"id": "1080_TV", "question": "What is the median audio output power, in watts, among 4K LCD televisions that are at least 44 inches wide and have their audio output power listed?", "answer": 60.0, "datatype": "Quantity"}
+{"id": "844_RiC", "question": "What is the minimum capacity in cups among Zojirushi, Instant Pot, or Cuckoo rice cookers priced under $246.64?", "answer": 3.0, "datatype": "Quantity"}
+{"id": "932_Sho", "question": "How many beach shorts made of cotton, linen, or fleece are available in a fit that is not relaxed?", "answer": 41, "datatype": "Count"}
+{"id": "703_M3", "question": "What percentage of MP3 players with 2 GB of storage or less and a battery life of up to 10, 18, or 20 hours are made by AGPTEK?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "58_BDSH", "question": "What percentage of black sateen, twill, or flannel bed sheets that mention being hypoallergenic are labeled as hypoallergenic = yes?", "answer": 75.0, "datatype": "String"}
+{"id": "753_CO", "question": "What percentage of Oleev cooking oils priced at $82.87 or less are soybean oil?", "answer": 10.638297872340425, "datatype": "String"}
+{"id": "279_CuB", "question": "How many large reversible cutting boards with a rubber base are there?", "answer": 11, "datatype": "Count"}
+{"id": "962_Socks", "question": "How many XS socks with medium cushioning are available for winter, fall, or all-season wear?", "answer": 20, "datatype": "Count"}
+{"id": "834_PL", "question": "How many white plate sets with more than 2 pieces have an embossed, textured, or glossy finish?", "answer": 5, "datatype": "Count"}
+{"id": "369_DRS", "question": "How many summer dresses in mustard or olive that have long sleeves, sheer sleeves, or cap sleeves are there?", "answer": 6, "datatype": "Count"}
+{"id": "1091_TV", "question": "How many Sony curved TVs with a screen size of 43 inches or smaller do not have an A+ energy rating?", "answer": 17, "datatype": "Count"}
+{"id": "966_Socks", "question": "How many spring socks have cushioning and are not open-toe?", "answer": 39, "datatype": "Count"}
+{"id": "457_HD", "question": "What is the maximum form factor, in inches, among gaming hard drives that are either internal or portable and have a silent, low, or moderate noise level?", "answer": 3.5, "datatype": "Quantity"}
+{"id": "265_CRT", "question": "How many soundproof curtains or drapes in panel, thermal, or valance styles are either machine washable or can be ironed as needed?", "answer": 18, "datatype": "Count"}
+{"id": "1028_TBC", "question": "What is the minimum RAM, in gigabytes, among tablet computers with more than 8 hours of battery life that run Android, Fire OS, or Chrome OS and have a single speaker?", "answer": 1.0, "datatype": "Quantity"}
+{"id": "357_DRS", "question": "How many blush-colored dresses are not empire-waist and are not intended for spring?", "answer": 28, "datatype": "Count"}
+{"id": "536_KN", "question": "What percentage of wooden-handled kitchen knife sets with more than 10 pieces are meat cleaver sets?", "answer": 14.893617021276595, "datatype": "String"}
+{"id": "959_Socks", "question": "How many Fruit of the Loom socks made of bamboo or organic cotton are sold in packs larger than a 2-pack?", "answer": 22, "datatype": "Count"}
+{"id": "114_BCK", "question": "How many Springer-published fiction books in German or Arabic have more than 27,159.81 pages?", "answer": 20, "datatype": "Count"}
+{"id": "496_HU", "question": "What percentage of ultrasonic humidifiers that do not have a touch-panel display are filter-free?", "answer": 36.36363636363637, "datatype": "String"}
+{"id": "487_HPH", "question": "How many red on-ear headphones, gaming headsets, or AirPods are non-foldable and have no noise cancellation?", "answer": 39, "datatype": "Count"}
+{"id": "514_Jui", "question": "What percentage of twin-gear juicers with pulp control are made by Omega?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "445_GUI", "question": "How many Yamaha guitars have either passive, active, or humbucker pickups and a fingerboard made of pau ferro, rosewood, or maple?", "answer": 22, "datatype": "Count"}
+{"id": "570_CL", "question": "What is the maximum maximum-aperture value among non-zoom camera lenses priced above $10,174.53 that are either manual-focus or autofocus?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "781_PNT", "question": "How many Armani pants that are not unisex, are suitable for travel, outdoor, or party occasions, and are not low-rise can you find?", "answer": 7, "datatype": "Count"}
+{"id": "946_SK", "question": "What percentage of Uniqlo belted-waist skirts are midi length?", "answer": 16.216216216216218, "datatype": "String"}
+{"id": "162_DGCM", "question": "What is the median camera weight in grams among mirrorless digital cameras that do not have an OLED display, do not have HDMI connectivity, and have their weight listed?", "answer": 120.8738078125, "datatype": "Quantity"}
+{"id": "517_Jui", "question": "What percentage of single-speed juicers with a noise level of either 78 dB or 58 dB are masticating juicers?", "answer": 25.0, "datatype": "String"}
+{"id": "854_RiC", "question": "What percentage of rice cookers with a warranty of 3 years or less and wattage over 400 watts are electric?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "93_BL", "question": "What is the average wattage, in watts, of pink blenders made of a non-plastic material that have their wattage listed?", "answer": 540.0, "datatype": "Quantity"}
+{"id": "497_HU", "question": "What percentage of warm-and-cool-mist humidifiers with either Wi‑Fi or voice-assistant compatibility are hybrid type humidifiers?", "answer": 16.129032258064516, "datatype": "String"}
+{"id": "49_BDSH", "question": "How many organic bed sheets that are not hypoallergenic and have care instructions of either machine wash or tumble dry are there?", "answer": 32, "datatype": "Count"}
+{"id": "1197_WCH", "question": "What is the median price of carbon-fiber watches that are not water resistant and have a step counter?", "answer": 12962.0, "datatype": "Quantity"}
+{"id": "460_HD", "question": "What is the minimum form factor, in inches, among PMR hard drives priced at least $597.76 that do not support hardware encryption?", "answer": 1.8, "datatype": "Quantity"}
+{"id": "667_MT", "question": "What is the average maximum refresh rate in Hz among computer monitors that are not LED LCD, cost at least $3,678.07, and have brightness of 350 nits or less?", "answer": 159.45714285714286, "datatype": "Quantity"}
+{"id": "384_Dr", "question": "What percentage of dryers with a load capacity of at least 33.0693393 pounds that are not red are made by Maytag?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "973_Socks", "question": "How many cushioned socks in packs larger than a 5-pack have an argyle, floral, or novelty pattern?", "answer": 12, "datatype": "Count"}
+{"id": "692_MOT", "question": "How many motherboards have an Ethernet port other than 10 Gbps, use a socket type other than LGA1150, and cost less than $290.99?", "answer": 43, "datatype": "Count"}
+{"id": "1055_TE", "question": "How many rooibos teas and infusions have a brewing time longer than 4 minutes and a recommended brewing temperature that is not medium (80–90°C)?", "answer": 22, "datatype": "Count"}
+{"id": "104_BCK", "question": "How many revised-edition encyclopedias that are not fiction and do not use an ISBN-10 can you find?", "answer": 46, "datatype": "Count"}
+{"id": "639_Mic", "question": "How many microscopes with a magnification range of either 100x–400x or 20x–40x, using either WF20x or WF15x eyepieces, and that are not binocular can you find?", "answer": 13, "datatype": "Count"}
+{"id": "1066_TPH", "question": "How many PBX-compatible telephones are not six-line models and either have no speakerphone or have an HD speakerphone?", "answer": 28, "datatype": "Count"}
+{"id": "710_M3", "question": "How many Philips, Sony, or Pioneer MP3 players have 16 GB of storage or less and cost at least $455.79?", "answer": 5, "datatype": "Count"}
+{"id": "1124_Vac", "question": "How many vacuums are not blue, are not rated as having a moderate noise level, and use either a cyclonic or washable HEPA filtration system?", "answer": 17, "datatype": "Count"}
+{"id": "23_BCKP", "question": "What is the minimum capacity, in liters, among brown alice backpacks?", "answer": 5.0, "datatype": "Quantity"}
+{"id": "1174_WMC", "question": "How many leopard-pattern wallets and money clips that hold either cards only, cards and cash, or cards, cash, and coins have a card-slot count that is not 7–9?", "answer": 20, "datatype": "Count"}
+{"id": "1015_SUNG", "question": "How many polarized aviator, maverick, or clubmaster sunglasses with metal or carbon-fiber frames are there from brands other than Oakley?", "answer": 13, "datatype": "Count"}
+{"id": "354_DGF", "question": "What percentage of Iams dog foods that are GMO-free are freeze-dried?", "answer": 13.793103448275861, "datatype": "String"}
+{"id": "1135_Vac", "question": "How many plastic vacuums with a hybrid power source have a battery runtime of less than 180 minutes?", "answer": 7, "datatype": "Count"}
+{"id": "889_Scr", "question": "What percentage of plastic-handled screwdrivers with no warranty are from an unknown brand?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "388_Dr", "question": "What percentage of dryers with a load capacity under 22.0462262 pounds and a drum made of stainless steel or plastic use gas as their power source?", "answer": 40.625, "datatype": "String"}
+{"id": "74_BFd", "question": "What percentage of non-organic fruit-based bird food comes in mix form?", "answer": 20.0, "datatype": "String"}
+{"id": "128_BO", "question": "What percentage of transparent ramen bowls or rice bowls are from the brand Unknown?", "answer": 13.636363636363637, "datatype": "String"}
+{"id": "979_sui", "question": "What is the median capacity, in liters, of non-expandable suitcase sets larger than a 3-piece set that have an adjustable telescopic, fixed, or multi-stage telescopic handle?", "answer": 55.0, "datatype": "Quantity"}
+{"id": "799_PHO", "question": "What is the maximum rear camera resolution in megapixels among mobile phones with 1 GB of RAM or less, a front camera resolution of at least 2.1 MP, and a lens quantity that is not dual?", "answer": 41.0, "datatype": "Quantity"}
+{"id": "271_CRT", "question": "How many damask- or paisley-pattern curtains and drapes from IKEA, Amazon Basics, or Pottery Barn are either room-darkening, blackout, or sheer?", "answer": 39, "datatype": "Count"}
+{"id": "841_RiC", "question": "What is the average capacity, in cups, of rice cookers with a warranty longer than 3 years?", "answer": 7.0, "datatype": "Quantity"}
+{"id": "912_SED", "question": "How many Ferry-Morse seed products for spring, fall, or winter planting that grow in shade or partial sun have a germination time other than 3–4 weeks?", "answer": 20, "datatype": "Count"}
+{"id": "786_PNT", "question": "How many checkered high-rise pants that are not skinny fit have either a paperbag waistband or a fixed waistband?", "answer": 8, "datatype": "Count"}
+{"id": "1051_TE", "question": "How many tea bag teas and infusions for general use or weight loss have a brewing time longer than 3 minutes?", "answer": 16, "datatype": "Count"}
+{"id": "579_CL", "question": "How many 24–70mm zoom camera lenses for APS-C or full-frame cameras have a filter thread size greater than 72 mm and a maximum aperture greater than 2.8?", "answer": 8, "datatype": "Count"}
+{"id": "105_BCK", "question": "How many e-book novellas published after 1659 cost at least $171.08?", "answer": 21, "datatype": "Count"}
+{"id": "90_BL", "question": "What percentage of blenders that cost more than $883.25 and have wattage over 200 W include a blender jar as an included accessory?", "answer": 40.0, "datatype": "String"}
+{"id": "233_COA", "question": "How many highly breathable coats and jackets for travel or skiing are not for men?", "answer": 49, "datatype": "Count"}
+{"id": "1006_SUNG", "question": "How many Persol sunglasses that are not size large have frames made of either titanium or plastic?", "answer": 23, "datatype": "Count"}
+{"id": "614_MPH", "question": "What percentage of camera microphones with XLR, USB, or 3.5mm jack connectivity are lavalier microphones?", "answer": 14.583333333333334, "datatype": "String"}
+{"id": "1054_TE", "question": "How many sweetened tea and infusion pouches from Dilmah or Ahmad Tea are not Fair Trade certified?", "answer": 5, "datatype": "Count"}
+{"id": "624_MPH", "question": "What percentage of gold microphones whose frequency response is not 40Hz–18kHz are condenser microphones?", "answer": 15.151515151515152, "datatype": "String"}
+{"id": "744_CO", "question": "What is the median size, in liters, of cold-pressed cooking oils priced above $41.93 that do not have a high smoke point?", "answer": 2.75, "datatype": "Quantity"}
+{"id": "289_CuB", "question": "How many medium-sized cutting boards made of oak or granite are not dishwasher-safe?", "answer": 17, "datatype": "Count"}
+{"id": "47_BDSH", "question": "What percentage of Threadspread bed sheets with a matte or cool finish are in the girls department?", "answer": 19.35483870967742, "datatype": "String"}
+{"id": "778_SFP", "question": "What percentage of All-Clad or GreenPan PTFE-nonstick skillets and frying pans are made of cast iron?", "answer": 10.714285714285714, "datatype": "String"}
+{"id": "403_FLS", "question": "How many adjustable-focus flashlights and headlamps with a Cree XHP50, Cree XM-L2 zoomable, or LED bulb cost more than $104.73?", "answer": 35, "datatype": "Count"}
+{"id": "484_HPH", "question": "What is the difference between the highest and lowest price among over-ear headphones or headsets with passive noise cancellation, a built-in microphone, and leather material?", "answer": 2386.4, "datatype": "Quantity"}
+{"id": "430_FP", "question": "What percentage of food processors with stainless steel blender jars and beaters that are not made of coated steel are made by Bosch?", "answer": 21.73913043478261, "datatype": "String"}
+{"id": "1048_TE", "question": "What percentage of regular-caffeine teas and infusions intended for relaxation are kombucha?", "answer": 12.903225806451612, "datatype": "String"}
+{"id": "876_RG", "question": "How many non-eco-friendly rugs from the brand Unknown are made of silk, polypropylene, or a synthetic blend?", "answer": 50, "datatype": "Count"}
+{"id": "1032_TBC", "question": "What is the minimum internal storage, in gigabytes, among tablet computers with at least 6 hours of battery life, that are not octa-core, are not under 400g, and have either USB-C, Micro-USB, or a headphone jack?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "348_DGF", "question": "How many GMO-free dog foods that are dehydrated, semi-moist, or raw frozen (not kibble) and use a mixed, plant-based, or insect-based primary protein source are there?", "answer": 22, "datatype": "Count"}
+{"id": "11_ALB", "question": "What percentage of bone-dry alcoholic beverages with an oaky or herbal flavor profile are ready-to-drink cocktails?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "1114_Toa", "question": "What percentage of toasters that have a reheat function but no bagel function are made by Black+Decker?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "69_BFd", "question": "How many non-organic bird food products that aren’t for hummingbirds, aren’t in mix form, and aren’t packaged in a tub are there?", "answer": 43, "datatype": "Count"}
+{"id": "212_CaF", "question": "What percentage of Sheba or Whiskas indoor cat food products are labeled for the adult life stage?", "answer": 27.272727272727273, "datatype": "String"}
+{"id": "796_PNT", "question": "How many non-adult pants that are not ankle-length, are not high-stretch, and have care instructions to tumble dry low are there?", "answer": 32, "datatype": "Count"}
+{"id": "197_CaF", "question": "How many non-grain-free cat foods that are not for kittens are formulated for either weight management or hairball control?", "answer": 38, "datatype": "Count"}
+{"id": "482_HPH", "question": "What is the lowest price among lightweight AirPods-connected headphones or headsets that are foldable and have no microphone?", "answer": 395.35, "datatype": "Quantity"}
+{"id": "404_FLS", "question": "What percentage of IPX7-rated flashlights and headlamps weighing 25 grams or less use a Cree XP-G bulb type?", "answer": 20.0, "datatype": "String"}
+{"id": "721_MG", "question": "What is the minimum capacity in ounces among Starbucks mugs with a carabiner handle that are not dishwasher safe?", "answer": 6.0, "datatype": "Quantity"}
+{"id": "222_COA", "question": "How many wind-resistant coats and jackets from Columbia, Mammut, or Zara have a drawstring, hidden closure, or zipper and do not use fleece insulation?", "answer": 8, "datatype": "Count"}
+{"id": "216_COA", "question": "What percentage of minimalist coats and jackets made by Columbia or Uniqlo are navy?", "answer": 15.0, "datatype": "String"}
+{"id": "816_PHO", "question": "How many Samsung mobile phones running the Lumia operating system have a screen size of at least 2.4 inches and a front camera resolution of at least 1.3 megapixels?", "answer": 21, "datatype": "Count"}
+{"id": "248_CFE", "question": "How many Illy coffees from Mexico, Sumatra, or Colombia are fair trade?", "answer": 13, "datatype": "Count"}
+{"id": "278_CuB", "question": "What percentage of Joseph Joseph bread cutting boards are made of marble?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "848_RiC", "question": "What percentage of rice cookers with a capacity greater than 5 cups and a warranty longer than 3 years are electric?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "609_MPH", "question": "How many non-USB, non-ribbon broadcasting microphones have a frequency response of either 20Hz–20kHz, 40Hz–18kHz, or custom tuned?", "answer": 20, "datatype": "Count"}
+{"id": "1016_SUNG", "question": "How many medium or large sunglasses with gray or night-vision lenses and a clubmaster, pit viper, or rectangular silhouette are there?", "answer": 40, "datatype": "Count"}
+{"id": "506_HU", "question": "How many filter-free humidifiers for small (up to 150 sq ft), medium (150–300 sq ft), or large (300–600 sq ft) rooms are available in either blue or multicolor?", "answer": 7, "datatype": "Count"}
+{"id": "606_LL", "question": "What percentage of lightweight locks and latches with either a combination or keyless locking mechanism are made by Yale?", "answer": 12.5, "datatype": "String"}
+{"id": "906_SED", "question": "How many organic or certified-organic seeds that prefer partial shade have a germination time other than 4–6 weeks?", "answer": 41, "datatype": "Count"}
+{"id": "920_Sho", "question": "How many volleyball shorts with an elastic closure are there that are not knee-length?", "answer": 7, "datatype": "Count"}
+{"id": "533_KN", "question": "How many non-Japanese butchering kitchen knives are there that are paring knives, chef knives, or utility knives?", "answer": 21, "datatype": "Count"}
+{"id": "300_PC", "question": "What is the most common processor speed in GHz among desktop computers made in China that were produced after 2025 and have an average rating above 3.5?", "answer": 1.44, "datatype": "Quantity"}
+{"id": "607_LL", "question": "How many locks and latches are not battery-powered, have either a medium-security or smart-lock-enabled security level, and do not have an oil-rubbed bronze finish?", "answer": 27, "datatype": "Count"}
+{"id": "1199_WCH", "question": "What is the lowest price among solar-powered OLED locket watches that include a barometer?", "answer": 3315.6, "datatype": "Quantity"}
+{"id": "258_CRT", "question": "How many IKEA curtains and drapes in a tab-top, panel, or layered style have a plaid, striped, or animal-print pattern?", "answer": 8, "datatype": "Count"}
+{"id": "141_CAB", "question": "How many multi-hole cabinet knobs and handles with an oil-rubbed, matte, or polished finish are not cup pulls?", "answer": 24, "datatype": "Count"}
+{"id": "1166_WMC", "question": "How many Nike, Levi’s, or Prada wallets and money clips for casual or business use with a capacity of card only, cards cash and coins, or high capacity are there?", "answer": 48, "datatype": "Count"}
+{"id": "1057_TE", "question": "How many Sri Lankan teas and infusions are not green in appearance, are not mint-flavored, and have a recommended brewing time of under 5 minutes?", "answer": 6, "datatype": "Count"}
+{"id": "241_CFE", "question": "What percentage of coffees with smoky flavor notes that are not a flavored blend have a medium-dark roast?", "answer": 13.953488372093023, "datatype": "String"}
+{"id": "734_MG", "question": "How many non-funny-themed mugs that are not green are not dishwasher-safe and are microwave-safe?", "answer": 22, "datatype": "Count"}
+{"id": "822_PL", "question": "What is the average size in inches of plates that are not oven-safe, are eco-friendly, and are for Christmas, autumn, or all-season use?", "answer": 9.236842105263158, "datatype": "Quantity"}
+{"id": "464_HD", "question": "What is the minimum form factor, in inches, among white hard drives with more than 3072 GB of storage that are compatible with either Chrome OS or Windows?", "answer": 1.8, "datatype": "Quantity"}
+{"id": "159_DGCM", "question": "What is the most common resolution, in megapixels, among digital cameras with non-OLED displays, with image stabilization (not “None”), and using an F-mount, Micro Four Thirds, or EF-S lens mount?", "answer": 24.3, "datatype": "Quantity"}
+{"id": "85_BL", "question": "What percentage of blenders with a capacity of 7.608155112 cups or less, excluding handheld mixer designs, are made by Breville?", "answer": 20.0, "datatype": "String"}
+{"id": "456_HD", "question": "What is the most common form factor, in inches, among Unknown-brand hard drives that do not use an external power adapter and have either no encryption, hardware encryption, or AES-256 encryption support?", "answer": 3.5, "datatype": "Quantity"}
+{"id": "389_Dr", "question": "What percentage of energy rating B dryers are heat pump dryers?", "answer": 14.705882352941176, "datatype": "String"}
+{"id": "73_BFd", "question": "How many Kaytee, Roudybush, or Generic bird foods in tropical mix, vegetable, or honey flavors are not labeled for all ages?", "answer": 8, "datatype": "Count"}
+{"id": "635_Mic", "question": "What percentage of microscopes with plan fluorite objective lenses have a compound light type?", "answer": 21.62162162162162, "datatype": "String"}
+{"id": "896_Scr", "question": "What percentage of screwdrivers priced above $165.35 that have a 1-meter, 2-meter, or 3-meter cord length are battery-powered?", "answer": 33.333333333333336, "datatype": "String"}
+{"id": "1088_TV", "question": "What is the maximum number of HDMI ports among televisions wider than 27 inches with an energy rating of C or A+ and audio technology that is standard stereo, Dolby Atmos, or Dolby Audio?", "answer": 4.0, "datatype": "Quantity"}
+{"id": "334_DIS", "question": "How many dishwashers have a noise level above 38 dBA, are shorter than 65.5 inches, and have a non-standard energy efficiency rating?", "answer": 18, "datatype": "Count"}
+{"id": "587_CL", "question": "What percentage of macro autofocus camera lenses use the Canon EF lens mount?", "answer": 13.333333333333334, "datatype": "String"}
+{"id": "102_BCK", "question": "How many non-fiction books in German or Russian, in either PDF or e-book format, are in the travel, biography, or children genre?", "answer": 48, "datatype": "Count"}
+{"id": "301_PC", "question": "How many desktop computers with a 1024x768 monitor resolution, an Intel Xeon or Intel Core i7/i9 processor, a price of at least 1715.88, and a processor speed under 2.1 GHz are there?", "answer": 36, "datatype": "Count"}
+{"id": "121_BO", "question": "How many winter-themed cereal bowls or serving bowls that are not made of crystal come in sets larger than a set of 2?", "answer": 18, "datatype": "Count"}
+{"id": "815_PHO", "question": "How many 5G mobile phones with more than 2 GB of RAM, dual or triple SIM slots, and a battery life of less than 12.083333333333332 days are there?", "answer": 31, "datatype": "Count"}
+{"id": "385_Dr", "question": "What percentage of stainless-steel-drum dryers with a noise level above 55 decibels are heat pump dryers?", "answer": 33.333333333333336, "datatype": "String"}
+{"id": "365_DRS", "question": "What percentage of formal Prada or Valentino dresses are mini length?", "answer": 10.204081632653061, "datatype": "String"}
+{"id": "149_CAB", "question": "How many glossy industrial- or vintage-style cabinet knobs and handles made of a non-plastic material are designed for three-hole installation?", "answer": 5, "datatype": "Count"}
+{"id": "381_Dr", "question": "What percentage of dryers that have more than 7 programs and include smart features are condenser dryers?", "answer": 23.076923076923077, "datatype": "String"}
+{"id": "17_ALB", "question": "How many Guinness, Kendall-Jackson, or Jose Cuervo alcoholic beverages are dry, sweet, or off-dry and do not have an alcohol content (ABV) of 1–3%?", "answer": 25, "datatype": "Count"}
+{"id": "350_DGF", "question": "How many dog food products are available in large (21–40 lb) packages for puppies, adults, or seniors that are not labeled for large breeds?", "answer": 37, "datatype": "Count"}
+{"id": "785_PNT", "question": "How many unisex toddler pants are available that are either eco-friendly or fair trade?", "answer": 10, "datatype": "Count"}
+{"id": "465_HD", "question": "What is the minimum storage capacity in gigabytes among Toshiba hard drives that are not for desktop use and have non-standard shock resistance?", "answer": 120.0, "datatype": "Quantity"}
+{"id": "908_SED", "question": "How many rose or creeping thyme seeds are there that don’t have a germination time of 4–6 weeks and aren’t meant to be planted in the fall?", "answer": 10, "datatype": "Count"}
+{"id": "728_MG", "question": "How many spring-themed mugs that don’t have a sports graphic theme have either a photo print, no graphic, or a pattern graphic type?", "answer": 39, "datatype": "Count"}
+{"id": "505_HU", "question": "What percentage of traditional-style humidifiers that do not have app control are wick-type humidifiers?", "answer": 25.0, "datatype": "String"}
+{"id": "39_BCKP", "question": "How many Deuter or Herschel backpacks in red, multicolor, or grey have a laptop compartment?", "answer": 9, "datatype": "Count"}
+{"id": "284_CuB", "question": "How many large chopping block cutting boards with rounded edges are there?", "answer": 5, "datatype": "Count"}
+{"id": "1182_WM", "question": "What is the maximum capacity in kilograms among white or blue washing machines that are semi-automatic, fully automatic, or front load?", "answer": 15.0, "datatype": "Quantity"}
+{"id": "924_Sho", "question": "How many purple shorts with a zippered waist that are not designed for tennis are there?", "answer": 15, "datatype": "Count"}
+{"id": "81_BL", "question": "What percentage of plastic blenders with a capacity under 28 cups are made by Oster?", "answer": 17.647058823529413, "datatype": "String"}
+{"id": "911_SED", "question": "How many non-organically grown cosmos, broccoli, or four o’clock seeds require partial shade?", "answer": 9, "datatype": "Count"}
+{"id": "883_Scr", "question": "What is the maximum number of pieces among screwdrivers with a 2-year warranty that do not have a red handle?", "answer": 32.0, "datatype": "Quantity"}
+{"id": "546_KN", "question": "How many serrated kitchen knife sets with carbon steel, high-carbon stainless steel, or Damascus steel blades have fewer than 10 pieces and are not factory sharpened?", "answer": 39, "datatype": "Count"}
+{"id": "1201_WCH", "question": "What is the average price of Garmin watches with 50m water resistance, a resin band, and a case made of either stainless steel or gold?", "answer": 8308.772777777778, "datatype": "Quantity"}
+{"id": "51_BDSH", "question": "How many organic mustard-colored bed sheet sets are there in sizes other than Twin XL?", "answer": 7, "datatype": "Count"}
+{"id": "31_BCKP", "question": "What percentage of Thule backpacks in either camouflage or beige are outdoor backpacks?", "answer": 12.5, "datatype": "String"}
+{"id": "444_GUI", "question": "How many guitars are not sunburst, are not concert ukuleles, have necks made of mahogany, maple, or composite, and are not made in Mexico?", "answer": 19, "datatype": "Count"}
+{"id": "956_SK", "question": "What percentage of floral kilt skirts are from the brand Forever 21?", "answer": 26.666666666666668, "datatype": "String"}
+{"id": "1078_TPH", "question": "What percentage of telephones with an extended DECT wireless range and either an HD speakerphone or a speakerphone listed as yes are from the brand Unknown?", "answer": 15.151515151515152, "datatype": "String"}
+{"id": "1110_Toa", "question": "What percentage of toasters with a long (3–4 ft) cord are 4-slice toasters?", "answer": 56.09756097560975, "datatype": "String"}
+{"id": "817_PHO", "question": "How many dual-SIM mobile phones with a slide/slider or clamshell form factor have a rear camera resolution of at least 10 megapixels and cost no more than $1267.28?", "answer": 36, "datatype": "Count"}
+{"id": "228_COA", "question": "How many black coats and jackets with a belt closure and either no hood, a fur-trimmed hood, or an adjustable hood are there?", "answer": 6, "datatype": "Count"}
+{"id": "782_PNT", "question": "How many slim-fit leather pants are there that are not bootcut and do not have a belted waistband?", "answer": 9, "datatype": "Count"}
+{"id": "441_GUI", "question": "How many guitars with electronics (not “None”) that use nickel strings are not Les Paul models and do not have a long scale length are there?", "answer": 16, "datatype": "Count"}
+{"id": "657_MX", "question": "How many mixers that are not made by Breville cost at least $318.76 and have a capacity of 12 cups or less?", "answer": 8, "datatype": "Count"}
+{"id": "117_BO", "question": "What percentage of Mikasa Hospitality bowls that are not dishwasher-safe are made of bamboo?", "answer": 19.51219512195122, "datatype": "String"}
+{"id": "617_MPH", "question": "How many silver or gray microphones with either a shock mount or stand mount have a frequency response other than 20Hz–20kHz?", "answer": 13, "datatype": "Count"}
+{"id": "312_PC", "question": "What is the difference between the highest and lowest average rating among quad-core desktop computers made in Mexico that cost more than 2467.06 and come in silver, black, or blue, with an average rating listed?", "answer": 3.5, "datatype": "Quantity"}
+{"id": "215_COA", "question": "How many tailored coats and jackets for women, kids, or unisex styles have a belt, button, or toggle closure?", "answer": 27, "datatype": "Count"}
+{"id": "759_SFP", "question": "What is the median width in inches of medium-depth skillets and frying pans that include a metal lid?", "answer": 10.0, "datatype": "Quantity"}
+{"id": "974_Socks", "question": "What percentage of cotton socks with either a plaid or floral pattern are blue?", "answer": 10.256410256410257, "datatype": "String"}
+{"id": "714_M3", "question": "What percentage of MP3 players with expandable memory and a screen size of at least 2 inches are made by Xiaomi?", "answer": 20.0, "datatype": "String"}
+{"id": "818_PHO", "question": "How many mobile phones from Google, Samsung, or Motorola run Droid, Android, or Lumia, have a rear camera resolution greater than 18 megapixels, and weigh at least 150 grams?", "answer": 25, "datatype": "Count"}
+{"id": "157_DGCM", "question": "What is the most common resolution, in megapixels, among non-SLR digital cameras with a 1/2.3-inch sensor that cost no more than $4,863.34?", "answer": 20.1, "datatype": "Quantity"}
+{"id": "852_RiC", "question": "What percentage of Hamilton Beach rice cookers with a wattage of at least 700 watts are Micom type?", "answer": 20.0, "datatype": "String"}
+{"id": "77_BFd", "question": "How many non-organic bird food products (not wild bird type) that contain sunflower seeds, vegetables, or pellets are there, excluding the brand Lafeber?", "answer": 13, "datatype": "Count"}
+{"id": "513_Jui", "question": "What percentage of single-serve juicers are electric (by power type)?", "answer": 56.25, "datatype": "String"}
+{"id": "842_RiC", "question": "What is the maximum capacity, in cups, among rice cookers priced above $359.27?", "answer": 14.0, "datatype": "Quantity"}
+{"id": "324_DIS", "question": "What percentage of dishwashers with a capacity of 4 place settings or fewer that are not voice-assistant compatible are fully integrated?", "answer": 21.62162162162162, "datatype": "String"}
+{"id": "297_PC", "question": "What is the median price of desktop computers with an Intel Pentium processor and a Core 2 Quad core configuration made by Razer Inc., Apple Inc., or AsusTek Computer Inc.?", "answer": 1589.045, "datatype": "Quantity"}
+{"id": "38_BCKP", "question": "What percentage of non-water-resistant drawstring backpacks are made by Bagsmart?", "answer": 8.571428571428571, "datatype": "String"}
+{"id": "549_LP", "question": "What is the most common listed webcam resolution (in pixels) among laptops that weigh under 1.4 kg, have a non-standard keyboard, and have a refresh rate below 120 Hz?", "answer": 1080.0, "datatype": "Quantity"}
+{"id": "207_CaF", "question": "What percentage of mixed-seafood kitten cat foods are wet food?", "answer": 25.58139534883721, "datatype": "String"}
+{"id": "34_BCKP", "question": "How many grey or orange backpacks are not water-resistant but do have a laptop compartment?", "answer": 10, "datatype": "Count"}
+{"id": "936_Sho", "question": "How many casual shorts are there that are not for running and are not above-the-knee length?", "answer": 25, "datatype": "Count"}
+{"id": "531_KN", "question": "How many forged fillet knives or santoku knives are there that are not labeled as razor sharp?", "answer": 17, "datatype": "Count"}
+{"id": "530_KN", "question": "How many black kitchen knife sets with fewer than 5 pieces are there that are not made by Victorinox and are not intended as a housewarming gift?", "answer": 30, "datatype": "Count"}
+{"id": "984_sui", "question": "What percentage of expandable polycarbonate suitcases are 3-piece sets?", "answer": 20.0, "datatype": "OrderedString"}
+{"id": "373_DRS", "question": "How many skater-fit dresses with a mock neck neckline are available in short, midi, or mid-calf lengths?", "answer": 10, "datatype": "Count"}
+{"id": "429_FP", "question": "What percentage of Vitamix food processors with a wattage over 35 watts are made of plastic?", "answer": 20.0, "datatype": "String"}
+{"id": "890_Scr", "question": "What percentage of screwdrivers with a 3-meter cord and a tungsten carbide tip are made by Black & Decker?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "247_CFE", "question": "How many Liberica coffees are available in either espresso or fine grind and are either decaf or high-caffeine?", "answer": 8, "datatype": "Count"}
+{"id": "1079_TV", "question": "What is the maximum number of HDMI ports among TCL televisions that don’t use the Fire TV smart platform and have a viewing angle of 170 degrees or less?", "answer": 4.0, "datatype": "Quantity"}
+{"id": "1043_TE", "question": "How many uncertified tea and infusion products from Celestial Seasonings, Dilmah, or Twinings come in either 20-count or 50g packaging?", "answer": 21, "datatype": "Count"}
+{"id": "690_MOT", "question": "What is the average number of memory slots among motherboards with 1x PCIe x16 plus 2x PCIe x1 slots that do not support DDR3 RAM and do not use an Intel chipset?", "answer": 5.428571428571429, "datatype": "Quantity"}
+{"id": "485_HPH", "question": "How many non-water-resistant Beats headphones or headsets with battery life rated up to 5, 10, or 20 hours and using either Bluetooth or radio-frequency wireless can you find?", "answer": 36, "datatype": "Count"}
+{"id": "1129_Vac", "question": "What percentage of vacuums with a battery runtime of 15 minutes or less and a warranty other than 1 year are bagged?", "answer": 35.714285714285715, "datatype": "String"}
+{"id": "515_Jui", "question": "What percentage of juicers that are not intended for citrus fruits and have no pulp control are electric (by power type)?", "answer": 39.53488372093023, "datatype": "String"}
+{"id": "1196_WM", "question": "What percentage of washing machines with an energy rating above 4 stars, whose water consumption is not listed as low, and that have the tub material mentioned have plastic tubs?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "933_Sho", "question": "How many Puma shorts are there in below-knee, above-knee, or short-shorts lengths that have either side pockets or back pockets?", "answer": 21, "datatype": "Count"}
+{"id": "151_CAB", "question": "How many diamond-shaped cabinet knobs or handles from either Hickory Hardware or an unknown brand are available with either single-hole or two-hole installation?", "answer": 12, "datatype": "Count"}
+{"id": "1175_WMC", "question": "How many large wallets with money clips or large card holders are there that do not have RFID protection and have a known country of origin?", "answer": 7, "datatype": "Count"}
+{"id": "562_LP", "question": "What is the minimum storage capacity in GB among plastic laptops with a screen size larger than 15.4 inches that support Wi‑Fi 5, Wi‑Fi 6E, or Wi‑Fi 7?", "answer": 64.0, "datatype": "Quantity"}
+{"id": "1107_Toa", "question": "What percentage of blue or red toasters with long or extra-long slots are 2-slice models?", "answer": 54.166666666666664, "datatype": "String"}
+{"id": "142_CAB", "question": "How many large single-hole cabinet knobs or handles are available in a non-round shape?", "answer": 15, "datatype": "Count"}
+{"id": "1121_Vac", "question": "What percentage of vacuums with a dust capacity of at least 5 liters and a battery type of either none or Li-Po are bagged?", "answer": 54.54545454545455, "datatype": "String"}
+{"id": "1165_WMC", "question": "How many woven wallets or money clips for outdoor use are made from something other than genuine leather and do not have 4–6 card slots?", "answer": 8, "datatype": "Count"}
+{"id": "8_ALB", "question": "How many Smirnoff meads, wines, or ciders that are black, golden, or dark are there?", "answer": 7, "datatype": "Count"}
+{"id": "504_HU", "question": "How many TaoTronics or Philips humidifiers have a tank capacity larger than 1L and do not have auto shut-off?", "answer": 14, "datatype": "Count"}
+{"id": "92_BL", "question": "How many blenders that are not made by Oster, do not include a blender jar as an accessory, and cost at most $196.52 are there?", "answer": 8, "datatype": "Count"}
+{"id": "186_CN", "question": "How many non-pillar candles with a burn time of under 18 hours that are not in glass containers and are not for unity occasions are there?", "answer": 32, "datatype": "Count"}
+{"id": "118_BO", "question": "How many microwave-safe dessert bowls are there that are intended for either Halloween or Christmas?", "answer": 7, "datatype": "Count"}
+{"id": "1148_DCV", "question": "What percentage of blue, clear, or yellow vases with a hand-painted, crackled, or polished finish are flower vases?", "answer": 25.0, "datatype": "String"}
+{"id": "100_BCK", "question": "How many first-edition books have more than 24,540.7 pages and cost over $322.82?", "answer": 30, "datatype": "Count"}
+{"id": "556_LP", "question": "What is the median screen size in inches among laptops with an AMD Ryzen 7 processor, a refresh rate of at least 120 Hz, and either a Thunderbolt 3 port or an HDMI port?", "answer": 14.0, "datatype": "Quantity"}
+{"id": "146_CAB", "question": "How many industrial- or classic-style cabinet knobs or cabinet handles come in bronze, black, or chrome and are made of bronze, stainless steel, or zinc alloy?", "answer": 14, "datatype": "Count"}
+{"id": "1123_Vac", "question": "What percentage of vacuums with turbo or high suction power that cost $590.24 or less are robotic vacuums?", "answer": 12.5, "datatype": "String"}
+{"id": "1073_TPH", "question": "What percentage of enterprise business telephones that are Microsoft Teams compatible are Skype-compatible?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "303_PC", "question": "What is the median processor speed in GHz among QHD desktop computers with AMD Ryzen processors that have an average rating of 3.0 or lower?", "answer": 2.5, "datatype": "Quantity"}
+{"id": "425_FP", "question": "What percentage of food processors that do not have a non-slip base safety feature and do not have a large dough hook are made of silicone?", "answer": 17.391304347826086, "datatype": "String"}
+{"id": "1008_SUNG", "question": "How many medium-sized Warby Parker or Gucci sunglasses have black or dark amber lenses?", "answer": 31, "datatype": "Count"}
+{"id": "1154_DCV", "question": "What percentage of 20–30-inch-tall glass vases are from West Elm?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "378_Dr", "question": "What is the maximum load capacity, in pounds, among black dryers?", "answer": 33.069339299999996, "datatype": "Quantity"}
+{"id": "839_RiC", "question": "What is the minimum capacity, in cups, among Panasonic, Cuckoo, or Unknown-brand rice cookers made of ceramic or plastic?", "answer": 3.0, "datatype": "Quantity"}
+{"id": "976_Socks", "question": "How many navy socks with medium cushioning are intended for sleep, formal wear, or hiking?", "answer": 4, "datatype": "Count"}
+{"id": "276_CuB", "question": "What percentage of natural wood–colored cutting boards made of either maple or plastic are size Medium?", "answer": 25.0, "datatype": "String"}
+{"id": "814_PHO", "question": "What percentage of mobile phones with a 2560 x 1440 display resolution support 5G broadband generation?", "answer": 25.0, "datatype": "String"}
+{"id": "877_RG", "question": "What percentage of green, brown, or black rugs with a traditional, geometric, or oriental pattern are from the brand Rug Artisan?", "answer": 17.073170731707318, "datatype": "String"}
+{"id": "99_BCK", "question": "How many MOBI-format novellas were published before 1504?", "answer": 14, "datatype": "Count"}
+{"id": "371_DRS", "question": "How many all-season dresses for casual, evening, or homecoming occasions have either a galaxy pattern or a solid pattern?", "answer": 7, "datatype": "Count"}
+{"id": "573_CL", "question": "How many fisheye camera lenses have a maximum aperture of at least f/2.8 and are not designed for Micro Four Thirds format coverage?", "answer": 49, "datatype": "Count"}
+{"id": "849_RiC", "question": "What percentage of non-Tiger rice cookers with a slow-cook function are steam-type rice cookers?", "answer": 31.25, "datatype": "String"}
+{"id": "130_BO", "question": "What percentage of Mikasa Hospitality bowls intended for restaurant or outdoor use are made of melamine?", "answer": 16.129032258064516, "datatype": "String"}
+{"id": "399_FLS", "question": "What is the average lumen output among Maglite or Nitecore flood-beam flashlights and headlamps that are not rated IPX5 and have their lumens listed?", "answer": 571.4285714285714, "datatype": "Quantity"}
+{"id": "466_HD", "question": "What percentage of USB-powered hard drives with more than 128 MB of cache are external drives?", "answer": 27.272727272727273, "datatype": "String"}
+{"id": "234_COA", "question": "How many wind-resistant ski jackets are water-resistant (i.e., not labeled “Not Water Resistant”)?", "answer": 26, "datatype": "Count"}
+{"id": "1003_SUNG", "question": "How many wayfarer sunglasses have either gradient, polarized, or UV400-protection lenses and have lenses colored either amber polarized or dark amber?", "answer": 17, "datatype": "Count"}
+{"id": "643_Mic", "question": "What percentage of microscopes with a double-layer mechanical stage and a non-incandescent illumination source are made by Leica?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "939_SK", "question": "How many mini skirts with either a geometric or solid pattern and an A-line or flared fit are there?", "answer": 6, "datatype": "Count"}
+{"id": "615_MPH", "question": "How many silver microphones with medium sensitivity and a cardioid, omnidirectional, or multi-pattern polar pattern are there?", "answer": 13, "datatype": "Count"}
+{"id": "383_Dr", "question": "What percentage of A-rated steam, vented, or heat-pump dryers are made by Electrolux?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "1092_TV", "question": "How many smart TVs that don’t support Bluetooth have fewer than 3 HDMI ports and audio output power under 30 watts?", "answer": 34, "datatype": "Count"}
+{"id": "178_CN", "question": "What percentage of candles weighing at least 3000 grams and scented either unscented, lavender, or ocean breeze are made by Village Candle?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "746_CO", "question": "What percentage of Kirkland low-fat or fat-free cooking oils are corn oil?", "answer": 11.627906976744185, "datatype": "String"}
+{"id": "619_MPH", "question": "What percentage of microphones that require phantom power and use either a boom arm or a camera mount have a bidirectional polar pattern?", "answer": 12.820512820512821, "datatype": "String"}
+{"id": "792_PNT", "question": "How many charcoal, orange, or blue pants that do not use recycled materials and have either patch pockets or back pockets are there?", "answer": 9, "datatype": "Count"}
+{"id": "190_CN", "question": "How many boxed or bagged tealight or pillar candles that are not made of paraffin have a burn time of more than 30 hours?", "answer": 24, "datatype": "Count"}
+{"id": "299_PC", "question": "What is the average monitor size in inches among Lenovo or Dell desktop computers running Windows XP with a single-core, hexa-core, or 8-core processor, an average user experience rating, and a listed monitor size?", "answer": 19.885714285714283, "datatype": "Quantity"}
+{"id": "752_CO", "question": "How many non-organic soybean or palm cooking oils are packaged in a metal tin, bulk container, or glass bottle?", "answer": 11, "datatype": "Count"}
+{"id": "642_Mic", "question": "What percentage of microscopes that are not USB powered and have WF10x, WF15x, or WF20x eyepieces are laboratory microscopes?", "answer": 22.22222222222222, "datatype": "String"}
+{"id": "447_GUI", "question": "How many electric guitars with either nickel or bronze strings have a neck material other than maple?", "answer": 38, "datatype": "Count"}
+{"id": "356_DRS", "question": "How many sleeveless prom, evening, or formal dresses from Michael Kors, J.Crew, or Oscar de la Renta are not mid-calf length?", "answer": 6, "datatype": "Count"}
+{"id": "209_CaF", "question": "How many wet cat foods (canned or in gravy) made with fish or duck as the main ingredient are not formulated for hairball control?", "answer": 47, "datatype": "Count"}
+{"id": "115_BO", "question": "What percentage of black or pastel-assorted oven-safe bowls are made by Emile Henry France?", "answer": 12.5, "datatype": "String"}
+{"id": "664_MT", "question": "What is the minimum screen size in inches among computer monitors with a response time of at least 1 ms, using a fixed stand, pivot stand, or tilt-only stand, and with a VA, TN, or IPS panel?", "answer": 17.0, "datatype": "Quantity"}
+{"id": "1060_TPH", "question": "How many AT&T battery-powered telephones are there that are not four-line models?", "answer": 14, "datatype": "Count"}
+{"id": "1195_WM", "question": "How many washing machines with a capacity of at least 8 kg, that do not have low water consumption, and that cost at least $1245.39 are there?", "answer": 7, "datatype": "Count"}
+{"id": "539_KN", "question": "How many partial-tang kitchen knives from Germany, the USA, or with an unknown country of origin have a Granton edge, serrated edge, or hollow edge?", "answer": 20, "datatype": "Count"}
+{"id": "253_CFE", "question": "How many Guatemalan or Brazilian coffees are either dark roast blends or house blends and do not have extra-high caffeine content?", "answer": 7, "datatype": "Count"}
+{"id": "366_DRS", "question": "How many solid or plaid dresses that are fit-and-flare, bodycon, or wrap style are not intended for winter?", "answer": 49, "datatype": "Count"}
+{"id": "1086_TV", "question": "What is the smallest screen size, in inches, among curved televisions with a resolution higher than 4K UHD (3840x2160), fewer than 2 HDMI ports, and connectivity that is not Wi‑Fi + Bluetooth?", "answer": 24.0, "datatype": "Quantity"}
+{"id": "245_CFE", "question": "How many non-decaffeinated espresso-roast coffees with no sugar added are there?", "answer": 33, "datatype": "Count"}
+{"id": "511_Jui", "question": "How many juicers can you find that do not have a wide-mouth feed chute, are not made of stainless steel, and are not labeled as low-noise?", "answer": 18, "datatype": "Count"}
+{"id": "597_LL", "question": "How many lightweight or medium-weight locks and latches from Unknown, Yale, or Defiant brands have a 2-3/8 inch, 2-3/4 inch, or 3 inch backset and are not cam locks?", "answer": 41, "datatype": "Count"}
+{"id": "994_sui", "question": "How many ABS suitcases with a matte, brushed, or glossy finish do not have compression straps as an interior feature?", "answer": 16, "datatype": "Count"}
+{"id": "476_HPH", "question": "What is the earliest production year among gray radio-frequency wireless headphones or headsets that are water-resistant and have no microphone?", "answer": 2016, "datatype": "Date"}
+{"id": "481_HPH", "question": "How many years apart are the earliest and latest production years among Samsung headphones and headsets that are not made of leather, use infrared, Bluetooth, or radio-frequency wireless, and come in white, gold, or silver?", "answer": 11, "datatype": "Date"}
+{"id": "847_RiC", "question": "What percentage of rice cookers with a porridge, sushi rice, or slow-cook function and push-button, manual, or touch-screen controls are made by Zojirushi?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "370_DRS", "question": "How many ASOS cold-shoulder dresses with either a wrap fit or a fit-and-flare fit are there?", "answer": 5, "datatype": "Count"}
+{"id": "125_BO", "question": "What percentage of green abstract-pattern bowls are snack bowls?", "answer": 25.0, "datatype": "String"}
+{"id": "1053_TE", "question": "How many organic low-caffeine teas and infusions are there with a packaging size other than “Other”?", "answer": 35, "datatype": "Count"}
+{"id": "98_BCK", "question": "How many HarperCollins-published historical novels, novellas, or short fiction books are there?", "answer": 24, "datatype": "Count"}
+{"id": "266_CRT", "question": "How many pink back-tab curtains or drapes are available in either standard (40–60 inches), wide (60–120 inches), or custom widths?", "answer": 10, "datatype": "Count"}
+{"id": "647_Mic", "question": "How many compound microscopes that are not binocular and do not have a magnification range listed as up to 2000x are there?", "answer": 40, "datatype": "Count"}
+{"id": "547_KN", "question": "How many kitchen knives made in Japan have a blade material other than high carbon stainless steel, are not labeled hand-wash-only, and are not described as razor sharp?", "answer": 16, "datatype": "Count"}
+{"id": "605_LL", "question": "How many locks and latches with an oil-rubbed bronze or gray finish are not cam locks and do not have a 2-3/8-inch backset?", "answer": 48, "datatype": "Count"}
+{"id": "758_CO", "question": "How many mild or neutral Greek cooking oils are available in sizes under 2.5 liters?", "answer": 4, "datatype": "Count"}
+{"id": "583_CL", "question": "How many full-frame manual-focus camera lenses have a filter thread size greater than 49 mm?", "answer": 15, "datatype": "Count"}
+{"id": "1007_SUNG", "question": "How many non-Oakley gradient-lens cat-eye or aviator sunglasses are available with green, transparent, or black frames?", "answer": 4, "datatype": "Count"}
+{"id": "673_MT", "question": "How many computer monitors have a maximum refresh rate above 165 Hz, cover either 95% or 100% of the DCI-P3 color gamut, and have a resolution of 3840 x 2160, 1280 x 1024, or 1600 x 1200?", "answer": 25, "datatype": "Count"}
+{"id": "134_BO", "question": "How many Zwilling J.A. Henckels bowls made of porcelain, bamboo, or wood with a textured, glossy, or matte finish are there?", "answer": 12, "datatype": "Count"}
+{"id": "763_SFP", "question": "What is the median width in inches of halogen-compatible skillets and frying pans made in Vietnam?", "answer": 12.0, "datatype": "Quantity"}
+{"id": "1112_Toa", "question": "What percentage of toasters that do not have a removable crumb tray and are not 4-slice models have extra-long slots?", "answer": 28.125, "datatype": "String"}
+{"id": "110_BCK", "question": "How many Oxford University Press fiction books that are either first editions or revised editions do not have an ISBN-13?", "answer": 38, "datatype": "Count"}
+{"id": "649_MX", "question": "How many plastic mixers are there that are not made by Bosch and are not yellow?", "answer": 19, "datatype": "Count"}
+{"id": "1171_WMC", "question": "How many beige, white, or yellow women’s or unisex wallets and money clips for business or outdoor use have either 1–3, 7–9, or 10+ card slots?", "answer": 6, "datatype": "Count"}
+{"id": "832_PL", "question": "How many dishwasher-safe, stackable plates from Amazon Basics or Corelle are there?", "answer": 30, "datatype": "Count"}
+{"id": "1153_DCV", "question": "What percentage of medium vases with either a glossy or etched finish are made of crystal?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "618_MPH", "question": "What percentage of wireless microphones with low sensitivity are made by Sony?", "answer": 13.953488372093023, "datatype": "String"}
+{"id": "1050_TE", "question": "How many non-organic sweetened mate, rooibos, or fruit teas are there that are not red in appearance?", "answer": 20, "datatype": "Count"}
+{"id": "174_DGCM", "question": "What percentage of Canon or GoPro digital cameras with a fixed lens have a CCD sensor?", "answer": 30.0, "datatype": "String"}
+{"id": "733_MG", "question": "How many metallic-finish soup mugs for winter, fall, or spring are not vacuum insulated?", "answer": 4, "datatype": "Count"}
+{"id": "344_DGF", "question": "How many medium- or high-calorie dog foods with a soft or mixed texture contain chondroitin, omega-6, or antioxidants?", "answer": 20, "datatype": "Count"}
+{"id": "794_PNT", "question": "How many machine-washable Nike, Gap, or Prada pants are there that are not high-stretch and do not have zippered pockets?", "answer": 4, "datatype": "Count"}
+{"id": "995_sui", "question": "What percentage of suitcases with a multi-stage telescopic handle and a 1-year or 5-year warranty are 3-piece sets?", "answer": 31.25, "datatype": "OrderedString"}
+{"id": "239_CFE", "question": "How many high-caffeine decaffeinated instant coffee products are there?", "answer": 12, "datatype": "Count"}
+{"id": "940_SK", "question": "What percentage of Prada polyester skirts are ankle-length?", "answer": 21.428571428571427, "datatype": "String"}
+{"id": "865_RG", "question": "How many round rugs smaller than 8x10 come in a floral, solid, or modern pattern?", "answer": 50, "datatype": "Count"}
+{"id": "1146_DCV", "question": "What percentage of silver centerpiece vases, floor vases, or flower vases are made by IKEA?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "1172_WMC", "question": "How many slim or standard wallets and money clips made in France or India have a closure type other than a snap button?", "answer": 24, "datatype": "Count"}
+{"id": "45_BDSH", "question": "What is the median thread count among coral, yellow, or orange bed sheets made with a sateen, twill, or flannel weave?", "answer": 600.0, "datatype": "Quantity"}
+{"id": "510_Jui", "question": "What percentage of cold press juicers, manual squeezers, or citrus juicers that require manual cleaning are made by Hamilton Beach?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "127_BO", "question": "How many bowls are made from a material other than bamboo, are not dishwasher-safe, are not Christmas-themed, and have an assorted patterns, floral, or traditional pattern?", "answer": 15, "datatype": "Count"}
+{"id": "659_MT", "question": "What is the average screen size in inches of B-rated energy-efficiency computer monitors that come in either silver or red?", "answer": 30.11304347826087, "datatype": "Quantity"}
+{"id": "870_RG", "question": "What percentage of bohemian-pattern rugs meant for hallways or kitchens are runner-shaped?", "answer": 30.0, "datatype": "String"}
+{"id": "860_RG", "question": "How many modern-pattern rugs from Morocco or India made of jute, polypropylene, or silk are not square-shaped?", "answer": 4, "datatype": "Count"}
+{"id": "512_Jui", "question": "What percentage of juicers from Unknown, Omega, or Cuisinart that have either a safety lock or automatic shutoff are centrifugal juicers?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "376_Dr", "question": "What is the average load capacity in pounds of electric dryers priced above $1,240.11?", "answer": 23.987950416551723, "datatype": "Quantity"}
+{"id": "789_PNT", "question": "What percentage of polyester pants for spring or summer are made by Under Armour?", "answer": 12.903225806451612, "datatype": "String"}
+{"id": "527_Jui", "question": "How many handheld or countertop juicers have a feed chute that is not wide-mouth and do not have an automatic shutoff safety feature?", "answer": 10, "datatype": "Count"}
+{"id": "240_CFE", "question": "How many fair-trade low-caffeine coffees that are not Italian roast and are not decaffeinated are there?", "answer": 12, "datatype": "Count"}
+{"id": "1058_TE", "question": "How many Bigelow, Lipton, or Harney & Sons mate, masala chai, or specialty tea products that brew at high temperature (90–100°C) have a packaging size other than “Other”?", "answer": 29, "datatype": "Count"}
+{"id": "398_FLS", "question": "How many aluminum or plastic flashlights and headlamps weighing at least 49 grams have Eco, Strobe, or Medium modes?", "answer": 19, "datatype": "Count"}
+{"id": "277_CuB", "question": "How many standard-thickness chopping block cutting boards that are not round can you find?", "answer": 24, "datatype": "Count"}
+{"id": "925_Sho", "question": "What percentage of outdoor thermal shorts are made by Reebok?", "answer": 12.5, "datatype": "String"}
+{"id": "807_PHO", "question": "What is the maximum screen size, in inches, among mobile phones with triple SIM slots, more than 1 GB of RAM, a single rear camera lens, and a rear camera resolution under 10 MP?", "answer": 7.0, "datatype": "Quantity"}
+{"id": "559_LP", "question": "What is the median storage capacity in GB among backlit-keyboard laptops with a screen size under 15.4 inches that use either an Apple GPU or an NVIDIA RTX graphics model and do not have Intel graphics?", "answer": 512.0, "datatype": "Quantity"}
+{"id": "1161_WMC", "question": "How many non-women’s card holder wallets or money clips have no RFID protection?", "answer": 26, "datatype": "Count"}
+{"id": "1162_WMC", "question": "How many business-occasion wallets or money clips from Tommy Hilfiger, Puma, or Nike are not compact in size?", "answer": 15, "datatype": "Count"}
+{"id": "377_Dr", "question": "What is the median load capacity, in pounds, of dryers with WiFi connectivity that have a noise level above 55 decibels?", "answer": 20.0, "datatype": "Quantity"}
+{"id": "91_BL", "question": "What is the minimum wattage, in watts, among pink blenders made of a non-plastic material that have their wattage listed?", "answer": 200.0, "datatype": "Quantity"}
+{"id": "952_SK", "question": "How many non-kilt skirts with a tight or regular fit come in leopard, geometric, or polka-dot patterns?", "answer": 38, "datatype": "Count"}
+{"id": "79_BFd", "question": "How many parrot or wild bird foods packaged in a box or jar contain sunflower seeds, nuts, or nyjer seeds?", "answer": 8, "datatype": "Count"}
+{"id": "798_PNT", "question": "How many Calvin Klein pants with a hook-and-eye closure are not labeled as carbon neutral?", "answer": 8, "datatype": "Count"}
+{"id": "237_CFE", "question": "What percentage of non-fair-trade coffees with honey flavor notes are whole bean?", "answer": 14.705882352941176, "datatype": "String"}
+{"id": "813_PHO", "question": "What is the median screen size in inches among 3G mobile phones with dual lenses, that are not single-SIM, and have a battery life of less than 14 days?", "answer": 3.5, "datatype": "Quantity"}
+{"id": "625_MPH", "question": "How many Blue or Rode supercardioid microphones are there that are powered by either a battery, USB, or phantom power?", "answer": 25, "datatype": "Count"}
+{"id": "327_DIS", "question": "What percentage of touch-control dishwashers wider than 18 inches are freestanding?", "answer": 31.25, "datatype": "String"}
+{"id": "187_CN", "question": "How many non-soy candles weighing under 500 grams are star-shaped or square-shaped?", "answer": 20, "datatype": "Count"}
+{"id": "223_COA", "question": "How many below-the-knee coats and jackets made of denim, recycled nylon, or waxed cotton come in a RealTree, polka dot, or camouflage pattern?", "answer": 14, "datatype": "Count"}
+{"id": "1205_Web", "question": "What percentage of silver, grey, or black webcams with no microphone are made by Anker?", "answer": 10.0, "datatype": "String"}
+{"id": "661_MT", "question": "What is the median maximum refresh rate, in hertz, among computer monitors that are 19 inches or smaller, have HDMI 2.1 connectivity, and do not have a 4:3 aspect ratio?", "answer": 144.0, "datatype": "Quantity"}
+{"id": "784_PNT", "question": "How many flare-leg pants with patch pockets have a closure other than buttons and are not made from midweight fabric?", "answer": 4, "datatype": "Count"}
+{"id": "900_SED", "question": "How many winter-planting seeds that are organically grown or certified organic and that can grow in full sun, partial sun, or partial shade are there?", "answer": 36, "datatype": "Count"}
+{"id": "436_GUI", "question": "How many Japan-made concert ukuleles have a Tune-o-matic, tremolo, or fixed bridge?", "answer": 7, "datatype": "Count"}
+{"id": "922_Sho", "question": "What percentage of purple shorts with either side pockets, cargo pockets, or no pockets are made of blended fabric?", "answer": 17.94871794871795, "datatype": "String"}
+{"id": "176_CN", "question": "How many vanilla- or sandalwood-scented pillar, jar, or tealight candles with an octagonal, diamond, or star shape come in a ceramic or wood container, or have no container?", "answer": 27, "datatype": "Count"}
+{"id": "333_DIS", "question": "How many dishwashers are less than 24 inches wide, are not Wi‑Fi enabled, and are at most 33.88 inches tall?", "answer": 20, "datatype": "Count"}
+{"id": "261_CRT", "question": "How many custom-width curtains and drapes that are room-darkening, blackout, or sheer do not have light noise reduction?", "answer": 16, "datatype": "Count"}
+{"id": "36_BCKP", "question": "What percentage of STM backpacks made of vacquetta are MOLLE backpacks?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "1188_WM", "question": "What percentage of blue or red washing machines that offer cotton, delicate, or baby care wash programs are made by Bosch?", "answer": 18.181818181818183, "datatype": "String"}
+{"id": "1017_SUNG", "question": "How many red-framed sunglasses from brands other than Persol have either mirrored, photochromic, or non-polarized lenses and have lens color in red, gray gradient, or yellow?", "answer": 8, "datatype": "Count"}
+{"id": "1181_WM", "question": "What is the median capacity, in kilograms, of washing machines with a spin speed of at least 1200 rpm that do not have inverter technology?", "answer": 8.5, "datatype": "Quantity"}
+{"id": "274_CRT", "question": "How many back-tab curtains or drapes in panel, valance, or pleated styles are insulated, thermal backed, or blackout thermal?", "answer": 28, "datatype": "Count"}
+{"id": "179_CN", "question": "How many white candles for Halloween, weddings, or unity ceremonies are available in a non-ceramic container?", "answer": 10, "datatype": "Count"}
+{"id": "22_BCKP", "question": "What is the average capacity, in liters, of non-water-resistant Herschel backpacks?", "answer": 45.06122448979592, "datatype": "Quantity"}
+{"id": "402_FLS", "question": "How many flashlights and headlamps weigh 84 grams or less, have 400 lumens or less, are not flashlights, and do not have a medium mode?", "answer": 27, "datatype": "Count"}
+{"id": "291_CuB", "question": "How many cutting boards have a rubber base, do not have a beveled edge, and do not have a juice groove?", "answer": 19, "datatype": "Count"}
+{"id": "1089_TV", "question": "What is the maximum screen size, in inches, among plasma or mini-LED televisions that are at least 4.4 inches deep, have more than one USB port, and use Google TV, Android TV, or no smart TV platform?", "answer": 85.0, "datatype": "Quantity"}
+{"id": "1210_Web", "question": "What percentage of webcams with a 75° field of view are made by Razer?", "answer": 10.0, "datatype": "String"}
+{"id": "707_M3", "question": "What percentage of MP3 players that have no voice recorder and are not water-resistant are made by Apple?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "713_M3", "question": "What percentage of MP3 players with a voice recorder and a screen size of 2 inches or smaller support the WMA format?", "answer": 12.5, "datatype": "String"}
+{"id": "1155_DCV", "question": "How many CB2 vases in black, blue, or transparent that are not contemporary in style and are not arrangement vases are there?", "answer": 10, "datatype": "Count"}
+{"id": "645_Mic", "question": "What percentage of oil-immersion microscopes that do not use a coaxial coarse-and-fine focus mechanism have a magnification range of up to 2000x?", "answer": 30.76923076923077, "datatype": "String"}
+{"id": "604_LL", "question": "What percentage of iron locks and latches from Kwikset, Weiser, or Baldwin are cam locks?", "answer": 11.538461538461538, "datatype": "String"}
+{"id": "397_FLS", "question": "How many flashlights and headlamps with an Eco mode cost at least $81.91 and have 500 lumens or less?", "answer": 11, "datatype": "Count"}
+{"id": "358_DRS", "question": "How many mustard or orange knit dresses are there that are not one-shoulder styles?", "answer": 4, "datatype": "Count"}
+{"id": "840_RiC", "question": "What percentage of rice cookers with a capacity greater than 4 cups and that have either multi-grain, quick cook, or keep warm functions are made by Cuckoo?", "answer": 11.428571428571429, "datatype": "String"}
+{"id": "795_PNT", "question": "How many non-business pants made of corduroy, linen, or organic cotton have an adjustable waistband and a low-, mid-, or high-rise fit?", "answer": 7, "datatype": "Count"}
+{"id": "716_M3", "question": "What percentage of MP3 players that support WMA and use either a lithium-ion battery or AAA batteries are made by Sony?", "answer": 13.157894736842104, "datatype": "String"}
+{"id": "593_LL", "question": "How many ASSA ABLOY padlocks, cylinder locks, or door latches are there that do not use a keyed locking mechanism?", "answer": 26, "datatype": "Count"}
+{"id": "741_CO", "question": "What is the average size, in liters, of fully refined La Tourangelle cooking oils?", "answer": 6.029411764705882, "datatype": "Quantity"}
+{"id": "953_SK", "question": "How many casual skirts in green, yellow, or pink have a waist style that is not belted?", "answer": 8, "datatype": "Count"}
+{"id": "1062_TPH", "question": "How many caller-ID telephones are rack-mountable or wall-mountable and are compatible with Microsoft Teams, a cloud PBX, or a PBX?", "answer": 4, "datatype": "Count"}
+{"id": "1084_TV", "question": "What is the minimum number of HDMI ports among LG televisions priced at $6,317.90 or less that are not in the Sony KDL technology line?", "answer": 1.0, "datatype": "Quantity"}
+{"id": "408_FLS", "question": "How many IPX6-rated flashlights and headlamps with Eco, High, or Turbo modes have a beam type that is not a wide beam?", "answer": 9, "datatype": "Count"}
+{"id": "386_Dr", "question": "What percentage of dryers priced at least $1,266.75 that have fewer than 10 programs are made by GE?", "answer": 12.5, "datatype": "String"}
+{"id": "321_DIS", "question": "What is the minimum capacity (in place settings) among dishwashers that run at 50 dBA or quieter and are under 32.5 inches tall?", "answer": 6.0, "datatype": "Quantity"}
+{"id": "27_BCKP", "question": "What percentage of red or multicolor backpacks that are not water-resistant are preschool backpacks?", "answer": 6.0, "datatype": "String"}
+{"id": "1178_WM", "question": "What is the average capacity in kilograms of washing machines with a non-plastic tub and an energy rating below 4 stars?", "answer": 7.1, "datatype": "Quantity"}
+{"id": "1192_WM", "question": "What percentage of washing machines with a spin speed over 800 rpm and no smart features are fully automatic?", "answer": 10.0, "datatype": "String"}
+{"id": "169_DGCM", "question": "How many digital cameras weigh less than 141.747615625 grams, have a resolution greater than 5 megapixels, and offer optical zoom greater than 5x?", "answer": 27, "datatype": "Count"}
+{"id": "528_Jui", "question": "How many juicers are not labeled as having dishwasher-safe parts, are not intended for soft fruits, and have some kind of pulp control (not “no pulp control”)?", "answer": 10, "datatype": "Count"}
+{"id": "173_DGCM", "question": "What percentage of digital cameras with Bluetooth connectivity are SLR-type cameras?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "379_Dr", "question": "What is the minimum load capacity, in pounds, among A++ energy-rated steam or vented dryers?", "answer": 20.0, "datatype": "Quantity"}
+{"id": "1070_TPH", "question": "How many HD-voice telephones that are compatible with Zoom Phone, Microsoft Teams, or a cloud PBX are not intended for call center use?", "answer": 19, "datatype": "Count"}
+{"id": "683_MOT", "question": "What is the minimum number of memory slots among motherboards with 4 PCIe x1 slots that do not have 5.1 audio channels, do not use an AMD chipset, and do not have a 10/100 Mbps Ethernet port?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "225_COA", "question": "How many unisex or women’s cotton twill coats and jackets with low or medium breathability are there that are not intended for hiking?", "answer": 12, "datatype": "Count"}
+{"id": "119_BO", "question": "How many extra-large bowls (1200 ml and above) intended for non-home use from either Emile Henry France or an unknown brand are there?", "answer": 7, "datatype": "Count"}
+{"id": "1044_TE", "question": "How many tea and infusion products from Sri Lanka or with origin listed as Other are not intended for energy and have a recommended brewing time of less than 4 minutes?", "answer": 32, "datatype": "Count"}
+{"id": "131_BO", "question": "What percentage of large (700–1200 ml) dessert bowls are made by the brand Royal Doulton Ltd.?", "answer": 12.121212121212121, "datatype": "String"}
+{"id": "616_MPH", "question": "How many plastic Blue or Sony microphones are there that do not use USB connectivity?", "answer": 35, "datatype": "Count"}
+{"id": "601_LL", "question": "How many non-keyed cylinder locks or door latches have a 2-3/8 inch backset?", "answer": 16, "datatype": "Count"}
+{"id": "588_CL", "question": "How many camera lenses have a maximum aperture of at least f/8, are not 70–200mm zoom lenses, and do not cover the Micro Four Thirds format?", "answer": 44, "datatype": "Count"}
+{"id": "772_SFP", "question": "How many non-dishwasher-safe skillets and frying pans made of either stainless steel or cast iron have handles that are not cast iron?", "answer": 26, "datatype": "Count"}
+{"id": "620_MPH", "question": "What percentage of Sony or Audio-Technica large-diaphragm microphones have XLR connectivity?", "answer": 20.512820512820515, "datatype": "String"}
+{"id": "32_BCKP", "question": "How many internal-frame or book backpacks are not water-resistant, do not have a laptop compartment, and are made of a material other than nylon?", "answer": 4, "datatype": "Count"}
+{"id": "42_BDSH", "question": "What is the median thread count among bed sheets that come as either a full set or include 1 flat sheet and have a tie-dye, polka dot, or flame pattern?", "answer": 450.0, "datatype": "Quantity"}
+{"id": "881_Scr", "question": "How many screwdrivers are there that do not have adjustable torque, do not have a 2-meter cord length, have fewer than 20 pieces, and do not have plastic handles?", "answer": 13, "datatype": "Count"}
+{"id": "1081_TV", "question": "What is the maximum screen size, in inches, among televisions that have 1 or fewer HDMI ports, at least 2 USB ports, a depth greater than 3.7 inches, and HDR support for Dolby Vision, HLG, or HDR10?", "answer": 85.0, "datatype": "Quantity"}
+{"id": "770_SFP", "question": "How many oval or round skillets and frying pans from T-fal, Scanpan, or GreenPan have either a PTFE nonstick coating or a seasoned finish?", "answer": 18, "datatype": "Count"}
+{"id": "54_BDSH", "question": "How many brushed cotton bed sheets that are not in the boys department can you find?", "answer": 6, "datatype": "Count"}
+{"id": "20_ALB", "question": "How many alcoholic beverages from Australia, the Netherlands, or Canada that are either non-vintage or from the 2000s are intended for celebration, party, or gifting occasions can you find?", "answer": 6, "datatype": "Count"}
+{"id": "774_SFP", "question": "What percentage of lightweight skillets and frying pans made in France or Vietnam are made of ceramic-coated aluminum?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "916_SED", "question": "How many Park Seed summer-planting seeds have a germination time of either 2–3 weeks or 4–6 weeks?", "answer": 26, "datatype": "Count"}
+{"id": "260_CRT", "question": "How many non-silk curtains and drapes for a bedroom, bathroom, or kitchen that come in either standard (63–84 inches) or extra-long (108+ inches) lengths and do not have “iron as needed” listed in the care instructions are there?", "answer": 13, "datatype": "Count"}
+{"id": "433_FP", "question": "How many non-Panasonic food processors with mix or beat beater functions have a medium or high noise level?", "answer": 42, "datatype": "Count"}
+{"id": "286_CuB", "question": "How many non-dishwasher-safe reversible chopping boards are there?", "answer": 13, "datatype": "Count"}
+{"id": "1149_DCV", "question": "How many medium, large, or extra-large vases with a square, bulb, or cylindrical shape are not intended for housewarming?", "answer": 18, "datatype": "Count"}
+{"id": "347_DGF", "question": "How many organic dog foods from New Zealand are not for large-breed dogs?", "answer": 7, "datatype": "Count"}
+{"id": "708_M3", "question": "What percentage of MP3 players with an IPS, touchscreen, or LCD display and connectivity via USB 2.0, NFC, or Bluetooth 5.0 support the WAV format?", "answer": 14.814814814814815, "datatype": "String"}
+{"id": "965_Socks", "question": "How many socks made with recycled materials are sold in packs smaller than a 3-pack, are not dress socks, and are intended for compression, outdoor, or athletic use?", "answer": 10, "datatype": "Count"}
+{"id": "218_COA", "question": "How many trench coats are there that are not highly breathable and are not long-length?", "answer": 43, "datatype": "Count"}
+{"id": "337_DGF", "question": "How many dehydrated dog foods with mixed primary protein sources are GMO-free?", "answer": 5, "datatype": "Count"}
+{"id": "802_PHO", "question": "What is the average RAM in GB among Google mobile phones with at least a 16 MP rear camera and a battery life of less than 14 days?", "answer": 1.5546875, "datatype": "Quantity"}
+{"id": "268_CRT", "question": "Among curtains and drapes with light noise reduction and either a geometric or animal-print pattern, what percentage use a tie-top attachment method?", "answer": 18.75, "datatype": "String"}
+{"id": "717_M3", "question": "How many non-water-resistant MP3 players weigh less than 328.53 and have storage capacity under 64 GB?", "answer": 17, "datatype": "Count"}
+{"id": "1119_Vac", "question": "What percentage of sensor-based canister or wet/dry vacuums are cordless?", "answer": 13.636363636363637, "datatype": "String"}
+{"id": "474_HD", "question": "How many external hard drives cost $473.38 or less, have more than 750 GB of storage capacity, and have a rotational speed of at least 10,000 rpm?", "answer": 17, "datatype": "Count"}
+{"id": "1046_TE", "question": "How many Dilmah rooibos teas or infusions have a brewing temperature that is not listed as High (90–100°C)?", "answer": 17, "datatype": "Count"}
+{"id": "1039_TE", "question": "What percentage of red fruit teas and infusions are in tea mix form?", "answer": 13.157894736842104, "datatype": "String"}
+{"id": "86_BL", "question": "What percentage of blenders priced above $675.03 that have 2 speed settings are made by KitchenAid?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "564_LP", "question": "What is the maximum RAM, in gigabytes, among MSI laptops with a processor speed greater than 3.0 GHz?", "answer": 128.0, "datatype": "Quantity"}
+{"id": "405_FLS", "question": "How many Maglite flashlights or headlamps made of polycarbonate that do not use NiMH batteries are there?", "answer": 14, "datatype": "Count"}
+{"id": "28_BCKP", "question": "What percentage of Deuter backpacks made of pebble leather are the army type?", "answer": 10.0, "datatype": "String"}
+{"id": "1104_Toa", "question": "What percentage of Panasonic toasters with a non-removable crumb tray have a long slot type?", "answer": 66.66666666666667, "datatype": "String"}
+{"id": "704_M3", "question": "What is the average storage capacity in GB among MP3 players with either Jazz or Classical EQ presets and a screen size larger than 2 inches?", "answer": 47.473684210526315, "datatype": "Quantity"}
+{"id": "480_HPH", "question": "What is the maximum price among leather headphones or headsets with active noise cancellation that are not heavy and are either DJ-style or in-ear?", "answer": 2831.59, "datatype": "Quantity"}
+{"id": "171_DGCM", "question": "What percentage of digital cameras with a 1/2.3-inch sensor that are not weather-sealed are made by GoPro?", "answer": 21.428571428571427, "datatype": "String"}
+{"id": "416_FP", "question": "What is the minimum food processor capacity, in cups, among black food processors?", "answer": 1.5, "datatype": "Quantity"}
+{"id": "346_DGF", "question": "What percentage of shredded venison-flavored dog foods are made by Farmina?", "answer": 25.0, "datatype": "String"}
+{"id": "589_LL", "question": "How many white-finish locks and latches that are medium or heavy-duty, excluding padlocks, are there?", "answer": 24, "datatype": "Count"}
+{"id": "30_BCKP", "question": "How many sleeping-bag backpacks have a laptop compartment but are not water-resistant?", "answer": 6, "datatype": "Count"}
+{"id": "980_sui", "question": "What is the maximum capacity, in liters, among suitcases that are either 2-wheel inline skate or 8-wheel spinner, are not made of nylon, have some water resistance, and have either a TSA key lock or a TSA combination lock?", "answer": 100.0, "datatype": "Quantity"}
+{"id": "1159_WMC", "question": "How many standard or large wallets and money clips made in China have a zipper closure?", "answer": 7, "datatype": "Count"}
+{"id": "281_CuB", "question": "How many unbranded cutting boards with a smooth, grooved, or textured surface finish do not have a rubber base grip?", "answer": 10, "datatype": "Count"}
+{"id": "644_Mic", "question": "How many optical, stereo, or research microscopes are there that are not intended for hobbyist use and do not support a USB camera?", "answer": 16, "datatype": "Count"}
+{"id": "501_HU", "question": "What percentage of silent or low-noise floor-standing humidifiers have a tank capacity of 2L?", "answer": 12.5, "datatype": "OrderedString"}
+{"id": "227_COA", "question": "How many relaxed-fit fleece jackets, rain jackets, or peacoats for winter or all-season wear are there?", "answer": 19, "datatype": "Count"}
+{"id": "561_LP", "question": "What is the minimum RAM, in GB, among LCD laptops that weigh under 2.0 kg, have a webcam resolution of at least 1440 pixels, and do not have a 2560x1600 screen resolution?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "726_MG", "question": "How many plastic mugs with oversized handles that are for Halloween or Thanksgiving are there?", "answer": 11, "datatype": "Count"}
+{"id": "915_SED", "question": "What percentage of alyssum or herb seeds with a germination time other than 2–3 weeks are made by Baker Creek Heirloom Seeds?", "answer": 19.444444444444443, "datatype": "String"}
+{"id": "1035_TBC", "question": "How many white or gray tablet computers have at least 128 GB of internal storage and no expandable storage?", "answer": 25, "datatype": "Count"}
+{"id": "307_PC", "question": "What is the difference between the highest and lowest price among desktop computers with a 4K display, a processor speed of at least 3.33 GHz, and a production year before 2016?", "answer": 2562.39, "datatype": "Quantity"}
+{"id": "362_DRS", "question": "What percentage of Madewell or Boohoo dresses with raglan sleeves are short-length?", "answer": 10.344827586206897, "datatype": "String"}
+{"id": "1097_TV", "question": "How many plasma TVs with a screen size of 65 inches or smaller, more than 3 HDMI ports, and not in Sony’s KDL technology line are there?", "answer": 49, "datatype": "Count"}
+{"id": "1133_Vac", "question": "How many vacuums compatible with tile, high-pile carpet, or hard floors are not rated as having a moderate noise level and cost no more than $1026.51?", "answer": 24, "datatype": "Count"}
+{"id": "1033_TBC", "question": "What is the average RAM in gigabytes among tablet computers priced at $1,609.09 or less that support a stylus, weigh between 400g and 600g, and have expandable storage via microSD up to 128 GB or up to 256 GB?", "answer": 6.125, "datatype": "Quantity"}
+{"id": "21_BCKP", "question": "What is the maximum capacity in liters among cowhide or leather kindergarten or backpacking backpacks that do not have a laptop compartment?", "answer": 95.0, "datatype": "Quantity"}
+{"id": "400_FLS", "question": "How many blue flashlights and headlamps cost under $200.11, do not use a Cree XP-G bulb, and do not use a CR123A battery?", "answer": 10, "datatype": "Count"}
+{"id": "702_M3", "question": "What is the minimum storage capacity in gigabytes among non-Sony MP3 players with a TFT, IPS, or touchscreen display that cost at least $88.17?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "213_CaF", "question": "How many organic cat foods with turkey or tuna flavor have a protein content that is not listed as medium?", "answer": 14, "datatype": "Count"}
+{"id": "64_BFd", "question": "How many non-organic pellet bird foods from Wagner's, ZuPreem, or Lafeber are there?", "answer": 19, "datatype": "Count"}
+{"id": "427_FP", "question": "What percentage of food processors that do not have a knead mixer function and have beater functions for either whipping or mixing are made of glass?", "answer": 16.666666666666668, "datatype": "String"}
+{"id": "479_HPH", "question": "What is the earliest production year among foldable, water-resistant Bluetooth headphones or headsets with a battery life of up to 5 hours?", "answer": 2015, "datatype": "Date"}
+{"id": "1204_Web", "question": "What percentage of Sony webcams with face tracking use USB 2.0 connectivity?", "answer": 20.0, "datatype": "String"}
+{"id": "718_M3", "question": "How many MP3 players have a non-TFT display, do not support USB 2.0 connectivity, and do not include an FM radio?", "answer": 14, "datatype": "Count"}
+{"id": "419_FP", "question": "What is the median weight in kilograms of low-noise food processors with a whip mixer function that have their weight listed?", "answer": 6.0, "datatype": "Quantity"}
+{"id": "656_MX", "question": "What percentage of mixers with 550 watts or less that include a dough hook and have a listed design are stand mixers?", "answer": 55.55555555555556, "datatype": "String"}
+{"id": "1143_DCV", "question": "How many handcrafted porcelain or glass vases, not by Pottery Barn, are designed for tabletop, console table, or outdoor placement?", "answer": 4, "datatype": "Count"}
+{"id": "221_COA", "question": "How many red, orange, or khaki coats and jackets with a relaxed, boxy, or oversized fit that are suitable for skiing, travel, or work and have a houndstooth, animal print, or printed pattern are there?", "answer": 4, "datatype": "Count"}
+{"id": "158_DGCM", "question": "What is the maximum resolution, in megapixels, among CCD digital cameras weighing under 141.747615625 grams that do not have NFC connectivity?", "answer": 24.3, "datatype": "Quantity"}
+{"id": "394_Dr", "question": "What percentage of dryers with a noise level above 65 decibels are vented dryers?", "answer": 22.22222222222222, "datatype": "String"}
+{"id": "238_CFE", "question": "How many coffees from Kenya or Ethiopia are sold in valve bags, are not whole bean, and are not made by Starbucks?", "answer": 39, "datatype": "Count"}
+{"id": "156_DGCM", "question": "What percentage of digital cameras with resolution of 5 megapixels or less that have a flash are made by Kodak?", "answer": 25.0, "datatype": "String"}
+{"id": "1072_TPH", "question": "What percentage of DECT telephones with caller ID are made by Avaya?", "answer": 12.5, "datatype": "String"}
+{"id": "934_Sho", "question": "How many white shorts with an elastic waistband are there that are not designed for running?", "answer": 9, "datatype": "Count"}
+{"id": "990_sui", "question": "What percentage of non-expandable waterproof suitcases are single-type suitcases?", "answer": 20.0, "datatype": "OrderedString"}
+{"id": "1115_Toa", "question": "What is the median power in watts among toasters that have a cancel function, include either a cool-touch exterior, LED indicators, or auto shut-off, and have their wattage listed?", "answer": 1000.0, "datatype": "Quantity"}
+{"id": "670_MT", "question": "What percentage of A-rated computer monitors with either DVI or HDMI 2.1 connectivity have a 16:10 aspect ratio?", "answer": 24.390243902439025, "datatype": "String"}
+{"id": "853_RiC", "question": "What percentage of rice cookers priced at $333.88 or more are made by Aroma?", "answer": 12.244897959183673, "datatype": "String"}
+{"id": "668_MT", "question": "What is the average screen size in inches of VESA-mount-compatible computer monitors with a contrast ratio below 3000:1 and a response time greater than 1 ms?", "answer": 28.444444444444443, "datatype": "Quantity"}
+{"id": "964_Socks", "question": "How many socks in shoe size 11–13 for kids, men, or unisex wearers are made of wool, merino wool, or cotton?", "answer": 40, "datatype": "Count"}
+{"id": "80_BFd", "question": "How many organic Zupreem bird foods are there that are not in nectar form?", "answer": 25, "datatype": "Count"}
+{"id": "452_GUI", "question": "How many guitars have either a preamp or a built-in tuner, do not have a long scale length, and use piezo, humbucker, or single-coil pickups?", "answer": 39, "datatype": "Count"}
+{"id": "283_CuB", "question": "What percentage of light brown cutting boards made of glass, beech, or stainless steel are extra large?", "answer": 37.03703703703704, "datatype": "String"}
+{"id": "904_SED", "question": "How many jackfruit, poppy, or lobelia seeds from Johnny's Selected Seeds or Park Seed require sunlight conditions other than shade?", "answer": 31, "datatype": "Count"}
+{"id": "498_HU", "question": "What percentage of Vicks, Crane, or Pure Enrichment humidifiers have a run time other than 8–16 hours and use a filter-free filter type?", "answer": 18.6046511627907, "datatype": "String"}
+{"id": "535_KN", "question": "How many multicolor, black, or silver kitchen knives have a non-ceramic blade, a handle material other than stainless steel, and a sharpness level of either razor sharp or standard sharp?", "answer": 44, "datatype": "Count"}
+{"id": "836_PL", "question": "What percentage of seasonal-pattern porcelain or melamine plates are made by Lenox?", "answer": 10.526315789473685, "datatype": "String"}
+{"id": "255_CRT", "question": "How many short curtains or drapes (less than 63 inches long) made of polyester, linen, or velvet are not soundproof?", "answer": 5, "datatype": "Count"}
+{"id": "267_CRT", "question": "How many lace-trim curtains or drapes are available in narrow (under 40 inches), custom, or wide (60–120 inches) widths and are not made of polyester?", "answer": 17, "datatype": "Count"}
+{"id": "1056_TE", "question": "How many non-regular-caffeine teas and infusions from Kenya or China intended for detox, general use, or focus are there?", "answer": 19, "datatype": "Count"}
+{"id": "660_MT", "question": "What is the average maximum refresh rate in hertz of non-CRT computer monitors for professional graphics work that support HDR600, HDR400, or HDR10?", "answer": 165.9375, "datatype": "Quantity"}
+{"id": "164_DGCM", "question": "What percentage of Panasonic digital cameras have a CMOS sensor?", "answer": 56.52173913043478, "datatype": "String"}
+{"id": "458_HD", "question": "How many hard drives with up to 1024 GB of storage capacity, a form factor larger than 1.8 inches, non-CMR recording technology, and less than 32 MB of cache are there?", "answer": 22, "datatype": "Count"}
+{"id": "928_Sho", "question": "How many relaxed-fit The North Face shorts that are not tennis-style and are not red are there?", "answer": 13, "datatype": "Count"}
+{"id": "438_GUI", "question": "How many piezo-pickup guitars with a rosewood or maple fingerboard have a non-nylon string type and do not have 6 strings?", "answer": 14, "datatype": "Count"}
+{"id": "518_Jui", "question": "How many non-electric juicers that are not easy-clean and are not handheld are there?", "answer": 17, "datatype": "Count"}
+{"id": "998_sui", "question": "How many non-expandable suitcases with a 1-year warranty, a 5-year warranty, or no warranty, and without a USB charging port can you find?", "answer": 12, "datatype": "Count"}
+{"id": "326_DIS", "question": "How many dishwashers that are at least 24 inches wide, do not use a heated-dry system, and consume at least 4.0 gallons of water per cycle are there?", "answer": 10, "datatype": "Count"}
+{"id": "1163_WMC", "question": "How many wallets and money clips with a solid color or logo print pattern, made from a material other than synthetic leather, with a non-magnetic closure, and with a card slot count not in the 1–3 range are there?", "answer": 35, "datatype": "Count"}
+{"id": "574_CL", "question": "What is the maximum maximum-aperture value among Samyang non-zoom camera lenses with a Sony A mount?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "938_Sho", "question": "How many cotton shorts with a zipper closure that are not loose-fitting and do not have an adjustable waist can you find?", "answer": 17, "datatype": "Count"}
+{"id": "641_Mic", "question": "What percentage of research microscopes that use either LED or halogen illumination are made by Zeiss?", "answer": 25.0, "datatype": "String"}
+{"id": "138_CAB", "question": "How many Liberty Hardware cabinet knobs and handles with a diamond, oval, or rectangular shape have a finish that is not satin?", "answer": 35, "datatype": "Count"}
+{"id": "469_HD", "question": "How many LaCie or Buffalo internal or external hard drives support software encryption?", "answer": 40, "datatype": "Count"}
+{"id": "126_BO", "question": "What percentage of oval or rectangular bowls made in Italy, Vietnam, or the USA are made of ceramic?", "answer": 15.789473684210526, "datatype": "String"}
+{"id": "801_PHO", "question": "What is the minimum screen size, in inches, among 4G LTE Windows mobile phones with either a flip or slider form factor?", "answer": 1.3, "datatype": "Quantity"}
+{"id": "1090_TV", "question": "How many televisions with either UHD or 720p resolution have more than 2 USB ports and a refresh rate below 144 Hz?", "answer": 13, "datatype": "Count"}
+{"id": "943_SK", "question": "What percentage of casual kilts or asymmetrical skirts are maxi length?", "answer": 22.580645161290324, "datatype": "String"}
+{"id": "477_HPH", "question": "What is the latest production year among heavy on-ear headphones and headsets with active noise cancellation that connect via bluetooth or are cordless?", "answer": 2026, "datatype": "Date"}
+{"id": "532_KN", "question": "How many Shun or Henckels kitchen knife sets made in China or Japan have more than 6 pieces and do not have a Granton edge?", "answer": 18, "datatype": "Count"}
+{"id": "182_CN", "question": "What percentage of Jo Malone candles priced at least $85.57 are taper candles?", "answer": 43.47826086956522, "datatype": "String"}
+{"id": "1117_Vac", "question": "What percentage of vacuums with a 2-year warranty and a digital motor are made by Eureka?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "1136_Vac", "question": "How many Craftsman or Samsung vacuums are not bagless and do not have a digital motor?", "answer": 28, "datatype": "Count"}
+{"id": "857_RiC", "question": "How many rice cookers that are induction heating, micom, or steam models with digital, push-button, or manual controls have a wattage of at least 700 watts?", "answer": 9, "datatype": "Count"}
+{"id": "6_ALB", "question": "What percentage of rye-based alcoholic beverages that are not packaged in mini bottles are from the brand Bacardi?", "answer": 6.976744186046512, "datatype": "String"}
+{"id": "811_PHO", "question": "What is the minimum rear camera resolution, in megapixels, among Oppo flip-style mobile phones (smartflip, clamshell, or flip) with a battery life of less than 16.666666666666664 days?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "251_CFE", "question": "How many non-organic coffees with nutty, fruity, or spicy flavor notes are not medium-dark roasts and are not espresso blends?", "answer": 19, "datatype": "Count"}
+{"id": "949_SK", "question": "How many unlined yellow skirts with either a striped or floral pattern are there?", "answer": 5, "datatype": "Count"}
+{"id": "508_HU", "question": "What percentage of moderate-noise humidifiers that do not have auto shut-off are made by Levoit?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "1173_WMC", "question": "How many unisex wallets or money clips made of polyester or nylon that are designed to hold both cards and cash are there?", "answer": 8, "datatype": "Count"}
+{"id": "201_CaF", "question": "How many non-organic adult cat foods with medium or high protein content are there that are not allergy-friendly?", "answer": 21, "datatype": "Count"}
+{"id": "591_LL", "question": "What percentage of keyless-entry locks and latches that are not compatible with metal doors are cylinder locks?", "answer": 17.77777777777778, "datatype": "String"}
+{"id": "1137_DCV", "question": "What percentage of wedding vases made of metal, resin, or porcelain are centerpiece vases?", "answer": 19.35483870967742, "datatype": "String"}
+{"id": "426_FP", "question": "What percentage of food processors that have blender functions for pureeing, making smoothies, or chopping and that offer either 1 speed, 3 speeds, or 5 speeds are made by Breville?", "answer": 12.5, "datatype": "String"}
+{"id": "1170_WMC", "question": "How many Fossil, Calvin Klein, or unbranded wallets and money clips in pink, navy, or blue do not have RFID protection?", "answer": 16, "datatype": "Count"}
+{"id": "894_Scr", "question": "What percentage of screwdrivers that do not have adjustable torque and that have a magnetic tip are electric?", "answer": 25.0, "datatype": "String"}
+{"id": "627_MPH", "question": "How many non-silver XLR microphones with a gold-plated large diaphragm are there?", "answer": 18, "datatype": "Count"}
+{"id": "488_HPH", "question": "How many JBL headphones and headsets are wired, Bluetooth, or IR, are lightweight or medium weight, and are made of a non-leather material?", "answer": 41, "datatype": "Count"}
+{"id": "880_Scr", "question": "What is the average number of pieces among non-Makita cordless or electric Phillips or Pozidriv screwdrivers with a voltage under 24 volts?", "answer": 9.72972972972973, "datatype": "Quantity"}
+{"id": "48_BDSH", "question": "How many hypoallergenic bed sheets made of percale, flannel, or bamboo that are not in the unisex department come as either a full set or include 1 flat sheet?", "answer": 7, "datatype": "Count"}
+{"id": "788_PNT", "question": "How many Levi’s pants are there with care instructions of either machine wash or tumble dry low and that do not have a zip-fly closure?", "answer": 22, "datatype": "Count"}
+{"id": "152_CAB", "question": "How many large or extra-large chrome or white cabinet knobs and handles in modern, minimalist, or rustic styles are there?", "answer": 18, "datatype": "Count"}
+{"id": "205_CaF", "question": "How many Meow Mix or Whiskas cat food products are there that are not tuna-flavored, are not high-protein, and are not formulated for urinary care?", "answer": 14, "datatype": "Count"}
+{"id": "232_COA", "question": "How many charcoal coats and jackets made of faux leather, denim, or down have a hidden closure, belt, or drawstring closure?", "answer": 15, "datatype": "Count"}
+{"id": "319_DIS", "question": "What is the median capacity (in place settings) of Whirlpool, Bosch, or unknown-brand dishwashers with a non-plastic tub that use 3.5 gallons of water per cycle or less?", "answer": 9.0, "datatype": "Quantity"}
+{"id": "1069_TPH", "question": "How many SIP telephones are there that have either no display, a color LCD, or a touchscreen and come as either a single-handset, dual-handset, or expandable system?", "answer": 15, "datatype": "Count"}
+{"id": "987_sui", "question": "What percentage of black or white suitcases that do not have an adjustable telescopic handle have 2-wheel inline skate mobility?", "answer": 31.57894736842105, "datatype": "String"}
+{"id": "345_DGF", "question": "How many Instinct or Nutro dog foods that are not grain-free and use either an animal-based or plant-based primary protein source are there?", "answer": 7, "datatype": "Count"}
+{"id": "917_SED", "question": "What percentage of iris seeds that grow in partial sun or partial shade are made by Ferry-Morse?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "650_MX", "question": "What percentage of mixers with a wattage under 450 watts are made by Bosch?", "answer": 19.565217391304348, "datatype": "String"}
+{"id": "529_KN", "question": "How many dishwasher-safe kitchen knives intended for BBQ, outdoor use, or home cooking have blades that are not high carbon stainless steel and handles that are not made of ABS?", "answer": 42, "datatype": "Count"}
+{"id": "292_CuB", "question": "How many large or extra-large square TeakHaus cheese boards, chopping blocks, or utility boards are there?", "answer": 4, "datatype": "Count"}
+{"id": "87_BL", "question": "How many black blenders that aren’t made by Ninja have a wattage over 200 watts?", "answer": 8, "datatype": "Count"}
+{"id": "676_MT", "question": "What percentage of A-rated computer monitors with brightness under 350 nits are made by Philips?", "answer": 16.0, "datatype": "String"}
+{"id": "175_CN", "question": "How many Village Candle candles that are not made of gel come either boxed, wrapped in paper, or with no packaging?", "answer": 32, "datatype": "Count"}
+{"id": "486_HPH", "question": "How many lightweight gold foldable headphones or headsets with either Bluetooth or IR connectivity are there?", "answer": 36, "datatype": "Count"}
+{"id": "957_SK", "question": "What percentage of Mango low-rise skirts are maxi length?", "answer": 15.0, "datatype": "String"}
+{"id": "886_Scr", "question": "How many electric screwdrivers from Wiha or DeWalt have shafts made of steel, titanium-coated material, or stainless steel?", "answer": 19, "datatype": "Count"}
+{"id": "701_M3", "question": "What is the maximum storage capacity in gigabytes among silver, pink, or gold MP3 players that have expandable memory?", "answer": 128.0, "datatype": "Quantity"}
+{"id": "826_PL", "question": "What percentage of white plates that are not microwave-safe are made by Corelle?", "answer": 10.0, "datatype": "String"}
+{"id": "1167_WMC", "question": "How many non-standard-size money clips are there that are made in the USA or have an unknown country of origin?", "answer": 17, "datatype": "Count"}
+{"id": "331_DIS", "question": "What percentage of A+ energy-rated dishwashers priced above $1,627.48 are semi-integrated?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "672_MT", "question": "How many programming monitors with a screen size of 25 inches or smaller support either 4K or 1080p resolution?", "answer": 8, "datatype": "Count"}
+{"id": "623_MPH", "question": "How many hypercardioid microphones with either a large or small diaphragm are intended for interview use, broadcasting, or as a camera microphone?", "answer": 6, "datatype": "Count"}
+{"id": "968_Socks", "question": "How many beige Adidas or Stance socks have a non-regular toe type?", "answer": 22, "datatype": "Count"}
+{"id": "810_PHO", "question": "What is the average screen size in inches of mobile phones with a display resolution of 1136 x 640?", "answer": 3.853823529411765, "datatype": "Quantity"}
+{"id": "803_PHO", "question": "What is the average rear camera resolution in megapixels among dual-SIM mobile phones priced at least $958.86 that have a screen size under 2.2 inches?", "answer": 16.19148936170213, "datatype": "Quantity"}
+{"id": "295_PC", "question": "What is the average price of desktop computers with an excellent user experience, a monitor smaller than 21.5 inches, an average rating of at least 1.0, and a production year before 2017?", "answer": 1614.523125, "datatype": "Quantity"}
+{"id": "313_PC", "question": "How many desktop computers running Windows 10, Linux, or Mac OS have either Intel HD Graphics or a Graphics Media Accelerator, a processor speed under 1.25 GHz, and a monitor size of 23.8 inches or smaller?", "answer": 29, "datatype": "Count"}
+{"id": "1_ALB", "question": "What percentage of alcoholic beverages from Scotland that are not served cool are hard seltzers?", "answer": 10.0, "datatype": "String"}
+{"id": "563_LP", "question": "What is the minimum screen size, in inches, among laptops with 14th-generation (or newer) processors that do not use DDR3 RAM and are not made of magnesium alloy?", "answer": 10.1, "datatype": "Quantity"}
+{"id": "417_FP", "question": "What is the average capacity, in cups, of Vitamix food processors that weigh less than 7.5 kg and are not made of aluminum?", "answer": 14.888715006588235, "datatype": "Quantity"}
+{"id": "310_PC", "question": "How many desktop computers made in Malaysia with a monitor size of at least 23 inches, manufactured by either AsusTek Computer Inc. or HP Inc., were produced before 2025?", "answer": 36, "datatype": "Count"}
+{"id": "584_CL", "question": "What percentage of weather-sealed camera lenses with a fixed focal length longer than 85 mm use the Canon EF lens mount?", "answer": 16.0, "datatype": "String"}
+{"id": "632_Mic", "question": "How many microscopes have a magnification range other than 100x–400x, a non-fixed stage, and a head type that is not binocular?", "answer": 27, "datatype": "Count"}
+{"id": "1214_Web", "question": "What percentage of webcams that are not tripod-compatible and have no low-light correction support Full HD 1080p video resolution?", "answer": 12.5, "datatype": "String"}
+{"id": "695_MOT", "question": "How many motherboards have a socket type other than LGA1155, support more than 2 GB of maximum RAM, have 2 or fewer SATA ports, and list USB ports as 3.2, 3.0, or 2.0?", "answer": 31, "datatype": "Count"}
+{"id": "972_Socks", "question": "How many fall socks in size L or XL, in dress sock, crew, or no-show styles, are sold in packs larger than a 2-pack?", "answer": 12, "datatype": "Count"}
+{"id": "719_MG", "question": "What is the median capacity in ounces of tapered or travel-style Easter mugs that are not spring-themed and do not have a nature graphic theme?", "answer": 16.0, "datatype": "Quantity"}
+{"id": "432_FP", "question": "What percentage of food processors with a blender jar capacity greater than 1.5 liters and without a liquefy blender function are made by Breville?", "answer": 15.909090909090908, "datatype": "String"}
+{"id": "1011_SUNG", "question": "How many round acetate sunglasses that aren’t from Warby Parker have gradient, polarized, or UV400-protection lenses?", "answer": 4, "datatype": "Count"}
+{"id": "809_PHO", "question": "What is the median RAM, in GB, among mobile phones with a rear camera resolution of 10 MP or less, weighing under 166 g, with a screen size larger than 4.6 inches, and that are not clamshell phones?", "answer": 2.5, "datatype": "Quantity"}
+{"id": "864_RG", "question": "How many IKEA shaggy or plush rugs intended for the kitchen, indoors, or the bedroom are made from a material other than nylon?", "answer": 5, "datatype": "Count"}
+{"id": "304_PC", "question": "What is the highest price among desktop computers made in the USA with AMD Radeon graphics that are not black and do not have an average user experience?", "answer": 2954.27, "datatype": "Quantity"}
+{"id": "1018_SUNG", "question": "What percentage of transparent wood-frame sunglasses are made by Ray-Ban?", "answer": 13.333333333333334, "datatype": "String"}
+{"id": "1152_DCV", "question": "What percentage of modern or contemporary vases intended for office decor or dried flowers are made of porcelain?", "answer": 21.428571428571427, "datatype": "String"}
+{"id": "420_FP", "question": "How many food processors have a capacity greater than 12 cups, have speed settings other than 2 speeds, and include a blender jar with a capacity under 2.5 liters?", "answer": 35, "datatype": "Count"}
+{"id": "800_PHO", "question": "What is the most common RAM size, in gigabytes, among mobile phones with a 640 x 1136 display resolution?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "318_DIS", "question": "What is the median width, in inches, of dishwashers with a capacity of more than 10 place settings that have smart diagnostics features?", "answer": 24.0, "datatype": "Quantity"}
+{"id": "521_Jui", "question": "What percentage of small-feed-chute twin gear, centrifugal, or citrus juicers are electric?", "answer": 54.054054054054056, "datatype": "String"}
+{"id": "898_Scr", "question": "What percentage of Robertson screwdrivers with either wood or composite handles are made by DeWalt?", "answer": 19.23076923076923, "datatype": "String"}
+{"id": "129_BO", "question": "How many bowls made in France are not microwave-safe and are intended for Halloween, Thanksgiving, or everyday use?", "answer": 7, "datatype": "Count"}
+{"id": "862_RG", "question": "What percentage of kitchen rugs that do not have a low pile height are size 8x10?", "answer": 35.416666666666664, "datatype": "OrderedString"}
+{"id": "740_CO", "question": "What is the maximum size in liters among general-cooking cooking oils that are either low fat or regular fat?", "answer": 25.0, "datatype": "Quantity"}
+{"id": "1063_TPH", "question": "How many cordless telephones that aren’t battery powered, aren’t made by VTech, and come as either a dual-handset, 3-handset, or expandable system can you find?", "answer": 18, "datatype": "Count"}
+{"id": "1068_TPH", "question": "How many battery-powered telephones from Cisco, AT&T, or VTech do not have wideband audio?", "answer": 7, "datatype": "Count"}
+{"id": "682_MOT", "question": "How many DDR4 motherboards in either Mini-ITX or E-ATX form factor have more than 4 memory slots and support a maximum of 32 GB of RAM or less?", "answer": 39, "datatype": "Count"}
+{"id": "1160_WMC", "question": "What percentage of brown vegan-leather wallets and money clips are from the brand Unknown?", "answer": 13.333333333333334, "datatype": "String"}
+{"id": "443_GUI", "question": "How many bass guitars that are not made with an alder body include either a case or a strap?", "answer": 26, "datatype": "Count"}
+{"id": "374_DRS", "question": "How many color-block dresses with non-regular shoulders and either sleeveless, cap-sleeve, or long-sleeve styles are there?", "answer": 20, "datatype": "Count"}
+{"id": "203_CaF", "question": "How many Nutro or Fancy Feast cat foods that are not grain-free and are not cheese-flavored are there?", "answer": 34, "datatype": "Count"}
+{"id": "688_MOT", "question": "What is the minimum maximum RAM, in gigabytes, among motherboards that support WiFi 6, have no RGB lighting, and do not have USB Type-C ports?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "846_RiC", "question": "How many rice cookers with a capacity greater than 5 cups, made of ceramic, stainless steel, or plastic, and that are electric, induction-heating, or steam models are there?", "answer": 31, "datatype": "Count"}
+{"id": "553_LP", "question": "What is the median RAM, in gigabytes, among laptops with 128 GB of storage or less, a processor speed above 2.6 GHz, at least 9th‑generation processors, and connectivity that is not Bluetooth 5.0?", "answer": 14.0, "datatype": "Quantity"}
+{"id": "534_KN", "question": "How many multicolor or brown kitchen knives that are not wedding cake knives and are not full-tang can you find?", "answer": 40, "datatype": "Count"}
+{"id": "1109_Toa", "question": "How many Breville 2-slice toasters have toast darkness settings that are not adjustable?", "answer": 4, "datatype": "Count"}
+{"id": "739_CO", "question": "How many cooking oils come in either a bulk container or a glass bottle, are at least 2 liters in size, and have a shelf life of 12 months or less?", "answer": 27, "datatype": "Count"}
+{"id": "1029_TBC", "question": "What is the average screen size in inches of 4G LTE tablet computers made of plastic or glass that cost at most $516.55 and have less than 16 GB of RAM?", "answer": 9.37, "datatype": "Quantity"}
+{"id": "1034_TBC", "question": "How many tablet computers have a rear camera resolution under 5 megapixels, are made of glass or aluminum, and include Dolby Atmos, quad speakers, or dual speakers?", "answer": 26, "datatype": "Count"}
+{"id": "262_CRT", "question": "How many purple, red, or gold chevron-patterned or solid curtains and drapes are there that do not have lace trim?", "answer": 8, "datatype": "Count"}
+{"id": "954_SK", "question": "How many brand-unknown peplum, wrap, or circle skirts that are not made of denim are there?", "answer": 19, "datatype": "Count"}
+{"id": "592_LL", "question": "How many satin nickel locks and latches made of zinc alloy, iron, or aluminum are battery-powered, remote-powered, or electronic?", "answer": 4, "datatype": "Count"}
+{"id": "396_FLS", "question": "How many non-headlamp flashlights have either a zoomable beam or a spot-and-flood beam and use AA or CR2 batteries?", "answer": 44, "datatype": "Count"}
+{"id": "961_Socks", "question": "What percentage of outdoor socks with a graphic or plaid pattern are made by Uniqlo?", "answer": 25.0, "datatype": "String"}
+{"id": "525_Jui", "question": "How many manual juicers from Omega or an unknown brand are there that do not have 3 speed settings?", "answer": 23, "datatype": "Count"}
+{"id": "622_MPH", "question": "How many wireless microphones that are not XLR, run on no power, USB power, or batteries, and are not small-diaphragm models are there?", "answer": 18, "datatype": "Count"}
+{"id": "448_GUI", "question": "How many 5-string guitars are there that are not tenor ukuleles and do not have a rosewood fingerboard?", "answer": 48, "datatype": "Count"}
+{"id": "905_SED", "question": "How many certified organic Park Seed seeds have a germination time of 4–6 weeks?", "answer": 17, "datatype": "Count"}
+{"id": "355_DRS", "question": "How many color-block dresses with either a sweetheart or crew neckline are not trapeze fit?", "answer": 10, "datatype": "Count"}
+{"id": "446_GUI", "question": "How many black guitars that are not sunburst and have either a preamp, a built-in tuner, or no electronics are there?", "answer": 22, "datatype": "Count"}
+{"id": "612_MPH", "question": "How many Behringer, Shure, or Rode lavalier, shotgun, or dynamic microphones are there that are powered by either a battery or phantom power and do not have a multi-pattern polar pattern?", "answer": 45, "datatype": "Count"}
+{"id": "1013_SUNG", "question": "How many medium or large sunglasses with gray lenses and either gunmetal or blue frames are there?", "answer": 5, "datatype": "Count"}
+{"id": "775_SFP", "question": "How many non-deep skillets and frying pans with detachable, long, or double handles are compatible with all cooktops, halogen, or induction?", "answer": 24, "datatype": "Count"}
+{"id": "927_Sho", "question": "What percentage of nylon shorts with either a Velcro or zipper closure are gray?", "answer": 13.953488372093023, "datatype": "String"}
+{"id": "596_LL", "question": "What percentage of lightweight or medium-weight battery-powered locks and latches are electronic locks?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "184_CN", "question": "What percentage of boxed candles with a burn time of under 6 hours are from the brand Capri Blue?", "answer": 10.0, "datatype": "String"}
+{"id": "909_SED", "question": "How many fall-planting seeds from Baker Creek Heirloom Seeds or Johnny's Selected Seeds require something other than full sun and have a germination time other than 4–6 weeks?", "answer": 14, "datatype": "Count"}
+{"id": "989_sui", "question": "What percentage of leather suitcases with either a TSA key lock, a TSA combination lock, or no lock are made by AmazonBasics?", "answer": 13.333333333333334, "datatype": "String"}
+{"id": "29_BCKP", "question": "What percentage of grey, orange, or beige pre-school backpacks are made by Kelty?", "answer": 10.0, "datatype": "String"}
+{"id": "341_DGF", "question": "How many high-calorie dog foods that are limited-ingredient diets are not semi-moist?", "answer": 43, "datatype": "Count"}
+{"id": "1022_TBC", "question": "What is the maximum screen size in inches among 4G LTE tablet computers running iPadOS or Chrome OS, weighing 500g or more, from Apple, Xiaomi, or an unknown brand?", "answer": 12.0, "datatype": "Quantity"}
+{"id": "697_MOT", "question": "How many non-EVGA motherboards with 5.1 or 7.1 audio channels are priced at $171.44 or less?", "answer": 28, "datatype": "Count"}
+{"id": "411_FLS", "question": "What percentage of stainless steel flashlights and headlamps weighing 50.5 grams or less are made by Coast?", "answer": 15.217391304347826, "datatype": "String"}
+{"id": "523_Jui", "question": "What percentage of manual 2-speed juicers are made by Hamilton Beach?", "answer": 11.627906976744185, "datatype": "String"}
+{"id": "658_MX", "question": "What is the most common mixer capacity, in cups, among mixers with either variable speed or 10 speed settings and a wattage greater than 550 watts?", "answer": 28.0, "datatype": "Quantity"}
+{"id": "361_DRS", "question": "How many summer floor-length dresses with either a cold-shoulder or off-the-shoulder style are there?", "answer": 50, "datatype": "Count"}
+{"id": "827_PL", "question": "What percentage of pink plates for outdoor dining, parties, or Christmas are dinner plates?", "answer": 23.076923076923077, "datatype": "String"}
+{"id": "72_BFd", "question": "What percentage of bag-packaged bird food in nectar, suet, or pellet form is made by the brand Orlux?", "answer": 17.77777777777778, "datatype": "String"}
+{"id": "1004_SUNG", "question": "How many green titanium-frame sunglasses with non-mirrored lenses are there?", "answer": 7, "datatype": "Count"}
+{"id": "338_DGF", "question": "How many grain-free dog foods are there that are either for sensitive stomachs, hypoallergenic, or have no special diet listed, and that are a limited-ingredient diet?", "answer": 15, "datatype": "Count"}
+{"id": "410_FLS", "question": "How many green or gray flashlights or headlamps with a turbo mode and a beam type other than wide beam are there?", "answer": 5, "datatype": "Count"}
+{"id": "199_CaF", "question": "How many wet cat foods with vegetables as the main ingredient are not grain-free?", "answer": 4, "datatype": "Count"}
+{"id": "677_MT", "question": "How many computer monitors have a contrast ratio higher than 3000:1, include either Thunderbolt or DisplayPort connectivity, and do not use a VA panel?", "answer": 24, "datatype": "Count"}
+{"id": "25_BCKP", "question": "What is the maximum capacity, in liters, among canvas backpacks in purple, green, or white that have a laptop compartment?", "answer": 25.0, "datatype": "Quantity"}
+{"id": "1102_Toa", "question": "What percentage of toasters that do not have a cancel function and do not have a defrost function are made by KitchenAid?", "answer": 12.5, "datatype": "String"}
+{"id": "235_CFE", "question": "How many medium-dark roast coffees with no sugar added are either a dark roast blend or a house blend?", "answer": 12, "datatype": "Count"}
+{"id": "314_PC", "question": "How many desktop computers running OS X with an Intel Xeon processor that were made in the USA or South Korea are there?", "answer": 20, "datatype": "Count"}
+{"id": "360_DRS", "question": "How many evening dresses with a cheetah, galaxy, or animal-print pattern have a neckline other than a turtleneck?", "answer": 25, "datatype": "Count"}
+{"id": "1052_TE", "question": "What percentage of Fair Trade chamomile tea and infusions are from the brand Ahmad Tea?", "answer": 12.5, "datatype": "String"}
+{"id": "206_CaF", "question": "How many grain-free fish-based cat foods are there that are not formulated for indoor cats?", "answer": 6, "datatype": "Count"}
+{"id": "229_COA", "question": "How many short down-insulated coats and jackets are wind resistant?", "answer": 7, "datatype": "Count"}
+{"id": "483_HPH", "question": "What is the latest production year among DJ-style headphones and headsets that are not water-resistant, have active noise cancellation, and have a battery life of up to 40 hours?", "answer": 2026, "datatype": "Date"}
+{"id": "1082_TV", "question": "What is the median number of HDMI ports among televisions priced at least $6,389.52 that are under 65 inches, have a resolution higher than 4K UHD (3840x2160), and have a refresh rate above 60 Hz?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "393_Dr", "question": "What percentage of grey, blue, or red dryers with smart features are made by LG?", "answer": 13.333333333333334, "datatype": "String"}
+{"id": "1025_TBC", "question": "What is the maximum RAM, in gigabytes, among Huawei tablet computers that are not octa-core, are not black, and have either optional stylus support or no stylus support?", "answer": 16.0, "datatype": "Quantity"}
+{"id": "720_MG", "question": "What is the average capacity, in ounces, of insulated plastic mugs with lids that are not intended for soup?", "answer": 13.157894736842104, "datatype": "Quantity"}
+{"id": "1168_WMC", "question": "How many women’s or unisex wallets and money clips with a zipper closure come in dot, geometric, or solid patterns?", "answer": 14, "datatype": "Count"}
+{"id": "275_CuB", "question": "What percentage of straight-edge, dishwasher-safe cutting boards are chopping boards?", "answer": 20.689655172413794, "datatype": "String"}
+{"id": "1120_Vac", "question": "How many vacuums for low-pile carpet with a stainless steel, metal, or aluminum build have a battery runtime of 90 minutes or less?", "answer": 5, "datatype": "Count"}
+{"id": "754_CO", "question": "How many cooking oils intended for general cooking, baking, or deep frying come in sizes of 3 liters or less and have a shelf life of 18 months or less?", "answer": 38, "datatype": "Count"}
+{"id": "907_SED", "question": "How many jackfruit or arugula seed products for spring or fall planting require sunlight other than partial shade and are not made by Burpee?", "answer": 6, "datatype": "Count"}
+{"id": "423_FP", "question": "What percentage of food processors priced under $74.94 are made of plastic?", "answer": 50.0, "datatype": "String"}
+{"id": "342_DGF", "question": "What percentage of non-prescription weight-management dog foods are made by Farmina?", "answer": 19.047619047619047, "datatype": "String"}
+{"id": "756_CO", "question": "What percentage of partially refined cooking oils priced at least $50.37 are from the brand Bertolli?", "answer": 10.638297872340425, "datatype": "String"}
+{"id": "185_CN", "question": "What is the difference, in US dollars, between the highest and lowest listed prices among Homesick Halloween candles with a season of winter, winter morning, or autumn?", "answer": 65.22, "datatype": "Quantity"}
+{"id": "26_BCKP", "question": "How many non-water-resistant Millican, The North Face, or Deuter backpacks are there that are intended for kindergarten, outdoor use, or military use?", "answer": 16, "datatype": "Count"}
+{"id": "424_FP", "question": "How many food processors with a capacity of 7.608155112 cups or less do not include a slicing disc and have a blender jar made of a material other than plastic?", "answer": 15, "datatype": "Count"}
+{"id": "183_CN", "question": "How many non-paraffin tealight candles weighing under 650 grams are priced at $96.39 or more?", "answer": 5, "datatype": "Count"}
+{"id": "168_DGCM", "question": "How many CMOS digital cameras have an ISO range of either 100–6400, 100–3200, or Auto and do not use AA batteries?", "answer": 33, "datatype": "Count"}
+{"id": "983_sui", "question": "What is the average capacity, in liters, of brushed-finish suitcases that are smaller than a 3-piece set?", "answer": 48.69565217391305, "datatype": "Quantity"}
+{"id": "955_SK", "question": "How many non-maxi skirts with a tie closure are available in white, green, or blue?", "answer": 37, "datatype": "Count"}
+{"id": "769_SFP", "question": "How many skillets and frying pans are not compatible with induction cooktops, are oven-safe to either 350°F, 600°F, or broiler-safe temperatures, and do not have a helper handle?", "answer": 28, "datatype": "Count"}
+{"id": "637_Mic", "question": "What percentage of compound microscopes from Motic or Olympus have a magnification range of up to 2000x?", "answer": 24.444444444444443, "datatype": "String"}
+{"id": "981_sui", "question": "What is the average capacity, in liters, of AmazonBasics or American Tourister suitcases that are not red and do not have a zippered divider?", "answer": 50.869565217391305, "datatype": "Quantity"}
+{"id": "575_CL", "question": "What is the most common maximum aperture among camera lenses with a fixed focal length under 500 mm, with either no image stabilization or in-body compatible stabilization, and priced at least $3,547.54?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "364_DRS", "question": "How many crew-neck dresses with a color-block, camouflage, or animal-print pattern are not one-shoulder styles?", "answer": 17, "datatype": "Count"}
+{"id": "106_BCK", "question": "How many Japanese-language short fiction books or short story collections published by Scholastic, Wiley, or Cambridge University Press have an ISBN-13?", "answer": 32, "datatype": "Count"}
+{"id": "684_MOT", "question": "What is the average number of memory slots on motherboards with RGB lighting, onboard graphics support, 5.1-channel audio, and a socket type other than LGA1151?", "answer": 3.4285714285714284, "datatype": "Quantity"}
+{"id": "1083_TV", "question": "What is the average screen size, in inches, of Bravia televisions with Dolby Atmos, Dolby Audio, or DTS that do not have Wi‑Fi + Ethernet connectivity and have a refresh rate below 144 Hz?", "answer": 50.857142857142854, "datatype": "Quantity"}
+{"id": "700_M3", "question": "What is the median storage capacity in gigabytes among MP3 players that weigh 404.15 or less and do not have a voice recorder?", "answer": 16.0, "datatype": "Quantity"}
+{"id": "850_RiC", "question": "What percentage of orange, blue, or pink rice cookers that are not made of stainless steel are from the brand Black+Decker?", "answer": 12.5, "datatype": "String"}
+{"id": "368_DRS", "question": "What percentage of plunging-neckline dresses for either homecoming or prom are from the brand Free People?", "answer": 2.7027027027027026, "datatype": "String"}
+{"id": "918_SED", "question": "How many Ferry-Morse seed products for winter, spring, or fall planting are not certified organic and do not have a germination time of 1–2 weeks?", "answer": 20, "datatype": "Count"}
+{"id": "375_Dr", "question": "What percentage of dryers with 10 or fewer programs and a load capacity greater than 25 pounds are electric?", "answer": 56.666666666666664, "datatype": "String"}
+{"id": "317_DIS", "question": "What is the maximum width, in inches, among Miele dishwashers that run on more than 120 volts?", "answer": 24.0, "datatype": "Quantity"}
+{"id": "43_BDSH", "question": "What is the average thread count of cool-finish jersey bed sheets?", "answer": 684.2857142857143, "datatype": "Quantity"}
+{"id": "1113_Toa", "question": "What percentage of toasters without a removable crumb tray and with a non-standard slot type are 4-slice models?", "answer": 47.5, "datatype": "String"}
+{"id": "1191_WM", "question": "What percentage of washing machines with a non-plastic tub and a price of $563.51 or less are made by Siemens?", "answer": 28.571428571428573, "datatype": "String"}
+{"id": "153_CAB", "question": "How many circular zinc-alloy cabinet knobs and handles are available in either light or heavy weight?", "answer": 11, "datatype": "Count"}
+{"id": "567_LP", "question": "How many hexa-core laptops with at least 24 GB of RAM, a touchscreen, and an operating system other than Windows are there?", "answer": 45, "datatype": "Count"}
+{"id": "598_LL", "question": "How many locks and latches are either medium-security or smart-lock-enabled, and are neither manual nor operated with a digital keypad?", "answer": 27, "datatype": "Count"}
+{"id": "1126_Vac", "question": "What percentage of vacuums designed for hard floors with a dust capacity of at least 10 liters are upright models?", "answer": 40.0, "datatype": "String"}
+{"id": "37_BCKP", "question": "What percentage of nylon backpacks in brown, pink, or camouflage are made by Deuter?", "answer": 13.043478260869565, "datatype": "String"}
+{"id": "560_LP", "question": "What is the average storage capacity in gigabytes of Asus dual-core laptops with SSD storage and more than 12 GB of RAM?", "answer": 736.969696969697, "datatype": "Quantity"}
+{"id": "154_CAB", "question": "How many non-heavy drawer handles in rustic, traditional, or modern styles that are not finger pulls are there?", "answer": 18, "datatype": "Count"}
+{"id": "709_M3", "question": "What percentage of blue, pink, or silver MP3 players with a Rock EQ preset are made by AGPTEK?", "answer": 33.333333333333336, "datatype": "String"}
+{"id": "999_SUNG", "question": "How many Pit Viper silhouette sunglasses with metal, acetate, or wood frames are available in sizes other than extra large?", "answer": 25, "datatype": "Count"}
+{"id": "1145_DCV", "question": "What percentage of handmade vases with a textured, polished, or etched finish are from the brand Wayfair?", "answer": 16.27906976744186, "datatype": "String"}
+{"id": "893_Scr", "question": "What percentage of non-insulated screwdrivers with magnetic steel tips are precision screwdrivers?", "answer": 11.538461538461538, "datatype": "String"}
+{"id": "576_CL", "question": "How many non-fisheye camera lenses with a filter thread size of at least 67 mm are available with either manual focus or autofocus?", "answer": 19, "datatype": "Count"}
+{"id": "439_GUI", "question": "How many Epiphone guitars have a non-standard scale length and include either a preamp or EQ controls?", "answer": 13, "datatype": "Count"}
+{"id": "724_MG", "question": "How many matte double-wall insulated mugs are there that do not have a motivational graphic theme?", "answer": 33, "datatype": "Count"}
+{"id": "566_LP", "question": "How many laptops with a standard keyboard, Intel or AMD graphics, battery life of 8 hours or less, and a graphics model that is not NVIDIA GTX are there?", "answer": 11, "datatype": "Count"}
+{"id": "454_GUI", "question": "How many white 5-string guitars are there that are not guitalele-type guitars?", "answer": 7, "datatype": "Count"}
+{"id": "761_SFP", "question": "What is the average width in inches of oval skillets and frying pans that are not made of copper, do not have a PTFE nonstick coating, and are dishwasher-safe?", "answer": 10.458333333333334, "datatype": "Quantity"}
+{"id": "167_DGCM", "question": "How many digital cameras that are not digital SLRs, do not have a fixed lens mount, and offer either 4K video recording or no video recording are there?", "answer": 27, "datatype": "Count"}
+{"id": "270_CRT", "question": "What percentage of standard-length (63–84 inch) nylon curtains and drapes are from Home Depot?", "answer": 11.764705882352942, "datatype": "String"}
+{"id": "654_MX", "question": "What percentage of green mixers are made by Black+Decker?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "135_CAB", "question": "How many modern or traditional cabinet knobs and handles in silver or gold are available in a non-circular shape?", "answer": 23, "datatype": "Count"}
+{"id": "791_PNT", "question": "How many women’s midweight cropped pants are there?", "answer": 19, "datatype": "Count"}
+{"id": "343_DGF", "question": "How many prescription-only dog foods in medium (6–20 lb) packages are formulated for adult, senior, or puppy life stages?", "answer": 29, "datatype": "Count"}
+{"id": "4_ALB", "question": "How many alcoholic beverages for casual drinking are not from the 2010s and are not off-dry?", "answer": 12, "datatype": "Count"}
+{"id": "46_BDSH", "question": "What percentage of king or California king bed sheets with a herringbone or ikat pattern are made by Threadspread?", "answer": 14.814814814814815, "datatype": "String"}
+{"id": "1122_Vac", "question": "What percentage of LG or Eureka vacuums with turbo or medium suction power are compatible with carpet surfaces?", "answer": 12.903225806451612, "datatype": "String"}
+{"id": "963_Socks", "question": "How many socks are there that don’t have a reinforced heel, aren’t thick, and are either eco-friendly or standard?", "answer": 47, "datatype": "Count"}
+{"id": "845_RiC", "question": "What percentage of rice cookers with a warranty longer than 1 year and a wattage of at least 700 watts are pressure-type rice cookers?", "answer": 22.22222222222222, "datatype": "String"}
+{"id": "95_BCK", "question": "How many single-author encyclopedias in hardback format do not have an ISBN-13?", "answer": 38, "datatype": "Count"}
+{"id": "53_BDSH", "question": "What percentage of olive or copper bed sheets in flannel, jersey, or percale weaves are in the unisex department?", "answer": 40.0, "datatype": "String"}
+{"id": "1071_TPH", "question": "What percentage of long-range telephones that are either rack-mountable or wall-mountable are two-line models?", "answer": 30.303030303030305, "datatype": "String"}
+{"id": "502_HU", "question": "What percentage of multicolor humidifiers that do not use a permanent filter are made by Pure Enrichment?", "answer": 13.043478260869565, "datatype": "String"}
+{"id": "519_Jui", "question": "What percentage of stainless steel juicers with an extra-wide, small, or medium feed chute have a listed capacity of 0.5 liter?", "answer": 14.285714285714286, "datatype": "String"}
+{"id": "859_RG", "question": "How many brown rugs with a soft, rough, or flat texture have a pile height that is not high?", "answer": 5, "datatype": "Count"}
+{"id": "651_MX", "question": "What percentage of stand mixers are made by Breville?", "answer": 24.242424242424242, "datatype": "String"}
+{"id": "705_M3", "question": "What percentage of MP3 players weighing at least 392.15 that support Bluetooth 5.0 also support the FLAC format?", "answer": 50.0, "datatype": "String"}
+{"id": "210_CaF", "question": "What percentage of Royal Canin tuna- or lamb-flavored cat foods are for the kitten life stage?", "answer": 25.0, "datatype": "String"}
+{"id": "353_DGF", "question": "How many organic dog foods with a non-animal-based primary protein source come in beef, lamb, or turkey flavor?", "answer": 8, "datatype": "Count"}
+{"id": "736_MG", "question": "How many custom-themed mugs with no handle can you find that do not have a pattern graphic type?", "answer": 6, "datatype": "Count"}
+{"id": "217_COA", "question": "How many coats and jackets made of faux leather, denim, or down that have a fixed hood, a helmet-compatible hood, or a fur-trimmed hood are not intended for fall and are either not water resistant or fully waterproof?", "answer": 20, "datatype": "Count"}
+{"id": "621_MPH", "question": "How many metal microphones have a frequency response of either 20Hz–20kHz or 40Hz–18kHz and are not intended for use as camera microphones?", "answer": 7, "datatype": "Count"}
+{"id": "290_CuB", "question": "How many non-reversible cutting boards with a non-straight edge that are intended for bread or multi-purpose use are there?", "answer": 12, "datatype": "Count"}
+{"id": "280_CuB", "question": "What percentage of cutting boards intended for meat that do not have a cut-out handle are oval-shaped?", "answer": 30.0, "datatype": "String"}
+{"id": "161_DGCM", "question": "What percentage of digital cameras with at least 8 megapixels of resolution and an ISO range of 100–3200 are DSLRs?", "answer": 22.916666666666668, "datatype": "String"}
+{"id": "568_LP", "question": "How many laptops cost $1006.75 or less, have a display refresh rate under 165 Hz, and use a RAM type other than LPDDR4?", "answer": 28, "datatype": "Count"}
+{"id": "762_SFP", "question": "What is the maximum width, in inches, among Zwilling skillets and frying pans with handles made of wood, stainless steel, or cast iron?", "answer": 14.0, "datatype": "Quantity"}
+{"id": "111_BCK", "question": "How many short story collections or novellas published after 1582 have at least 6222.59 pages and cost at least $342.13?", "answer": 45, "datatype": "Count"}
+{"id": "1077_TPH", "question": "What percentage of corded-and-cordless hybrid telephones with a monochrome LCD display are USB telephones?", "answer": 15.384615384615385, "datatype": "String"}
+{"id": "1038_TBC", "question": "How many Wi‑Fi‑only Chrome OS tablet computers have a display resolution lower than 1920x1200 and a front camera resolution of either 8 MP or 1.2 MP?", "answer": 32, "datatype": "Count"}
+{"id": "139_CAB", "question": "How many cabinet knobs and handles are bar pulls that are not medium weight and are not chrome?", "answer": 30, "datatype": "Count"}
+{"id": "107_BCK", "question": "How many non-fiction romance books that are not single-author works are available in either a second edition or an illustrated edition?", "answer": 28, "datatype": "Count"}
+{"id": "681_MOT", "question": "What is the maximum supported RAM, in gigabytes, among motherboards (excluding Biostar) that have 1x PCIe x16 plus 2x PCIe x1 slots and cost more than $357.87?", "answer": 64.0, "datatype": "Quantity"}
+{"id": "308_PC", "question": "What is the minimum processor speed in GHz among OS X desktop computers from AsusTek Computer Inc. or Lenovo Group Ltd. that use a GMA graphics processor and cost at least 2539.56?", "answer": 1.1, "datatype": "Quantity"}
+{"id": "569_CL", "question": "What is the most common maximum aperture among camera lenses with a 70-200mm or 70-300mm zoom focal length and a fixed focal length of 25mm or less?", "answer": 2.8, "datatype": "Quantity"}
+{"id": "838_PL", "question": "How many seasonal-pattern plates are not square-shaped and are not labeled as all-season?", "answer": 16, "datatype": "Count"}
+{"id": "685_MOT", "question": "What is the median maximum RAM, in gigabytes, among Intel-chipset Biostar, ASUS, or ASRock motherboards that have at least 8 SATA ports and are not Micro ATX?", "answer": 4.0, "datatype": "Quantity"}
+{"id": "9_ALB", "question": "What percentage of still alcoholic beverages made with a honey or agave base are from the brand Samuel Adams?", "answer": 11.538461538461538, "datatype": "String"}
+{"id": "1183_WM", "question": "What percentage of washing machines that are not rated as low-noise and cost $652.90 or less are made by Siemens?", "answer": 12.5, "datatype": "String"}
+{"id": "1023_TBC", "question": "What is the average internal storage, in gigabytes, of aluminum tablet computers with at least 6 GB of RAM that have PIN security features?", "answer": 142.76923076923077, "datatype": "Quantity"}
+{"id": "828_PL", "question": "How many traditional or geometric luncheon plates or bread-and-butter plates for all-season or autumn use are there?", "answer": 14, "datatype": "Count"}
+{"id": "628_MPH", "question": "How many USB-powered microphones are not stand-mounted and do not have low sensitivity?", "answer": 11, "datatype": "Count"}
+{"id": "311_PC", "question": "How many years apart are the earliest and latest production years among desktop computers with an average user experience rating, a WSXGA+ monitor resolution, and either an AMD Phenom or Intel Core i5 processor, where the production year is listed?", "answer": 10, "datatype": "Date"}
+{"id": "722_MG", "question": "What is the maximum capacity in ounces among fall-themed mugs that are not microwave-safe and have either no graphic or a text-only graphic?", "answer": 24.0, "datatype": "Quantity"}
+{"id": "558_LP", "question": "What is the minimum battery life in hours among ultrabooks priced above $2,125.33 that do not have a DisplayPort, run either Windows Pro or macOS, and have battery life listed?", "answer": 2.0, "datatype": "Quantity"}
+{"id": "855_RiC", "question": "How many micom rice cookers made of non-plastic materials with a capacity of less than 10 cups are there?", "answer": 13, "datatype": "Count"}
+{"id": "450_GUI", "question": "How many guitars with non-humbucker pickups, made of rosewood, maple, or cedar, include picks as an accessory?", "answer": 12, "datatype": "Count"}
+{"id": "937_Sho", "question": "What percentage of non-thermal plaid shorts are below-knee length?", "answer": 12.903225806451612, "datatype": "String"}
+{"id": "293_CuB", "question": "How many cutting boards are standard or thin thickness, are not reversible, and do not have a juice-groove surface finish?", "answer": 15, "datatype": "Count"}
+{"id": "380_Dr", "question": "What is the median load capacity, in pounds, of gas dryers with WiFi connectivity that are not made by Electrolux?", "answer": 22.0462262, "datatype": "Quantity"}
+{"id": "252_CFE", "question": "How many non-decaffeinated, non-organic Robusta coffees that are not coffee concentrates are there?", "answer": 10, "datatype": "Count"}
+{"id": "1098_TV", "question": "How many televisions are 26 inches wide or less, have audio output power under 30 watts, and do not support HDR10+?", "answer": 27, "datatype": "Count"}
+{"id": "359_DRS", "question": "How many Boohoo, Ann Taylor, or LOFT jersey or knit dresses have either sheer sleeves or half sleeves?", "answer": 7, "datatype": "Count"}
+{"id": "1139_DCV", "question": "What percentage of Anthropologie vases designed for a console table are made of glass?", "answer": 15.0, "datatype": "String"}
+{"id": "903_SED", "question": "How many organically grown sage or lemon tree seeds are there that are not meant to be planted in summer?", "answer": 5, "datatype": "Count"}
+{"id": "520_Jui", "question": "What percentage of easy-clean juicers that are not handheld are made by Cuisinart?", "answer": 14.814814814814815, "datatype": "String"}
+{"id": "978_Socks", "question": "How many socks for women, girls, or men from Puma, Tommy Hilfiger, or Calvin Klein have either a seamless toe or an open toe?", "answer": 50, "datatype": "Count"}
+{"id": "552_LP", "question": "What is the average screen size in inches of touchscreen laptops with SSD storage, more than 32 GB of RAM, and a RAM type other than LPDDR4?", "answer": 14.113333333333335, "datatype": "Quantity"}
+{"id": "76_BFd", "question": "How many Orlux bird food products for all ages are available in either pellet or seed form?", "answer": 7, "datatype": "Count"}
+{"id": "103_BCK", "question": "How many single-author books published by Macmillan, Wiley, or Pearson have more than 6,834.1 pages and cost less than $38.90 (USD)?", "answer": 19, "datatype": "Count"}
+{"id": "578_CL", "question": "What percentage of 24-70mm camera lenses priced at $1022.25 or less are prime lenses?", "answer": 80.0, "datatype": "String"}
+{"id": "638_Mic", "question": "What percentage of AmScope microscopes that use fluorescent illumination have a semi-plan objective lens type?", "answer": 60.0, "datatype": "String"}
+{"id": "1144_DCV", "question": "What percentage of medium or large bottle-shaped or oval vases are from the brand Wayfair?", "answer": 11.11111111111111, "datatype": "String"}
+{"id": "10_ALB", "question": "How many non-clear alcoholic beverages that are served chilled or cool (not at room temperature) and are either non-vintage or from the 2000s or 2010s are unaged, stainless-steel aged, or cask-finished?", "answer": 13, "datatype": "Count"}
+{"id": "75_BFd", "question": "How many plain bird food products that are not for adult birds are sold in tubs, bulk packaging, or bags?", "answer": 5, "datatype": "Count"}
+{"id": "771_SFP", "question": "How many skillets and frying pans are not deep, are not made in Germany, and do not include a metal lid?", "answer": 40, "datatype": "Count"}
+{"id": "910_SED", "question": "How many non-organic carrot, balsam, or iris seeds are there that don’t have a 3–4 week germination time and are not made by Johnny’s Selected Seeds?", "answer": 7, "datatype": "Count"}
+{"id": "1047_TE", "question": "How many unsweetened herbal tea and infusion products with no certification are there?", "answer": 15, "datatype": "Count"}
+{"id": "309_PC", "question": "How many 8-core desktop computers with an AMD Ryzen or AMD A-Series processor have an average rating of 3.0 or lower and a user experience rating that is not “Very Good”?", "answer": 37, "datatype": "Count"}
+{"id": "662_MT", "question": "What is the maximum screen size in inches among computer monitors with a contrast ratio higher than 3000:1 that do not have built-in speakers?", "answer": 43.0, "datatype": "Quantity"}
+{"id": "689_MOT", "question": "What is the median maximum RAM, in gigabytes, among E-ATX, Micro ATX, or Mini ITX motherboards with at least 8 memory slots that don’t support WiFi 5 and don’t have 2.0 audio channels?", "answer": 8.0, "datatype": "Quantity"}
+{"id": "136_CAB", "question": "How many extra-large chrome cabinet knobs and handles from Unknown, Richelieu, or Liberty Hardware are designed for two-hole, three-hole, or multi-hole installation?", "answer": 7, "datatype": "Count"}

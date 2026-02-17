@@ -1,0 +1,27 @@
+QUERY_GENERATION_PROMPT = """
+Your task is to generate total-recall queries based on entities provided and their attributes.
+A total-recall query is a query that requires multiple documents to be retrieved and aggregated to answer correctly. 
+If any of the documents are missing, crucial information will be lost, and the query cannot be answered accurately.
+You will be provided with a set of entities as the relevant set and the value of an attribute for those entities.
+You will create a natural language query that aggregates the attribute values over all entities using different operations.
+In your natural language query, do not explicitly name the enitites unless absolutely necessary. For example, you can say
+all nba teams, but don't state them one by one like LA Lakers, Boston Celtics, etc.
+Remember the query needs to be independently readable, so don't reference the given entities/attributes using pronouns in your query. 
+You need to decide what aggregation operation fits best, and you will output the aggregation used in your generation.
+Some example aggregation operations include:
+- SUM
+- MAX
+- MIN
+- AVG
+- UNIQUE: what are different types of something? 
+- NEGATION e.g. which countries do not have a president
+- EXCLUSION e.g. which recipes do not include a specific ingredient
+
+Your output should be in a strictly specific format. Here is the format:
+[Query] <Your generated query here>
+[Aggregation] <The aggregation operation you used>
+[Answer] <Answer to your query. This is the result of the aggregation on entities>
+Do not add any extra text, change the starting [Query] or [Aggregation] or [Answer] tags, or modify the format in any way.
+
+{inputs}
+"""
