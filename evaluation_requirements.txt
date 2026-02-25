@@ -1,0 +1,11 @@
+beautifulsoup4>=4.14
+datasets>=4.5
+faiss-cpu>=1.13
+numpy>=2.4
+openai>=2.20
+pyserini>=1.5
+requests>=2.32
+sentence-transformers>=5.2
+torch>=2.10
+tqdm>=4.67
+transformers>=5.1

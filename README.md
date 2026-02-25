@@ -4,7 +4,7 @@
 <!-- [Hugging Face Dataset](https://huggingface.co/datasets/mahtaa/trqa) |  -->
 <!-- [Evaluation](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation) -->
 
-Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on total-recall queries i.e. (question answering tasks where accurate generation of the answer requires retrieving **all relevant documents** for a given question from a large corpus, as well as reasoning and synthesizing information across all relevant documents). Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
+Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on total-recall queries (question answering tasks where accurate generation of the answer requires retrieving **all relevant documents** for a given question from a large corpus, as well as reasoning and synthesizing information across all relevant documents). Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
 
 The dataset consists of three subsets:
 - **Wiki1**: Questions about encycolpedic knowledge from wikipedia, aggregating information over a complete set of entities (e.g all U.S. states)
@@ -25,6 +25,7 @@ The dataset consists of three subsets:
 - [Dataset Overview](#dataset-overview)
 - [Getting Started](#getting-started)
 - [Evaluation](#evaluation)
+<!-- - [Paper]() -->
 <!-- - [Citation](#citation) -->
 
 <!-- --- -->
@@ -60,6 +61,8 @@ corpus = load_dataset("mahtaa/trqa", "corpus", split="wiki")
 ecom_queries = load_dataset("mahtaa/trqa", "queries", split="ecommerce_test")
 ecom_corpus = load_dataset("mahtaa/trqa", "corpus", split="ecommerce")
 ```
+
+You can also download the query jsonl and trec qrel files directly [here](https://github.com/mahta-r/total-recall-qa/tree/main/dataset/TRQA).
 
 <!-- --- -->
 
@@ -153,11 +156,30 @@ Fields:
 
 ## Evaluation
 
-Evaluation scripts are available in the `c5_task_evaluation/` directory of this repository.
+All our experiment outputs, run files and indices for corpora are available on [Hugging Face](https://huggingface.co/datasets/mahtaa/synthetic_ecommerce_indices/tree/main).
 
-Please refer to:
 
-[EVALUATION README](LINK_TO_EVALUATION_README)
+### Installation
+
+Install evaluation dependencies:
+
+```bash
+pip install -r evaluation_requirements.txt
+```
+
+**Note:** [Pyserini](https://github.com/castorini/pyserini) requires Java 11+. Make sure Java is installed and `JAVA_HOME` is set before installing.
+
+For GPU-accelerated FAISS (used with the `--faiss_gpu` flag), replace `faiss-cpu` with `faiss-gpu`:
+
+```bash
+pip install faiss-gpu
+```
+
+### Running Experiments
+
+Evaluation scripts for running specific experiments are available in the `c5_task_evaluation/` directory of this repository.
+
+Please refer to the [evaluation README](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation).
 
 <!-- ---
 
