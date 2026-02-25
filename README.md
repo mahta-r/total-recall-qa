@@ -1,36 +1,69 @@
 # Total Recall QA: A Verifiable Evaluation Suite for Deep Research Agents
 
 <!-- [Paper](LINK_TO_ARXIV) |  -->
-[Hugging Face Dataset](https://huggingface.co/datasets/mahtaa/trqa) | 
-[Evaluation](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation)
+<!-- [Hugging Face Dataset](https://huggingface.co/datasets/mahtaa/trqa) |  -->
+<!-- [Evaluation](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation) -->
 
-Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on queries that require retrieving **all relevant passages** before computing a final answer. Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
+Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on total-recall queries i.e. (question answering tasks where accurate generation of the answer requires retrieving **all relevant documents** for a given question from a large corpus, as well as reasoning and synthesizing information across all relevant documents). Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
 
 The dataset consists of three subsets:
-- **wiki1**
-- **wiki2**
-- **ecommerce**
+- **Wiki1**: Questions about encycolpedic knowledge from wikipedia, aggregating information over a complete set of entities (e.g all U.S. states)
+- **Wiki2**: Questions built on top of [QALD-10](https://github.com/KGQA/QALD-10) and [QUEST](https://github.com/google-research/language/tree/master/language/quest) queries, aggregating information from the target entity sets of these queries.
+- **Ecommerce**: Queries about a synthetically-generated E-commerce domain, asking about product specifiations/statistics in the dataset.
 
-Each subset provides:
+<!-- Each subset provides:
 - validation queries
 - validation qrels
 - test queries
 - test qrels
-- corpus
+- corpus -->
 
----
+<!-- --- -->
 
 ## Links
-
+- [Hugging Face](https://huggingface.co/datasets/mahtaa/trqa)
+- [Dataset Overview](#dataset-overview)
 - [Getting Started](#getting-started)
 - [Evaluation](#evaluation)
 <!-- - [Citation](#citation) -->
 
----
+<!-- --- -->
+
 
 ## Getting Started
 
-### Dataset Overview
+### Installation
+
+To load the dataset:
+
+```bash
+pip install datasets
+```
+
+<!-- --- -->
+
+### Loading the Dataset
+
+```python
+from datasets import load_dataset
+
+# Load test queries from wiki1
+queries = load_dataset("mahtaa/trqa", "queries", split="wiki1_test")
+
+# Load qrels
+qrels = load_dataset("mahtaa/trqa", "qrels", split="wiki1_test")
+
+# Load corpus (wiki1 and wiki2 share the same Wikipedia corpus)
+corpus = load_dataset("mahtaa/trqa", "corpus", split="wiki")
+
+# Load ecommerce data
+ecom_queries = load_dataset("mahtaa/trqa", "queries", split="ecommerce_test")
+ecom_corpus = load_dataset("mahtaa/trqa", "corpus", split="ecommerce")
+```
+
+<!-- --- -->
+
+## Dataset Overview
 
 The dataset contains three subsets:
 
@@ -44,13 +77,13 @@ The dataset on [Hugging Face](https://huggingface.co/datasets/mahtaa/trqa/) is o
 
 | Config | Splits | Description |
 |--------|--------|-------------|
-| `queries` (default) | `wiki1_test`, `wiki1_validation`, `wiki2_test`, `wiki2_validation`, `ecommerce_test`, `ecommerce_validation` | Questions with answers |
-| `qrels` | `wiki1_test`, `wiki1_validation`, `wiki2_test`, `wiki2_validation`, `ecommerce_test`, `ecommerce_validation` | Relevance judgments |
+| `queries` (default) | `wiki1_test`, `wiki1_validation`, `wiki2_test`, `wiki2_validation`, `ecommerce_test`, `ecommerce_validation` | Questions with single-response numerical answers |
+| `qrels` | `wiki1_test`, `wiki1_validation`, `wiki2_test`, `wiki2_validation`, `ecommerce_test`, `ecommerce_validation` | Relevance judgments for passages |
 | `corpus` | `wiki`, `ecommerce` | Passage collections |
 
 Note: wiki1 and wiki2 share the same Wikipedia corpus (`wiki` split).
 
----
+<!-- --- -->
 
 ### Data Format
 
@@ -69,7 +102,7 @@ Each line is a JSON object:
 Fields:
 
 - `id` — Query ID
-- `question` — Total recall query
+- `question` — Total-recall query
 - `answer` — Ground-truth numerical final answer 
 
 ---
@@ -115,39 +148,6 @@ Fields:
 - `id` — Passage ID. The format is `<document_id>-<chunk_id>`, where the number after the last dash is the chunk index within the original document (e.g., `30606-0001` is chunk `0001` of document `30606`).
 - `title` — Passage title
 - `contents` — Passage text
-
-
-
----
-
-### Installation
-
-To load the dataset:
-
-```bash
-pip install datasets
-```
-
----
-
-### Loading the Dataset
-
-```python
-from datasets import load_dataset
-
-# Load test queries from wiki1
-queries = load_dataset("mahtaa/trqa", "queries", split="wiki1_test")
-
-# Load qrels
-qrels = load_dataset("mahtaa/trqa", "qrels", split="wiki1_test")
-
-# Load corpus (wiki1 and wiki2 share the same Wikipedia corpus)
-corpus = load_dataset("mahtaa/trqa", "corpus", split="wiki")
-
-# Load ecommerce data
-ecom_queries = load_dataset("mahtaa/trqa", "queries", split="ecommerce_test")
-ecom_corpus = load_dataset("mahtaa/trqa", "corpus", split="ecommerce")
-```
 
 ---
 
