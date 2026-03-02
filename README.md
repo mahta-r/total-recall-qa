@@ -4,9 +4,22 @@
 <!-- [Hugging Face Dataset](https://huggingface.co/datasets/mahtaa/trqa) |  -->
 <!-- [Evaluation](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation) -->
 
-Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on total-recall queries (question answering tasks where accurate generation of the answer requires retrieving **all relevant documents** for a given question from a large corpus, as well as reasoning and synthesizing information across all relevant documents). Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
+Total Recall QA (TRQA) is a benchmark designed to evaluate deep research systems on **total-recall queries**  - question answering tasks where accurate generation of the answer requires retrieving **all relevant documents** from a large corpus, as well as **reasoning and synthesizing** information across all relevant documents. Unlike traditional QA benchmarks that reward partial retrieval, TRQA evaluates systems in settings where complete recall is necessary for correct reasoning.
 
-The dataset consists of three subsets:
+<p align="center">
+  <img src="samples/Total_Recall_QA_Task_final.png" alt="TRQA Task Sample" width="60%">
+</p>
+
+Empirical results demonstrate that TRQA is challenging in both retrieval and reasoning for deep research agents. Single retrieval rounds even with deep rank lists often yield poor recall, and the multi-round retrieval of DRAs still results in poor performance. Closed-book LLMs (notably GPT-5.2) dominate on real-world subsets of TRQA; but LLM-only performance drops sharply on TRQA's synthtic subset, exposing the impact of data contamination and cross-domain generalizability in evaluating DRAs. Experiments show agents issue roughly the same number of sub-queries regardless of the number of relevant entities, and additional sub-queries retrieve mostly irrelevant rather than new gold entities. Even under Oracle retrieval, state-of-the-art LLMs still struggle on the majority of queries, with 90% reasoning failure despite access to complete evidence.
+
+TRQA is built using an entity-centric data generation framework over a paired structured knowledge base and aligned text corpus. An entity set from the knowledge base yields a structured question and a single numerical verifiable answer by applying structured constraints and aggregation operators over a target attribute. An LLM then converts this structured specification into a natural-language query.
+
+<p align="center">
+  <img src="samples/TRQA_pipeline.png" alt="TRQA Data Generation Pipeline Overview" width="80%">
+</p>
+
+
+We apply this framework to three sources, yielding three complementary subsets of TRQA:
 - **Wiki1**: Questions about encycolpedic knowledge from wikipedia, aggregating information over a complete set of entities (e.g all U.S. states)
 - **Wiki2**: Questions built on top of [QALD-10](https://github.com/KGQA/QALD-10) and [QUEST](https://github.com/google-research/language/tree/master/language/quest) queries, aggregating information from the target entity sets of these queries.
 - **Ecommerce**: Queries about a synthetically-generated E-commerce domain, asking about product specifiations/statistics in the dataset.
@@ -22,8 +35,8 @@ The dataset consists of three subsets:
 
 ## Links
 - [Hugging Face](https://huggingface.co/datasets/mahtaa/trqa)
-- [Dataset Overview](#dataset-overview)
 - [Getting Started](#getting-started)
+- [Dataset Overview](#dataset-overview)
 - [Evaluation](#evaluation)
 <!-- - [Paper]() -->
 <!-- - [Citation](#citation) -->
