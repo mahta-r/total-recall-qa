@@ -34,12 +34,12 @@ We apply this framework to three sources, yielding three complementary subsets o
 <!-- --- -->
 
 ## Links
+- [Paper](https://arxiv.org/abs/2603.18516)
 - [Hugging Face](https://huggingface.co/datasets/mahtaa/trqa)
 - [Getting Started](#getting-started)
 - [Dataset Overview](#dataset-overview)
 - [Evaluation](#evaluation)
-<!-- - [Paper]() -->
-<!-- - [Citation](#citation) -->
+- [Citation](#citation)
 
 <!-- --- -->
 
@@ -194,17 +194,24 @@ Evaluation scripts for running specific experiments are available in the `c5_tas
 
 Please refer to the [evaluation README](https://github.com/mahta-r/total-recall-qa/tree/main/c5_task_evaluation).
 
-<!-- ---
+---
 
 ## Citation
 
 If you use TRQA in your research, please cite:
 
 ```bibtex
-@inproceedings{trqa2026,
-  title={Total Recall QA: A Verifiable Evaluation Suite for Deep Research Agents},
-  author={TBD},
-  booktitle={Proceedings of SIGIR 2026},
-  year={2026}
+@misc{rafiee2026totalrecallqaverifiable,
+      title={Total Recall QA: A Verifiable Evaluation Suite for Deep Research Agents}, 
+      author={Mahta Rafiee and Heydar Soudani and Zahra Abbasiantaeb and Mohammad Aliannejadi and Faegheh Hasibi and Hamed Zamani},
+      year={2026},
+      eprint={2603.18516},
+      archivePrefix={arXiv},
+      primaryClass={cs.IR},
+      url={https://arxiv.org/abs/2603.18516}, 
 }
-``` -->
+```
+
+## Acknowledgments
+We thank the organizers of SWIRL 2025 who provided a collabora- tive environment for the authors of this work to brainstorm and lay the ground work for this project. We also thank Bhaskar Mitra for participation in the initial discussions of this project.
+This work was supported in part by the Center for Intelligent Information Retrieval, in part by NSF grant #2402873, in part by the Office of Naval Research contract #N000142412612, in part by the Informatics Institute (IvI) of the University of Amsterdam, and in part by the project LESSEN with project number NWA.1389.20.183 of the research program NWA ORC 2020/21 which is (partly) financed by the Dutch Research Council (NWO). Any opinions, findings, and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect those of the sponsors.
