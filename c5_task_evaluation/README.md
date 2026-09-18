@@ -7,16 +7,34 @@ Runs evaluation on QA datasets with two pipelines:
 - **Retrieval:** entity recall@k only (no LLM). Uses retriever + index; `retrieval_eval_ks` defines k values.
 - **Generation:** full RAG or LLM-only. Uses `generation_method` and optionally `deep_research_model`.
 
-**Corpus and indices:** You can download the corpus and retrieval indices from [Hugging Face (HeydarS)](https://huggingface.co/HeydarS):
+**Corpus and indices:** Everything lives in two Hugging Face repos:
 
-| Resource | Link |
-|----------|------|
-| Corpus | [HeydarS/enwiki_20251001_infoboxconv_rewritten](https://huggingface.co/datasets/HeydarS/enwiki_20251001_infoboxconv_rewritten) |
-| BM25 index | [HeydarS/enwiki_20251001_bm25_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_bm25_index) |
-| SPLADEPP index | [HeydarS/enwiki_20251001_spladepp_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_spladepp_index) |
-| BGE index | [HeydarS/enwiki_20251001_bge_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_bge_index) |
-| Contriever index | [HeydarS/enwiki_20251001_contriever_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_contriever_index) |
-| E5 index | [HeydarS/enwiki_20251001_e5_index](https://huggingface.co/datasets/HeydarS/enwiki_20251001_e5_index) |
+- [`mahtaa/trqa`](https://huggingface.co/datasets/mahtaa/trqa) — queries, qrels, and corpus files.
+- [`mahtaa/trqa_experiments`](https://huggingface.co/datasets/mahtaa/trqa_experiments) — prebuilt retrieval indices.
+
+Corpora (`mahtaa/trqa`, under `data/`):
+
+| Corpus | File |
+|--------|------|
+| Wikipedia (full) | [`data/shared/corpus_wikipedia_en-20251001_rewritten.jsonl`](https://huggingface.co/datasets/mahtaa/trqa/blob/main/data/shared/corpus_wikipedia_en-20251001_rewritten.jsonl) |
+| Wikipedia (partial) | [`data/shared/corpus_wikipedia_en-20251001_rewritten_partial.jsonl`](https://huggingface.co/datasets/mahtaa/trqa/blob/main/data/shared/corpus_wikipedia_en-20251001_rewritten_partial.jsonl) |
+| E-commerce (synthetic) | [`data/ecommerce/corpus_ecommerce_rewritten.jsonl`](https://huggingface.co/datasets/mahtaa/trqa/blob/main/data/ecommerce/corpus_ecommerce_rewritten.jsonl) |
+
+Indices (`mahtaa/trqa_experiments`, under `indices/`):
+
+| Corpus | Retriever | Path |
+|--------|-----------|------|
+| Wikipedia (full) | BM25 | [`indices/wiki/bm25`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki/bm25) |
+| Wikipedia (full) | SPLADEPP | [`indices/wiki/spladepp`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki/spladepp) |
+| Wikipedia (full) | BGE | [`indices/wiki/bge`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki/bge) (split into 5 parts) |
+| Wikipedia (full) | E5 | [`indices/wiki/e5`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki/e5) (split into 4 parts) |
+| Wikipedia (full) | Contriever | [`indices/wiki/contriever`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki/contriever) (split into 4 parts) |
+| Wikipedia (partial) | E5 | [`indices/wiki_partial/e5_partial`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/wiki_partial/e5_partial) |
+| E-commerce | BM25 | [`indices/ecommerce/bm25`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/ecommerce/bm25) |
+| E-commerce | SPLADEPP | [`indices/ecommerce/spladepp`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/ecommerce/spladepp) |
+| E-commerce | BGE | [`indices/ecommerce/bge`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/ecommerce/bge) |
+| E-commerce | E5 | [`indices/ecommerce/e5`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/ecommerce/e5) |
+| E-commerce | Contriever | [`indices/ecommerce/contriever`](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main/indices/ecommerce/contriever) |
 
 Point `--corpus_path` and `--index_dir` to the downloaded paths.
 
