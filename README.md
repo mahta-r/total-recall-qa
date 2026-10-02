@@ -35,8 +35,8 @@ We apply this framework to three sources, yielding three complementary subsets o
 
 ## Links
 - [Paper](https://arxiv.org/abs/2603.18516)
-- [Hugging Face (corpus and queries)](https://huggingface.co/datasets/mahtaa/trqa)
-- [Hugging Face]()
+- [Hugging Face (Corpus and Queries)](https://huggingface.co/datasets/mahtaa/trqa)
+- [Hugging Face (Indices)](https://huggingface.co/datasets/mahtaa/trqa_experiments/tree/main)
 - [Getting Started](#getting-started)
 - [Dataset Overview](#dataset-overview)
 - [Evaluation](#evaluation)
