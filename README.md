@@ -213,6 +213,13 @@ If you use TRQA in your research, please cite:
 }
 ```
 
+## License
+
+The TRQA data (queries, qrels, and corpus) is released under the [Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/), as the Wikipedia corpus is derived from Wikipedia content.
+
+The code in this repository is released under the [MIT License](LICENSE), except for the `wikiextractor/` directory, which retains its original license.
+
+
 ## Acknowledgments
 We thank the organizers of SWIRL 2025 who provided a collaborative environment for the authors of this work to brainstorm and lay the ground work for this project. We also thank Bhaskar Mitra for participation in the initial discussions of this project.
 This work was supported in part by the Center for Intelligent Information Retrieval, in part by NSF grant #2402873, in part by the Office of Naval Research contract #N000142412612, in part by the Informatics Institute (IvI) of the University of Amsterdam, and in part by the project LESSEN with project number NWA.1389.20.183 of the research program NWA ORC 2020/21 which is (partly) financed by the Dutch Research Council (NWO). Any opinions, findings, and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect those of the sponsors.
